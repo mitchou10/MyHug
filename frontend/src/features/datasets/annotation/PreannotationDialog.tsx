@@ -8,10 +8,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { cn } from '@/lib/utils'
 import type { Dataset } from '../mockData'
 import { itemCount } from './preannotate'
+import { MODEL_HUB } from '@/features/models/mockData'
 import { getDataset } from '../mockData'
 import { modelsFor } from './models'
 import { deleteRun, resumeRun, startRun, stopRun } from './runs'
 import { statsOf, useAnnotations, type AnnotationProject, type PreRun } from './store'
+
+/** A model's name, linking to its page when the model is in the catalogue. */
+function ModelLink({ name, label, className }: { name: string; label?: string; className?: string }) {
+  const m = MODEL_HUB.find((x) => x.name === name)
+  return m ? <Link to={`/models/${m.owner}/${m.name}`} className={className}>{label ?? name}</Link> : <span className={className}>{label ? '' : name}</span>
+}
 
 /** Decisions needed before a model can be compared with the others. */
 const MIN_DECISIONS = 10
@@ -64,6 +71,7 @@ export function PreannotationDialog({ project, dataset, open, onOpenChange }: { 
             <p className="text-xs text-muted-foreground">
               {available.length ? t(`datasets.annotation.pre.models.${model}`, { defaultValue: '' }) : t('datasets.annotation.pre.dialog.noModel')}
               {available.length > 0 && ` ${t('datasets.annotation.pre.dialog.compatible', { task: t(`datasets.annotation.tasks.${project.task}.title`) })}`}
+              {available.length > 0 && <> <ModelLink name={model} label={t('datasets.annotation.pre.dialog.seeModel')} className="underline underline-offset-2" /></>}
             </p>
           </section>
 
@@ -76,7 +84,7 @@ export function PreannotationDialog({ project, dataset, open, onOpenChange }: { 
               return (
                 <div key={r.id} className="space-y-2 rounded-lg border p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{r.model}</span>
+                    <ModelLink name={r.model} className="font-medium" />
                     <Badge variant={r.status === 'running' ? 'default' : 'secondary'}>{t(`datasets.annotation.pre.status.${r.status}`)}</Badge>
                     <span className="text-xs text-muted-foreground">{fmt(r.startedAt)}</span>
                     <div className="ml-auto flex gap-1.5">
