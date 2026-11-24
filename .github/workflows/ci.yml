@@ -38,6 +38,8 @@ jobs:
         backend:
           - 'backend/**'
           - 'docker-compose.test.yaml'
+        worker:
+          - 'worker/**'
         frontend:
           - 'frontend/**'
         ci:
@@ -104,6 +106,61 @@ jobs:
       CONTEXT: backend
       TARGET: runtime
 
+  # ---- worker (Python / uv): another service, it talks to the backend over HTTP ----
+  worker-lint:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'worker')
+    uses: Mitchou10/github-workflow/.github/workflows/python-lint.yml@v0
+    permissions:
+      contents: read
+    with:
+      WORKING_DIRECTORY: worker
+
+  worker-typecheck:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'worker')
+    uses: Mitchou10/github-workflow/.github/workflows/python-typecheck.yml@v0
+    permissions:
+      contents: read
+    with:
+      WORKING_DIRECTORY: worker
+      PYTHON_VERSION: "3.13" # the project requires >=3.13
+      TARGET: worker
+
+  worker-deadcode:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'worker')
+    uses: Mitchou10/github-workflow/.github/workflows/python-deadcode.yml@v0
+    permissions:
+      contents: read
+    with:
+      WORKING_DIRECTORY: worker
+      PYTHON_VERSION: "3.13" # the project requires >=3.13
+      PATHS: worker
+
+  worker-tests:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'worker')
+    uses: Mitchou10/github-workflow/.github/workflows/python-coverage.yml@v0
+    permissions:
+      contents: read
+    with:
+      WORKING_DIRECTORY: worker
+      PYTHON_VERSION: "3.13" # the project requires >=3.13
+      COVERAGE_SOURCE: worker
+      MIN_COVERAGE: "80"
+
+  worker-image:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'worker')
+    uses: Mitchou10/github-workflow/.github/workflows/build-docker.yml@v0
+    permissions:
+      contents: read
+    with:
+      PUSH: false # only checks that the Dockerfile builds
+      CONTEXT: worker
+      TARGET: runtime
+
   # ---- frontend (React / pnpm): no reusable workflow for it yet, so inline ----
   frontend:
     needs: paths
@@ -153,6 +210,11 @@ jobs:
       - backend-deadcode
       - backend-tests
       - backend-image
+      - worker-lint
+      - worker-typecheck
+      - worker-deadcode
+      - worker-tests
+      - worker-image
       - frontend
       - frontend-image
     uses: Mitchou10/github-workflow/.github/workflows/status-gate.yml@v0

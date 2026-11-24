@@ -1,37 +1,55 @@
-import asyncio
-import hashlib
 import logging
-import tempfile
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.models import DatasetFile, DatasetVersion
-from app.models.dataset_version import FAILED, READY
+from app.models.dataset_version import FAILED, PROCESSING, READY
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services import tables
-from app.services.errors import DatasetFileNotFound, FingerprintMismatch, UnreadableDataFile
-from app.storage import ObjectNotFound, ObjectStore
+from app.services.errors import FingerprintMismatch, NotBeingProcessed, UnreadableDataFile, VersionNotFound
+from app.storage import ObjectStore
 
 logger = logging.getLogger(__name__)
 MEDIA = ("image/", "audio/", "video/")
-# What makes a version fail for good: the files are what they are, reading them again would give the same.
-FILE_PROBLEMS = (UnreadableDataFile, DatasetFileNotFound, FingerprintMismatch)
+# A version that has waited less than this is left alone: the job that was queued for it is probably about to start.
+GRACE = timedelta(minutes=2)
 
 
-class DatasetProcessor:
-    """Reads the files of a version to find what they hold, then the version is `ready`. This is the work of the worker.
+@dataclass(frozen=True)
+class FileToRead:
+    """A file the worker has to read, and where to read it: an address of the storage, signed, short-lived."""
 
-    For each file it has not seen yet: it brings the content to a file on disk as it comes (never whole in memory),
-    computes its fingerprint (sha256), compares it with the one the browser announced, and, if it holds rows (csv, tsv,
-    jsonl, parquet), counts them and finds the columns. If the dataset already holds another object with the same
-    fingerprint, the file points to it and the duplicate is deleted. Then it adds up what the version holds.
+    id: uuid.UUID
+    path: str
+    size_bytes: int
+    url: str
+    needs_fingerprint: bool
+    needs_rows: bool
 
-    - One worker at a time: the version is claimed, so a second call (a lost job sent again) does nothing.
-    - It can be played again: a file that was read in an earlier version (the same object) is not read again.
-    - A file that cannot be read makes the version `failed`, with the reason; a failure that is not its fault (the
-      storage is down) puts the version back to waiting and raises, so the job is tried again."""
+
+@dataclass(frozen=True)
+class FileRead:
+    """What the worker found in a file. The size is what it received: it must be the one that was announced."""
+
+    id: uuid.UUID
+    size_bytes: int
+    sha256: str | None = None
+    rows: int | None = None
+    columns: list[tables.Column] | None = None
+
+
+class DatasetProcessing:
+    """What the worker asks of the API while it reads the files of a version. The worker reads (it downloads, counts,
+    computes fingerprints); the API keeps the records: it takes the version in hand for one worker only, checks and
+    writes what was found, makes the files that became duplicates point to one object, and says when it is `ready`.
+
+    - `claim`: one worker at a time (a second call, a lost job sent again, gets nothing).
+    - `complete`: what was read is written; a file that is not what was announced makes the version `failed`.
+    - `fail`: the worker could not read a file, and it is the file's fault: the version is `failed` with the reason.
+    - `release`: it could not, and it is not the file's fault (the storage was down): the version waits again."""
 
     def __init__(
         self,
@@ -42,7 +60,7 @@ class DatasetProcessor:
         *,
         max_attempts: int = 3,
         stale: timedelta = timedelta(minutes=30),
-        temp_dir: str | None = None,
+        signed_seconds: int = 3600,
     ) -> None:
         self._datasets = datasets
         self._versions = versions
@@ -50,32 +68,79 @@ class DatasetProcessor:
         self._store = store
         self._max_attempts = max_attempts
         self._stale = stale
-        self._temp_dir = temp_dir or None
+        self._signed_seconds = signed_seconds
 
-    async def process(self, version_id: uuid.UUID) -> DatasetVersion | None:
-        """The version as it ends up: `ready` or `failed`. Or as it is, when it is not up for the taking (ready, or
-        another worker has it); None if there is no such version."""
+    async def claim(self, version_id: uuid.UUID) -> list[FileToRead] | None:
+        """Takes a version in hand and says what is to be read in it. None when it is not up for the taking (ready,
+        being read by another worker, unknown, given up after too many attempts, or with nothing left to read)."""
         version = await self._versions.claim(version_id, datetime.now(UTC) - self._stale)
         if version is None:
-            return await self._versions.get_by_id(version_id)
+            return None
         if version.attempts > self._max_attempts:
-            return await self._finish(version, FAILED, "The reading was interrupted too many times", set())
+            await self._finish(version, FAILED, "The reading was interrupted too many times", set())
+            return None
+        files = await self._versions.files(version.id)
+        wanted = [f for f in files if self._needs_fingerprint(f) or self._needs_rows(f)]
+        if not wanted:  # everything was read in an earlier version
+            self._summarize(version, files)
+            await self._finish(version, READY, None, set())
+            return None
+        return [
+            FileToRead(
+                id=file.id,
+                path=file.path,
+                size_bytes=file.size_bytes,
+                url=await self._store.presign_get(file.storage_key, self._signed_seconds, internal=True),
+                needs_fingerprint=self._needs_fingerprint(file),
+                needs_rows=self._needs_rows(file),
+            )
+            for file in wanted
+        ]
 
+    async def complete(self, version_id: uuid.UUID, read: list[FileRead]) -> DatasetVersion:
+        """Writes what the worker found. The version ends `ready`, or `failed` when a file is not what it should be."""
+        version = await self._held(version_id)
+        found = {item.id: item for item in read}
         obsolete: set[str] = set()  # objects that became duplicates: deleted once the files point elsewhere
+        files = await self._versions.files(version.id)
         try:
-            files = await self._versions.files(version.id)
             announced = await self._uploads.announced_fingerprints([f.id for f in files if f.sha256 is None])
             for file in files:
-                await self._read(version, file, announced.get(file.id), obsolete)
-        except FILE_PROBLEMS as error:
+                await self._write(version, file, found.get(file.id), announced.get(file.id), obsolete)
+        except (UnreadableDataFile, FingerprintMismatch) as error:
             logger.warning("Dataset version %s cannot be read: %s", version.id, error)
             return await self._finish(version, FAILED, str(error), obsolete)
-        except Exception:
-            await self._versions.rollback()
-            await self._versions.release(version.id)  # not the file's fault: it will be taken again
-            raise
         self._summarize(version, files)
         return await self._finish(version, READY, None, obsolete)
+
+    async def fail(self, version_id: uuid.UUID, error: str) -> DatasetVersion:
+        version = await self._held(version_id)
+        return await self._finish(version, FAILED, error[:2000], set())
+
+    async def release(self, version_id: uuid.UUID) -> None:
+        await self._versions.release(version_id)
+
+    async def waiting(self, limit: int = 100) -> list[uuid.UUID]:
+        """The versions nobody is reading: the worker queues them again. Its safety net, when Redis lost a job or a
+        worker died."""
+        now = datetime.now(UTC)
+        return await self._versions.waiting(older_than=now - GRACE, stale_before=now - self._stale, limit=limit)
+
+    async def _held(self, version_id: uuid.UUID) -> DatasetVersion:
+        version = await self._versions.get_by_id(version_id)
+        if version is None:
+            raise VersionNotFound
+        if version.status != PROCESSING:
+            raise NotBeingProcessed
+        return version
+
+    @staticmethod
+    def _needs_fingerprint(file: DatasetFile) -> bool:
+        return file.sha256 is None
+
+    @staticmethod
+    def _needs_rows(file: DatasetFile) -> bool:
+        return tables.is_data_file(file.path) and file.rows is None
 
     async def _finish(
         self, version: DatasetVersion, status: str, error: str | None, obsolete: set[str]
@@ -91,30 +156,30 @@ class DatasetProcessor:
             await self._store.delete(key)
         return version
 
-    async def _read(
-        self, version: DatasetVersion, file: DatasetFile, announced: str | None, obsolete: set[str]
+    async def _write(
+        self,
+        version: DatasetVersion,
+        file: DatasetFile,
+        read: FileRead | None,
+        announced: str | None,
+        obsolete: set[str],
     ) -> None:
-        needs_fingerprint = file.sha256 is None
-        needs_rows = tables.is_data_file(file.path) and file.rows is None
+        needs_fingerprint, needs_rows = self._needs_fingerprint(file), self._needs_rows(file)
         if not (needs_fingerprint or needs_rows):
             return
-        with tempfile.TemporaryFile(dir=self._temp_dir) as handle:
-            digest, size = hashlib.sha256(), 0
-            try:
-                async for chunk in self._store.stream(file.storage_key):
-                    handle.write(chunk)
-                    digest.update(chunk)
-                    size += len(chunk)
-            except ObjectNotFound:
-                raise DatasetFileNotFound(f"{file.path} is missing from the storage") from None
-            if size != file.size_bytes:
-                raise UnreadableDataFile(f"{file.path} is {size} bytes in the storage, not {file.size_bytes}")
-            if needs_fingerprint:
-                await self._fingerprint(version, file, digest.hexdigest(), announced, obsolete)
-            if needs_rows:
-                info = await asyncio.to_thread(tables.inspect, file.path, handle)  # a large file takes a while to count
-                file.split, file.rows = tables.split_of(file.path), info.rows
-                file.columns = [{"name": column.name, "dtype": column.dtype} for column in info.columns]
+        if read is None:
+            raise UnreadableDataFile(f"{file.path} was not read")
+        if read.size_bytes != file.size_bytes:
+            raise UnreadableDataFile(f"{file.path} is {read.size_bytes} bytes in the storage, not {file.size_bytes}")
+        if needs_fingerprint:
+            if not read.sha256:
+                raise UnreadableDataFile(f"{file.path} has no fingerprint")
+            await self._fingerprint(version, file, read.sha256, announced, obsolete)
+        if needs_rows:
+            if read.rows is None or read.columns is None:
+                raise UnreadableDataFile(f"{file.path} was not counted")
+            file.split, file.rows = tables.split_of(file.path), read.rows
+            file.columns = [{"name": column.name, "dtype": column.dtype} for column in read.columns]
 
     async def _fingerprint(
         self, version: DatasetVersion, file: DatasetFile, computed: str, announced: str | None, obsolete: set[str]

@@ -21,10 +21,10 @@ from app.auth.context import RequestContext  # noqa: E402
 from app.auth.deps import get_current_user  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.db import get_db  # noqa: E402
+from app.jobs import NoJobs  # noqa: E402
 from app.main import app  # noqa: E402
 from app.routers.deps import get_jobs  # noqa: E402
 from app.storage import ObjectInfo, ObjectNotFound, PartInfo, StoredObject, get_store  # noqa: E402
-from app.worker.jobs import NoJobs  # noqa: E402
 
 SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
@@ -131,7 +131,9 @@ class MemoryStore:
     async def abort_multipart(self, key: str, upload_id: str) -> None:
         self.uploads.pop(upload_id, None)
 
-    async def presign_get(self, key: str, expires_in: int, filename: str | None = None) -> str:
+    async def presign_get(
+        self, key: str, expires_in: int, filename: str | None = None, *, internal: bool = False
+    ) -> str:
         return f"memory://get/{key}"
 
 

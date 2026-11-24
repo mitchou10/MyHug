@@ -10,11 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import Dataset, DatasetMember, DatasetVersion
-from app.repositories.dataset_uploads import DatasetUploadRepository
-from app.repositories.dataset_versions import DatasetVersionRepository
-from app.repositories.datasets import DatasetRepository
-from app.services.dataset_processing import DatasetProcessor
 from tests.conftest import MemoryStore
+from tests.reading import Reader
 from tests.routers.test_datasets import create, share
 
 DATASETS = "/api/datasets"
@@ -39,9 +36,7 @@ def work(db: AsyncSession, store: MemoryStore) -> Callable[[], Awaitable[None]]:
             .scalars()
             .all()
         )
-        processor = DatasetProcessor(
-            DatasetRepository(db), DatasetVersionRepository(db), DatasetUploadRepository(db), store
-        )
+        processor = Reader(db, store)
         for version_id in waiting:
             await processor.process(version_id)
 

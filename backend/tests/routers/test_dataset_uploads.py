@@ -8,15 +8,13 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.jobs import NoJobs
 from app.models import DatasetMember, DatasetUpload, DatasetVersion
 from app.repositories.dataset_uploads import DatasetUploadRepository
-from app.repositories.dataset_versions import DatasetVersionRepository
-from app.repositories.datasets import DatasetRepository
-from app.services.dataset_processing import DatasetProcessor
 from app.services.dataset_uploads import part_size_for
 from app.services.factory import build_dataset_uploads
-from app.worker.jobs import NoJobs
 from tests.conftest import MemoryStore
+from tests.reading import Reader
 from tests.routers.test_datasets import create, share
 
 ADDRESS = "/api/datasets/ada/movie-reviews"
@@ -198,9 +196,7 @@ async def test_the_worker_can_read_a_file_that_came_in_parts(
     upload = await upload_files(client, store, **{"train.csv": TRAIN})
     await client.post(f"/api/uploads/{upload['id']}/complete")
     version_id = (await db.execute(select(DatasetVersion.id))).scalar_one()
-    done = await DatasetProcessor(
-        DatasetRepository(db), DatasetVersionRepository(db), DatasetUploadRepository(db), store
-    ).process(version_id)
+    done = await Reader(db, store).process(version_id)
     assert done is not None and (done.status, done.rows) == ("ready", 3)
     assert (await client.get(f"{ADDRESS}/rows")).json()["rows"][0] == ["great", "pos"]
     assert (await client.get(f"{ADDRESS}/files/train.csv")).status_code == 302  # and it downloads

@@ -70,10 +70,10 @@ The defaults suit local development; **change the ones marked \*** before any re
 | `UPLOAD_PART_BYTES` | 64 MiB | Size of a part of an upload (bigger for a file that would need more than 10 000 parts) |
 | `UPLOAD_SESSION_HOURS` | `24` | How long an upload can take before it is given up |
 | `SIGNED_ADDRESS_SECONDS` | `3600` | How long a signed address of the storage works |
-| `REDIS_URL` | `redis://localhost:6379/0` | Where the jobs wait for the worker (Celery's broker) |
+| `REDIS_URL` | `redis://localhost:6379/0` | Where the API queues the jobs of the worker (it only sends the name of the task) |
+| `WORKER_API_KEY` | empty | The key the worker calls `/api/internal` with, 16 characters at least (empty: the worker is refused) |
 | `PROCESSING_STALE_MINUTES` | `30` | A version read for longer than this is taken to have lost its worker, and is read again |
-| `PROCESSING_MAX_ATTEMPTS` | `3` | How many times a version is read before it is given up as `failed` |
-| `WORKER_TEMP_DIR` | empty (system) | Where the worker puts a file while it reads it: it needs room for the largest file |
+| `PROCESSING_MAX_ATTEMPTS` | `3` | How many times a version is taken in hand before it is given up as `failed` |
 | `DATASET_FILE_MAX_BYTES`, `DATASET_VERSION_MAX_FILES` | 100 MiB, `100` | Largest file, and most files, of a version sent through the API (small files) |
 | `NOTIFICATION_API_KEYS` | empty | The applications allowed to emit notifications, as `name=key` pairs separated by commas (a key under 16 characters is ignored); the name becomes the `source` \* |
 | `AUTH_MODE` | `oidc` | `oidc`, or `full-access`: no login, a fixed admin (development and tests only) |
@@ -358,3 +358,30 @@ Container images (`ghcr.io/<owner>/<repo>-backend` and `-frontend`) are built an
 tagged with the global version.
 
 Attribution is by file path, not by commit scope: a commit appears in the changelog of every service whose folder it touches, and always in the global one.
+
+## The worker
+
+`worker/` is a service of its own (its own `pyproject.toml`, image, tests and releases, `worker-vX.Y.Z`). It has no
+database and no storage key: it reads the jobs in Redis, asks the backend (`/api/internal`, with `X-Api-Key`) what to read,
+downloads the files from the storage with the signed addresses the backend gives it, and tells the backend what it found
+(fingerprint, rows, columns). The backend keeps every record and every decision. See
+[docs/backend-datasets.md](docs/backend-datasets.md), section 6 bis.
+
+| Variable | Default | |
+|---|---|---|
+| `REDIS_URL` | `redis://localhost:6379/0` | Where the jobs wait |
+| `BACKEND_URL` | `http://localhost:8000` | The backend |
+| `WORKER_API_KEY` | empty | Its key (the same as the backend's) |
+| `WORKER_TEMP_DIR` | empty (system) | Where a file is kept while it is read: room for the largest one |
+| `SWEEP_SECONDS` | `60` | How often the versions nobody reads are queued again |
+| `EXPIRE_UPLOADS_SECONDS` | `900` | How often the abandoned uploads are given up |
+
+```bash
+cd worker
+uv sync
+uv run pytest                                   # no Redis, no backend: they are played by the tests
+uv run celery -A worker.celery_app worker -Q datasets
+uv run celery -A worker.celery_app beat         # one only
+```
+
+`docker compose up` starts `redis`, `worker` and `beat`. The image has no HTTP health check: the worker listens to nothing.

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
+from app.jobs import Jobs, NoJobs
 from app.models import DatasetFile, DatasetUpload, DatasetUploadFile, DatasetVersion
 from app.models.dataset_upload import ABORTED, COMPLETED, EXPIRED, OPEN
 from app.repositories.dataset_uploads import DatasetUploadRepository
@@ -24,7 +25,6 @@ from app.services.errors import (
     UploadNotFound,
 )
 from app.storage import ObjectStore, PartInfo
-from app.worker.jobs import Jobs, NoJobs
 
 MIB = 1024 * 1024
 S3_MIN_PART = 5 * MIB  # smaller than this, a part is refused unless it is the last

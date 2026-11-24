@@ -26,6 +26,7 @@ services:
       # Other applications emit notifications with these keys, as name=key (16 characters at least). Dev only.
       NOTIFICATION_API_KEYS: demo=dev-only-key-not-for-prod
       REDIS_URL: redis://redis:6379/0
+      WORKER_API_KEY: dev-only-worker-key-not-for-prod
     depends_on:
       redis:
         condition: service_healthy
@@ -36,35 +37,28 @@ services:
       rustfs:
         condition: service_healthy
 
-  # The worker reads the files of the datasets (fingerprint, rows, columns) so that no request has to. Same image and
-  # same settings as the backend; `beat` is the clock that wakes up the periodic jobs (one only, never several).
+  # The worker is a service of its own (`worker/`): no database, no storage key. It reads the queue in Redis and calls the
+  # backend with its key. `beat` is the clock of its safety nets (one only, never several).
   worker: &worker
     build:
-      context: backend
+      context: worker
       target: dev
-    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "datasets", "--loglevel=info"]
-    volumes: ["./backend/app:/app/app"]
+    volumes: ["./worker/worker:/app/worker"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app
-      AWS_ENDPOINT_URL: http://rustfs:9000
-      AWS_ACCESS_KEY_ID: rustfsadmin # dev only
-      AWS_SECRET_ACCESS_KEY: rustfsadmin # dev only
-      AWS_REGION: us-east-1
-      AWS_BUCKET: app
       REDIS_URL: redis://redis:6379/0
+      BACKEND_URL: http://backend:8000
+      WORKER_API_KEY: dev-only-worker-key-not-for-prod
     depends_on:
       redis:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-      rustfs:
-        condition: service_healthy
+      backend:
+        condition: service_started
 
   beat:
     <<: *worker
-    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    command: ["celery", "-A", "worker.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
 
-  # Where the jobs wait for a worker. Nothing is lost if it restarts: the database knows what is left to read.
+  # Where the jobs wait for a worker. Nothing is lost if it restarts: the backend knows what is left to read.
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]

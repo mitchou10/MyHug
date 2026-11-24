@@ -5,15 +5,16 @@ from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.jobs import Jobs
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services.dataset_access import DatasetAccess
+from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.storage import ObjectStore
-from app.worker.jobs import Jobs
 
 
 def build_datasets(db: AsyncSession, store: ObjectStore) -> DatasetService:
@@ -51,4 +52,16 @@ def build_dataset_uploads(db: AsyncSession, store: ObjectStore, jobs: Jobs) -> D
         session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         jobs=jobs,
+    )
+
+
+def build_dataset_processing(db: AsyncSession, store: ObjectStore) -> DatasetProcessing:
+    return DatasetProcessing(
+        DatasetRepository(db),
+        DatasetVersionRepository(db),
+        DatasetUploadRepository(db),
+        store,
+        max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
+        stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
     )

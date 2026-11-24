@@ -7,13 +7,12 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DatasetFile, DatasetUpload, DatasetUploadFile, DatasetVersion
-from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services import tables
-from app.services.dataset_processing import DatasetProcessor
 from app.services.dataset_versions import NamedUpload
 from tests.conftest import MemoryStore
+from tests.reading import Reader
 from tests.services.test_dataset_services import ADA, FIELDS, service, versions
 
 CSV = b"n\n1\n2\n3\n"
@@ -34,8 +33,8 @@ async def dataset_rows(db: AsyncSession) -> int | None:
     return dataset.rows
 
 
-def processor(db: AsyncSession, store: MemoryStore) -> DatasetProcessor:
-    return DatasetProcessor(DatasetRepository(db), DatasetVersionRepository(db), DatasetUploadRepository(db), store)
+def processor(db: AsyncSession, store: MemoryStore) -> Reader:
+    return Reader(db, store)
 
 
 async def test_a_version_that_was_just_sent_has_not_been_read(db: AsyncSession) -> None:
