@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # front of MLflow asks for one, is sent as a bearer token.
     MLFLOW_TRACKING_URI: str = ""
     MLFLOW_API_KEY: str = ""
+    MLFLOW_TIMEOUT_SECONDS: float = 30.0
+    # Where MLflow keeps its artifacts in the bucket (its `--artifacts-destination`): the key of an artifact is this
+    # prefix followed by its path in MLflow.
+    MLFLOW_ARTIFACTS_PREFIX: str = "mlflow/"
     # Where a person opens MLflow to see the detail of a model (its runs, metrics, artifacts). The platform links there,
     # **only for the people who can edit the model**: MLflow has no rights of its own, whoever reaches it can change
     # everything. In production it must be behind a proxy that signs people in. Empty: no link.

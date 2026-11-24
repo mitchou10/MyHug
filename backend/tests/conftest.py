@@ -24,7 +24,9 @@ from app.config import settings  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.jobs import NoJobs  # noqa: E402
 from app.main import app  # noqa: E402
+from app.registry import RegistryArtifact, RegistryRun, RegistryVersion  # noqa: E402
 from app.routers.deps import get_jobs  # noqa: E402
+from app.services.errors import RegistryConflict, RegistryNotFound, RegistryRejected, RegistryUnavailable  # noqa: E402
 from app.storage import (  # noqa: E402
     ListedObject,
     ObjectInfo,
@@ -192,6 +194,112 @@ class MemoryStore:
         self, key: str, expires_in: int, filename: str | None = None, *, internal: bool = False
     ) -> str:
         return f"memory://get/{key}"
+
+
+class MemoryRegistry:
+    """In place of MLflow. It keeps what is made, remembers the calls in order (`calls`), and refuses what MLflow
+    refuses: a name with `/` or `:`, a name taken, a model or a version that is not there.
+
+    `down = True`: MLflow does not answer. `fail_on = "create_version"`: that one call fails (the rest works)."""
+
+    def __init__(self, prefix: str = "mlflow/") -> None:
+        self.models: set[str] = set()
+        self.runs: dict[str, dict] = {}
+        self.versions: dict[tuple[str, str], RegistryVersion] = {}
+        self.aliases: dict[tuple[str, str], str] = {}
+        self.artifacts: dict[str, list[RegistryArtifact]] = {}  # `<experiment>/<run>/artifacts[/path]` -> its folder
+        self.experiments: dict[str, str] = {}
+        self.calls: list[str] = []
+        self.down = False
+        self.fail_on: str | None = None
+        self._prefix = prefix
+
+    def _enter(self, call: str) -> None:
+        self.calls.append(call)
+        if self.down or self.fail_on == call:
+            raise RegistryUnavailable("The models service does not answer")
+
+    async def create_model(self, name: str) -> None:
+        self._enter("create_model")
+        if "/" in name or ":" in name or not name or len(name) > 256:
+            raise RegistryRejected(f"Invalid model name {name!r}")
+        if name in self.models:
+            raise RegistryConflict
+        self.models.add(name)
+
+    async def model_exists(self, name: str) -> bool:
+        self._enter("model_exists")
+        return name in self.models
+
+    async def delete_model(self, name: str) -> None:
+        self._enter("delete_model")
+        self.models.discard(name)
+        for key in [key for key in self.versions if key[0] == name]:
+            del self.versions[key]
+
+    async def create_run(self, model_name: str) -> RegistryRun:
+        self._enter("create_run")
+        experiment = self.experiments.setdefault(model_name, str(len(self.experiments) + 1))
+        run_id = uuid.uuid4().hex
+        self.runs[run_id] = {"experiment": experiment, "status": "RUNNING"}
+        return RegistryRun(experiment, run_id, f"mlflow-artifacts:/{experiment}/{run_id}/artifacts")
+
+    async def finish_run(self, run_id: str, *, failed: bool = False) -> None:
+        self._enter("finish_run")
+        self.runs[run_id]["status"] = "FAILED" if failed else "FINISHED"
+
+    async def delete_run(self, run_id: str) -> None:
+        self._enter("delete_run")
+        self.runs.pop(run_id, None)
+
+    async def create_version(self, name: str, run: RegistryRun, path: str = "") -> RegistryVersion:
+        self._enter("create_version")
+        if name not in self.models:
+            raise RegistryNotFound
+        number = str(1 + sum(1 for key in self.versions if key[0] == name))
+        source = f"{run.artifact_uri}/{path.strip('/')}" if path.strip("/") else run.artifact_uri
+        version = RegistryVersion(name=name, version=number, run_id=run.run_id, source=source, status="READY")
+        self.versions[(name, number)] = version
+        return version
+
+    async def get_version(self, name: str, version: str) -> RegistryVersion:
+        self._enter("get_version")
+        if (name, version) not in self.versions:
+            raise RegistryNotFound
+        return self.versions[(name, version)]
+
+    async def delete_version(self, name: str, version: str) -> None:
+        self._enter("delete_version")
+        self.versions.pop((name, version), None)
+
+    async def set_alias(self, name: str, alias: str, version: str) -> None:
+        self._enter("set_alias")
+        if (name, version) not in self.versions:
+            raise RegistryNotFound
+        self.aliases[(name, alias)] = version
+
+    async def delete_alias(self, name: str, alias: str) -> None:
+        self._enter("delete_alias")
+        self.aliases.pop((name, alias), None)
+
+    def _root(self, name: str, version: str) -> str:
+        if (name, version) not in self.versions:
+            raise RegistryNotFound
+        return self.versions[(name, version)].source.removeprefix("mlflow-artifacts:/").strip("/")
+
+    async def list_artifacts(self, name: str, version: str, path: str = "") -> list[RegistryArtifact]:
+        self._enter("list_artifacts")
+        root = self._root(name, version)
+        return self.artifacts.get(f"{root}/{path.strip('/')}" if path.strip("/") else root, [])
+
+    async def artifact_key_prefix(self, name: str, version: str) -> str:
+        self._enter("artifact_key_prefix")
+        return f"{self._prefix}{self._root(name, version)}/"
+
+
+@pytest.fixture
+def registry() -> MemoryRegistry:
+    return MemoryRegistry()
 
 
 @pytest.fixture

@@ -179,3 +179,24 @@ class NotBeingProcessed(ServiceError):
 
 class DerivativeNotFound(ServiceError):
     message = "This copy does not exist"
+
+
+# ---- the registry of the models (MLflow)
+class RegistryUnavailable(ServiceError):
+    """MLflow does not answer, or does not take what the backend sends it (a key it refuses, an error of its own)."""
+
+    message = "The models service is not available"
+
+
+class RegistryNotFound(ServiceError):
+    message = "This model or version does not exist in the registry"
+
+
+class RegistryConflict(ServiceError):
+    message = "This name is already used in the registry"
+
+
+class RegistryRejected(ServiceError):
+    """MLflow refuses a value: a name it does not accept."""
+
+    message = "The registry refuses this value"

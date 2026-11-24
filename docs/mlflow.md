@@ -74,3 +74,77 @@ the card, the files, the versions, the metrics it chose to publish.
 
 In production `MLFLOW_PUBLIC_URL` must point to MLflow **behind a proxy that signs people in** (the same identity
 provider as the platform), otherwise the link is a way in for anyone who learns the address.
+
+## The client of the backend (`app/registry`)
+
+The backend speaks to MLflow in one place. Nothing outside `app/registry` imports MLflow or knows its REST shape, as nothing
+outside `app/storage` knows S3.
+
+| File | What it is |
+|---|---|
+| `base.py` | the port `ModelRegistry` (a protocol) and what it returns |
+| `mlflow.py` | `MlflowRegistry`, on the REST API with `httpx2` (the `mlflow` package is not installed: it is very large) |
+| `names.py` | the name of a model in MLflow |
+| `links.py` | the addresses of the pages of MLflow, from `MLFLOW_PUBLIC_URL` |
+| `compensation.py` | the order of the calls, and how a failure is undone |
+
+### The name of a model in MLflow: `owner~name`
+
+MLflow refuses `/` and `:` in the name of a registered model (checked), so `owner/name` cannot be used. The platform uses
+`owner~name`: `~` is accepted by MLflow, and an owner or a name is made of lowercase letters, digits, dots, dashes and
+underscores, so the name can always be taken apart again (`registered_name`, `split_registered_name`). It is at most 201
+characters, MLflow takes 256. The name of a model never changes (like the name of a dataset), so the registered name does not
+either; if a rename is ever added, MLflow's `registered-models/rename` is the call, and it needs the same care as below.
+
+### What it does
+
+A registered model per model, an experiment per model (made the first time, brought back if it was deleted) with a **run per
+upload** to put the artifacts in, and a **version** per version of the platform, registered from the artifacts of a run (MLflow
+refuses a source that is not in the run it is given). Aliases (`production`, `stable`) point to a version and can be moved.
+`artifact_key_prefix` gives the key, in the bucket, under which the artifacts of a version are
+(`mlflow/<experiment>/<run>/artifacts/<path>/`, from `MLFLOW_ARTIFACTS_PREFIX`), so files can be read and sent there without going
+through MLflow.
+
+### What goes wrong, and what the caller sees
+
+| MLflow | The backend raises | HTTP |
+|---|---|---|
+| does not answer, too slow, cut off, 5xx, refuses the key, says something unexpected | `RegistryUnavailable` (the address of MLflow is never in the message) | 503 |
+| `RESOURCE_DOES_NOT_EXIST`, or a 404 | `RegistryNotFound` | 404 |
+| `RESOURCE_ALREADY_EXISTS` | `RegistryConflict` | 409 |
+| a 400 (a name it refuses) | `RegistryRejected`, with what MLflow says | 422 |
+
+Deleting something that is already gone is not an error (`delete_model`, `delete_version`, `delete_run`).
+
+### The order of the calls: MLflow first, the database last, undo MLflow if the database fails
+
+MLflow and the database cannot be in one transaction, so a request that needs both does this (`compensation.py`):
+
+```python
+async with registered_model(registry, name):   # 1. MLflow
+    db.add(model); await db.commit()           # 2. the database
+```
+
+- MLflow down: the call raises before anything is written to the database. Nothing exists anywhere.
+- MLflow answers and the database then fails: what MLflow made is deleted, and the error of the database goes on.
+- That delete fails too: it is logged (`delete it by hand`, with the name) and does not hide the error. What is left is one
+  registered model or version that nothing in the database points to.
+
+`registered_run` (finished at the end of the block, deleted if it raises) and `registered_version` work the same way, and nest.
+All of it is tested, with a double (`MemoryRegistry`, which refuses what MLflow refuses) and with a real database.
+
+### What deleting does not do
+
+`delete_model`, `delete_version` and `delete_run` remove what MLflow knows, **not the artifacts in the bucket**: MLflow keeps them
+until `mlflow gc` is run on the server. They live under `mlflow/`, which the collector of the storage does not walk (it only
+walks the prefixes it owns). Cleaning them is a separate piece of work.
+
+### Tests
+
+- `tests/registry/test_mlflow_registry.py`: every operation and every kind of failure, against a fake HTTP transport.
+- `tests/registry/test_links.py`, `test_compensation.py`.
+- `tests/registry/test_mlflow_integration.py`: against the real MLflow of the compose. **Not run by default**:
+
+```bash
+MLFLOW_INTEGRATION_URL=http://localhost:5000 uv run pytest -m integration tests/registry/test_mlflow_integration.py
+```
