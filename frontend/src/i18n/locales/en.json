@@ -623,6 +623,90 @@
         "hintSegments": "Drag on the chart to mark a stretch, drag its edges to adjust. Click to place the cursor, M marks the start and the end.",
         "hintPlain": "Click the chart to place the cursor, ← and → move it by one point.",
         "empty": "Generated placeholder series: the real data will come from the backend."
+      },
+      "pre": {
+        "title": "Proposal from {{model}}",
+        "confidence": "{{n}}% confident",
+        "hint": "Nothing counts until you validate it. Fix what is wrong.",
+        "accept": "Validate as it is",
+        "acceptEdited": "Validate with my changes",
+        "reject": "Reject",
+        "edited": "changed",
+        "button": "Pre-annotation",
+        "status": {
+          "running": "running",
+          "stopped": "stopped",
+          "done": "done",
+          "deleted": "deleted"
+        },
+        "counts": {
+          "pending": "{{n}} to validate",
+          "accepted": "{{n}} validated as they were",
+          "edited": "{{n}} corrected",
+          "rejected": "{{n}} rejected"
+        },
+        "dialog": {
+          "title": "Pre-annotation",
+          "hint": "A model proposes an answer for each item. A human must validate, correct or reject it: nothing counts before.",
+          "start": "Start a pre-annotation",
+          "model": "Model",
+          "launch": "Start",
+          "oneAtATime": "A pre-annotation is already running.",
+          "scope": "The model goes through the {{n}} items without an answer.",
+          "none": "No pre-annotation for this task.",
+          "stop": "Stop",
+          "resume": "Resume",
+          "delete": "Delete",
+          "confirmDelete": "Confirm the deletion",
+          "progress": "{{done}} / {{total}} items processed",
+          "validate": "Validate the proposals",
+          "deleteHint": "Deleting removes the proposals nobody has validated yet. What was validated stays, and so do the statistics.",
+          "noModel": "No model is available for this kind of task.",
+          "compatible": "Models offered for: {{task}}."
+        },
+        "compare": {
+          "title": "Which model to choose?",
+          "empty": "No proposal has been validated or rejected yet.",
+          "best": "The best for this kind of task: {{model}} ({{score}}%).",
+          "notEnough": "Not enough decisions to compare yet (at least {{n}} per model).",
+          "how": "Score: a proposal validated as it was counts 1, corrected ½, rejected 0. The statistics are kept even if the pre-annotation is deleted.",
+          "thisTask": "This task",
+          "sameKind": "All {{task}} on {{data}}",
+          "cols": {
+            "model": "Model",
+            "decided": "Decisions",
+            "asIs": "As they were",
+            "edited": "Corrected",
+            "rejected": "Rejected",
+            "conf": "Confidence (valid. / rej.)",
+            "score": "Score"
+          }
+        },
+        "models": {
+          "sentiment-fr-v2": "Sentiment of French texts. Accurate, a bit slow.",
+          "zero-shot-text": "Labels any text from the descriptions of the labels. Fast, less accurate.",
+          "ner-fr-v1": "Named entities in French (people, places, dates).",
+          "ner-legal-v1": "Legal entities and passages: offences, sentences, decisions.",
+          "qa-extractive-v1": "Finds the answer and its source in the text.",
+          "tabular-quality-v1": "Spots missing, negative or outlying values in a table.",
+          "schema-guesser-v1": "Guesses the type, format and role of each column.",
+          "regressor-base-v1": "Estimates a number from the data.",
+          "detector-v3": "Detects and boxes the objects of an image.",
+          "segmenter-sam-lite": "Outlines the objects and regions of an image.",
+          "pose-v1": "Places the keypoints of an object or a person.",
+          "scene-clip-v1": "Classifies an image from its content.",
+          "captioner-v2": "Describes an image and answers questions about it.",
+          "birdnet-lite": "Recognizes sounds (bird songs, events) and places them in time.",
+          "diarizer-v1": "Splits a recording by speaker.",
+          "speech-to-text-v3": "Transcribes speech with its timing.",
+          "audio-caption-v1": "Describes a sound clip.",
+          "action-seg-v1": "Splits a video into actions.",
+          "tracker-v2": "Follows objects through a video with keyframes.",
+          "video-caption-v1": "Describes a video.",
+          "anomaly-v1": "Spots anomalies and events in a series.",
+          "ts-classifier-v1": "Classifies a series (trend, seasonality, shift).",
+          "forecaster-v1": "Estimates how predictable a series is."
+        }
       }
     }
   }

@@ -13,19 +13,21 @@ import { hue } from '../components/viewers/seed'
 import { getDataset } from '../mockData'
 import { matchesFormat, needsValue } from './format'
 import { ScaleInput } from './ScaleInput'
+import { ProposalBanner } from './ProposalBanner'
 import { color } from './ui'
-import { labelsOf, newPair, saveAnswer, useAnnotations, withLabel, type Answer, type LabelDef, type QAPair, type Span } from './store'
+import { commitAnswer, labelsOf, newPair, rejectProposal, useAnnotations, withLabel, withOrigin, type Answer, type Proposal, type LabelDef, type QAPair, type Span } from './store'
 
 /** Where one annotates: one row at a time, labels on the keyboard (1, 2, 3…), Enter to submit. */
 export function AnnotationWorkspace() {
   const { t } = useTranslation()
   const { owner, name, projectId } = useParams()
   const d = getDataset(owner, name)
-  const { projects, answers } = useAnnotations()
+  const { projects, answers, proposals } = useAnnotations()
   const project = projects.find((p) => p.id === projectId)
   const textCol = d ? Math.max(0, d.columns.findIndex((c) => c === 'text' || c === 'question')) : 0
   const [idx, setIdx] = useState(0)
   const [draft, setDraft] = useState<Answer>({})
+  const [proposal, setProposal] = useState<Proposal | null>(null)
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null)
   /** Where the label menu floats, relative to the text card. */
   const [menu, setMenu] = useState<{ left: number; top: number } | null>(null)
@@ -49,8 +51,18 @@ export function AnnotationWorkspace() {
 
   const clearSel = () => { setSel(null); setMenu(null) }
   const init = (a?: Answer): Answer => (project?.task === 'qa' && !a?.qa?.length ? { ...a, qa: [newPair()] } : (a ?? {}))
-  const go = (i: number) => { setIdx(i); setDraft(init(saved?.[i])); setActiveQa(null); clearSel() }
-  useEffect(() => { setDraft(init(saved?.[idx])) }, [project?.id])
+  /** What an item starts from: the answer already given, else the proposal of the model if the task has one. */
+  const load = (i: number) => {
+    const given = saved?.[i]
+    const pr = given ? null : (proposals[projectId ?? '']?.[i] ?? null)
+    setProposal(pr)
+    setDraft(init(given ?? pr?.answer))
+  }
+  const go = (i: number) => { setIdx(i); load(i); setActiveQa(null); clearSel() }
+  useEffect(() => { load(idx) }, [project?.id])
+  // A proposal can arrive while the item is on screen (the run is still going): take it if nothing was typed yet.
+  useEffect(() => { if (!proposal && !saved?.[idx] && proposals[projectId ?? '']?.[idx] && Object.keys(draft).length === 0) load(idx) }, [proposals[projectId ?? '']?.[idx]])
+
 
   const pairs: QAPair[] = draft.qa ?? []
   const active = pairs.find((p) => p.id === activeQa) ?? pairs[0]
@@ -73,7 +85,7 @@ export function AnnotationWorkspace() {
   }
   const submit = () => {
     if (!project) return
-    saveAnswer(project.id, idx, isQa ? { qa: pairs.filter((p) => p.question.trim() || p.answer.trim() || p.sources.length) } : draft)
+    commitAnswer(project.id, idx, isQa ? { qa: pairs.filter((p) => p.question.trim() || p.answer.trim() || p.sources.length) } : draft, proposal)
     go(Math.min(rows.length - 1, idx + 1))
   }
   const assign = (label: string) => {
@@ -168,6 +180,8 @@ export function AnnotationWorkspace() {
       <div className="mt-2 flex gap-1">
         {rows.map((_, i) => <button key={i} aria-label={`#${i}`} onClick={() => go(i)} className={cn('h-1.5 flex-1 rounded-full', saved?.[i] ? 'bg-primary' : 'bg-muted', i === idx && 'ring-2 ring-ring ring-offset-1')} />)}
       </div>
+
+      {proposal && <ProposalBanner proposal={proposal} edited={withOrigin(isQa ? { qa: pairs } : draft, proposal).origin === 'model_edited'} onAccept={submit} onReject={() => { rejectProposal(project!.id, idx, proposal); setProposal(null); setDraft(init(undefined)) }} />}
 
       <div ref={card} className="relative mt-6 rounded-xl border p-6">
         <div className="mb-3 text-xs text-muted-foreground">{t('datasets.annotation.row', { n: idx })}</div>

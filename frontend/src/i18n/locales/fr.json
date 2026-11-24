@@ -623,6 +623,90 @@
         "hintSegments": "Glissez sur le graphique pour marquer un passage, glissez ses bords pour l'ajuster. Cliquez pour placer le curseur, M marque le début puis la fin.",
         "hintPlain": "Cliquez le graphique pour placer le curseur, ← et → le déplacent d'un point.",
         "empty": "Série de substitution générée : les vraies données viendront du backend."
+      },
+      "pre": {
+        "title": "Proposition de {{model}}",
+        "confidence": "confiance {{n}} %",
+        "hint": "Rien ne compte tant que vous ne l'avez pas validé. Corrigez ce qui ne va pas.",
+        "accept": "Valider telle quelle",
+        "acceptEdited": "Valider avec mes corrections",
+        "reject": "Rejeter",
+        "edited": "modifiée",
+        "button": "Pré-annotation",
+        "status": {
+          "running": "en cours",
+          "stopped": "arrêtée",
+          "done": "terminée",
+          "deleted": "supprimée"
+        },
+        "counts": {
+          "pending": "{{n}} à valider",
+          "accepted": "{{n}} validées telles quelles",
+          "edited": "{{n}} corrigées",
+          "rejected": "{{n}} rejetées"
+        },
+        "dialog": {
+          "title": "Pré-annotation",
+          "hint": "Un modèle propose une réponse pour chaque élément. Un humain doit la valider, la corriger ou la rejeter : rien ne compte avant.",
+          "start": "Lancer une pré-annotation",
+          "model": "Modèle",
+          "launch": "Lancer",
+          "oneAtATime": "Une pré-annotation est déjà en cours.",
+          "scope": "Le modèle parcourt les {{n}} éléments sans réponse.",
+          "none": "Aucune pré-annotation pour cette tâche.",
+          "stop": "Arrêter",
+          "resume": "Reprendre",
+          "delete": "Supprimer",
+          "confirmDelete": "Confirmer la suppression",
+          "progress": "{{done}} / {{total}} éléments traités",
+          "validate": "Valider les propositions",
+          "deleteHint": "Supprimer retire les propositions pas encore validées. Ce qui a été validé reste, ainsi que les statistiques.",
+          "noModel": "Aucun modèle n'est disponible pour ce type de tâche.",
+          "compatible": "Modèles proposés pour : {{task}}."
+        },
+        "compare": {
+          "title": "Quel modèle choisir ?",
+          "empty": "Aucune proposition n'a encore été validée ou rejetée.",
+          "best": "Le meilleur pour ce type de tâche : {{model}} ({{score}} %).",
+          "notEnough": "Pas encore assez de décisions pour comparer (au moins {{n}} par modèle).",
+          "how": "Score : une proposition validée telle quelle compte 1, corrigée ½, rejetée 0. Les statistiques sont conservées même si la pré-annotation est supprimée.",
+          "thisTask": "Cette tâche",
+          "sameKind": "Tous les {{task}} sur {{data}}",
+          "cols": {
+            "model": "Modèle",
+            "decided": "Décisions",
+            "asIs": "Telles quelles",
+            "edited": "Corrigées",
+            "rejected": "Rejetées",
+            "conf": "Confiance (valid. / rej.)",
+            "score": "Score"
+          }
+        },
+        "models": {
+          "sentiment-fr-v2": "Sentiment des textes en français. Précis, un peu lent.",
+          "zero-shot-text": "Classe n'importe quel texte à partir des descriptions des labels. Rapide, moins précis.",
+          "ner-fr-v1": "Entités nommées en français (personnes, lieux, dates).",
+          "ner-legal-v1": "Entités et passages du droit : infractions, peines, décisions.",
+          "qa-extractive-v1": "Trouve la réponse et sa source dans le texte.",
+          "tabular-quality-v1": "Repère les valeurs manquantes, négatives ou aberrantes d'un tableau.",
+          "schema-guesser-v1": "Devine le type, le format et le rôle de chaque colonne.",
+          "regressor-base-v1": "Estime une valeur numérique à partir des données.",
+          "detector-v3": "Détecte et encadre les objets d'une image.",
+          "segmenter-sam-lite": "Détoure les objets et les régions d'une image.",
+          "pose-v1": "Place les points clés d'un objet ou d'une personne.",
+          "scene-clip-v1": "Classe une image à partir de son contenu.",
+          "captioner-v2": "Décrit une image et répond à des questions sur elle.",
+          "birdnet-lite": "Reconnaît des sons (chants d'oiseaux, événements) et les situe dans le temps.",
+          "diarizer-v1": "Découpe un enregistrement par locuteur.",
+          "speech-to-text-v3": "Transcrit la parole avec son horodatage.",
+          "audio-caption-v1": "Décrit un extrait sonore.",
+          "action-seg-v1": "Découpe une vidéo en actions.",
+          "tracker-v2": "Suit des objets dans une vidéo avec des images clés.",
+          "video-caption-v1": "Décrit une vidéo.",
+          "anomaly-v1": "Repère les anomalies et les événements d'une série.",
+          "ts-classifier-v1": "Classe une série (tendance, saisonnalité, rupture).",
+          "forecaster-v1": "Estime la prévisibilité d'une série."
+        }
       }
     }
   }

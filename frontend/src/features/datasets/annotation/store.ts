@@ -102,7 +102,16 @@ export interface ColumnNote { role?: string; valueType?: ValueType; formats?: st
 /** Tasks where an item gets one or several labels from a list. */
 export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'audio_classification' || t === 'video_classification' || t === 'timeseries_classification' || t === 'row_label'
 
-export interface Answer { label?: string; labels?: string[]; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
+/** Who the answer comes from: written by a human, a model's proposal accepted as it was, or a proposal a human changed. */
+export type Origin = 'human' | 'model' | 'model_edited'
+
+export interface Answer {
+  origin?: Origin
+  /** The model whose proposal this answer started from. */
+  model?: string
+  /** The pre-annotation run whose proposal this answer started from. */
+  run?: string
+  label?: string; labels?: string[]; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
   /** Regression: the value given on the scale of the task. */
   value?: number
   /** Image: the polygons, and the sentences of an image to text task. */
@@ -118,7 +127,42 @@ export interface Answer { label?: string; labels?: string[]; reason?: string; sp
   columns?: Record<number, ColumnNote>
 }
 
-interface State { projects: AnnotationProject[]; answers: Record<string, Record<number, Answer>> }
+/** A pre-annotation: a model going through the items of a task, proposing an answer for each. A human validates them. */
+export type RunStatus = 'running' | 'stopped' | 'done' | 'deleted'
+export interface PreRun {
+  id: string; projectId: string; model: string; status: RunStatus
+  /** Items to go through, how many are done, and which (indexes). */
+  total: number; processed: number; queue: number[]
+  startedAt: number; endedAt?: number; createdBy: string
+}
+/** What a human did with a proposal. Kept for good, even when the run is deleted: it tells which model to trust. */
+export type Outcome = 'accepted' | 'edited' | 'rejected'
+export interface Decision { runId: string; projectId: string; model: string; idx: number; outcome: Outcome; confidence: number; at: number }
+
+interface State {
+  projects: AnnotationProject[]
+  answers: Record<string, Record<number, Answer>>
+  runs: PreRun[]
+  /** The proposals nobody has decided on yet, by task and item. */
+  proposals: Record<string, Record<number, Proposal>>
+  decisions: Decision[]
+}
+
+/** Some history so that models can be compared before anyone has validated anything. */
+function seedHistory(projectId: string, model: string, runId: string, counts: [number, number, number], day: string): { run: PreRun; decisions: Decision[] } {
+  const at = Date.parse(day)
+  const decisions: Decision[] = []
+  const outcomes: Outcome[] = [...Array(counts[0]).fill('accepted'), ...Array(counts[1]).fill('edited'), ...Array(counts[2]).fill('rejected')]
+  outcomes.forEach((outcome, i) => decisions.push({ runId, projectId, model, idx: i, outcome, confidence: Math.round((outcome === 'accepted' ? 0.78 : outcome === 'edited' ? 0.7 : 0.6) * 100 + ((i * 7) % 13) - 6) / 100, at: at + i * 60_000 }))
+  const total = outcomes.length
+  return { run: { id: runId, projectId, model, status: 'done', total, processed: total, queue: [], startedAt: at, endedAt: at + total * 60_000, createdBy: 'mitchou' }, decisions }
+}
+const history = [
+  seedHistory('p1', 'zero-shot-text', 'r-p1-a', [22, 8, 10], '2026-11-10'),
+  seedHistory('p1', 'sentiment-fr-v2', 'r-p1-b', [31, 6, 3], '2026-11-14'),
+  seedHistory('p11', 'segmenter-sam-lite', 'r-p11-a', [14, 12, 14], '2026-11-12'),
+  seedHistory('p11', 'detector-v3', 'r-p11-b', [26, 9, 5], '2026-11-15'),
+]
 
 let state: State = {
   projects: [
@@ -313,6 +357,9 @@ let state: State = {
     { id: 'p33', datasetKey: 'lab/sales-timeseries', name: 'Prévisibilité', task: 'regression', labels: [], scale: { min: 1, max: 5, step: 1, minLabel: 'Imprévisible', maxLabel: 'Très régulière' }, createdBy: 'mitchou', annotators: 2, done: 260, total: 2500 },
   ],
   answers: {},
+  runs: history.map((h) => h.run),
+  proposals: {},
+  decisions: history.flatMap((h) => h.decisions),
 }
 const listeners = new Set<() => void>()
 const set = (next: State) => { state = next; listeners.forEach((l) => l()) }
@@ -335,6 +382,16 @@ export function updateLabels(projectId: string, labels: LabelDef[]) {
 export function updateScale(projectId: string, scale: Scale) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, scale } : p)) })
 }
+/** What a model proposed for an item. */
+export interface Proposal { answer: Answer; model: string; confidence: number; runId: string }
+
+/** The answer a human validated, with where it comes from: the proposal as it was, a changed proposal, or their own work. */
+export function withOrigin(a: Answer, p: Proposal | null): Answer {
+  if (!p) return { ...a, origin: 'human' }
+  const strip = (x: Answer) => JSON.stringify({ ...x, origin: undefined, model: undefined, run: undefined })
+  return { ...a, origin: strip(a) === strip(p.answer) ? 'model' : 'model_edited', model: p.model, run: p.runId }
+}
+
 /** The labels an item has, whether the task takes one or several. */
 export const labelsOf = (a: Answer): string[] => a.labels ?? (a.label ? [a.label] : [])
 /** Chooses a label: in single mode it replaces the previous one (and a second click clears it); in multi-label mode it is toggled. */
@@ -346,6 +403,57 @@ export function withLabel(a: Answer, id: string, multi?: boolean): Answer {
 }
 export function setMultiLabel(projectId: string, multiLabel: boolean) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, multiLabel } : p)) })
+}
+export const getState = () => state
+
+// --- Pre-annotation runs
+export function addRun(run: PreRun) { set({ ...state, runs: [...state.runs, run] }) }
+export function patchRun(id: string, patch: Partial<PreRun>) { set({ ...state, runs: state.runs.map((r) => (r.id === id ? { ...r, ...patch } : r)) }) }
+/** A model has proposed an answer for an item (it replaces an older proposal nobody decided on). */
+export function putProposal(projectId: string, idx: number, proposal: Proposal) {
+  set({ ...state, proposals: { ...state.proposals, [projectId]: { ...state.proposals[projectId], [idx]: proposal } } })
+}
+/** Deleting a run drops the proposals nobody decided on. What humans decided stays: answers and decisions. */
+export function dropRunProposals(runId: string) {
+  const proposals = Object.fromEntries(Object.entries(state.proposals).map(([pid, byItem]) => [pid, Object.fromEntries(Object.entries(byItem).filter(([, p]) => p.runId !== runId))]))
+  set({ ...state, proposals })
+}
+
+const decide = (proposal: Proposal, projectId: string, idx: number, outcome: Outcome): Decision => ({ runId: proposal.runId, projectId, model: proposal.model, idx, outcome, confidence: proposal.confidence, at: Date.now() })
+const without = (projectId: string, idx: number) => {
+  const byItem = { ...state.proposals[projectId] }
+  delete byItem[idx]
+  return { ...state.proposals, [projectId]: byItem }
+}
+
+/** A human validates an item. If it started from a proposal, the way it ended (as it was, or changed) is recorded. */
+export function commitAnswer(projectId: string, idx: number, answer: Answer, proposal: Proposal | null) {
+  const saved = withOrigin(answer, proposal)
+  set({
+    ...state,
+    answers: { ...state.answers, [projectId]: { ...state.answers[projectId], [idx]: saved } },
+    proposals: proposal ? without(projectId, idx) : state.proposals,
+    decisions: proposal ? [...state.decisions, decide(proposal, projectId, idx, saved.origin === 'model' ? 'accepted' : 'edited')] : state.decisions,
+  })
+}
+/** A human turns a proposal down: the item goes back to being annotated by hand. */
+export function rejectProposal(projectId: string, idx: number, proposal: Proposal) {
+  set({ ...state, proposals: without(projectId, idx), decisions: [...state.decisions, decide(proposal, projectId, idx, 'rejected')] })
+}
+
+/** What happened to the proposals of a run (or of all the runs of a model). */
+export function statsOf(decisions: Decision[]) {
+  const n = (o: Outcome) => decisions.filter((d) => d.outcome === o).length
+  const accepted = n('accepted'), edited = n('edited'), rejected = n('rejected'), decided = decisions.length
+  const mean = (xs: Decision[]) => (xs.length ? xs.reduce((a, d) => a + d.confidence, 0) / xs.length : 0)
+  return {
+    accepted, edited, rejected, decided,
+    /** As it was: how often nobody had to touch the proposal. */
+    acceptRate: decided ? accepted / decided : 0,
+    /** A proposal that needed a change still saved some work: it counts for half. */
+    score: decided ? (accepted + edited / 2) / decided : 0,
+    confAccepted: mean(decisions.filter((d) => d.outcome === 'accepted')), confRejected: mean(decisions.filter((d) => d.outcome === 'rejected')),
+  }
 }
 export function saveAnswer(projectId: string, row: number, answer: Answer) {
   set({ ...state, answers: { ...state.answers, [projectId]: { ...state.answers[projectId], [row]: answer } } })

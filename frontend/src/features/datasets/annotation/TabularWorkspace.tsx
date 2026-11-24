@@ -13,7 +13,8 @@ import type { Dataset } from '../mockData'
 import { matchesFormat, VALUE_TYPES, type ValueType } from './format'
 import { ScaleInput } from './ScaleInput'
 import { StringListInput } from './StringListInput'
-import { labelsOf, saveAnswer, useAnnotations, withLabel, type Answer, type CellNote, type ColumnNote, type LabelDef, type AnnotationProject } from './store'
+import { labelsOf, useAnnotations, withLabel, type Answer, type CellNote, type ColumnNote, type LabelDef, type AnnotationProject, commitAnswer, rejectProposal, type Proposal } from './store'
+import { ProposalBanner } from './ProposalBanner'
 import { color } from './ui'
 
 const shown = (v: string | number | undefined) => (v === '' || v === undefined ? '∅' : String(v))
@@ -21,15 +22,19 @@ const shown = (v: string | number | undefined) => (v === '' || v === undefined ?
 /** The grid: every row visible, a side panel to annotate what is selected. Everything is saved as you go. */
 export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; project: AnnotationProject }) {
   const { t } = useTranslation()
-  const store = useAnnotations().answers[project.id] ?? {}
+  const all = useAnnotations()
+  const store = all.answers[project.id] ?? {}
+  const proposed = all.proposals[project.id] ?? {}
   const task = project.task
   /** Labelling a row and giving it a number work the same way: one row selected at a time. */
   const rowMode = task === 'row_label' || task === 'regression'
   const rows = d.sample
   const [sel, setSel] = useState({ r: task === 'column_schema' ? -1 : 0, c: rowMode ? -1 : 0 })
 
-  const ans = (r: number): Answer => store[r] ?? {}
-  const setRow = (r: number, patch: Partial<Answer>) => saveAnswer(project.id, r, { ...ans(r), ...patch })
+  /** A row shows its proposal until a human has answered it: the first change turns the proposal into their answer. */
+  const ans = (r: number): Answer => store[r] ?? proposed[r]?.answer ?? {}
+  const pending = (r: number): Proposal | null => (store[r] ? null : (proposed[r] ?? null))
+  const setRow = (r: number, patch: Partial<Answer>) => commitAnswer(project.id, r, { ...ans(r), ...patch }, pending(r))
   const labelName = (id?: string) => project.labels.find((l) => l.id === id)?.name ?? t('datasets.annotation.deletedLabel')
   const cols = ans(0).columns ?? {}
 
@@ -61,10 +66,10 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
   })
 
   const progress =
-    task === 'regression' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => ans(r).value !== undefined).length, total: rows.length })
-    : task === 'row_label' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => labelsOf(ans(r)).length).length, total: rows.length })
-    : task === 'cell_review' ? t('datasets.annotation.tab.progressCells', { done: rows.reduce((n, _, r) => n + Object.keys(ans(r).cells ?? {}).length, 0), rows: rows.filter((_, r) => Object.keys(ans(r).cells ?? {}).length).length })
-    : t('datasets.annotation.tab.progressColumns', { done: d.columns.filter((_, c) => cols[c]?.role).length, total: d.columns.length })
+    task === 'regression' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => store[r]?.value !== undefined).length, total: rows.length })
+    : task === 'row_label' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => labelsOf(store[r] ?? {}).length).length, total: rows.length })
+    : task === 'cell_review' ? t('datasets.annotation.tab.progressCells', { done: rows.reduce((n, _, r) => n + Object.keys(store[r]?.cells ?? {}).length, 0), rows: rows.filter((_, r) => Object.keys(store[r]?.cells ?? {}).length).length })
+    : t('datasets.annotation.tab.progressColumns', { done: d.columns.filter((_, c) => store[0]?.columns?.[c]?.role).length, total: d.columns.length })
 
   const labelButtons = (selected: string[]) => (
     <div className="grid gap-1.5">
@@ -79,6 +84,8 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
   )
 
   const row = rows[sel.r]
+  /** The row whose proposal is on screen: the selected one, or row 0 for the columns (a schema is one answer). */
+  const proposalRow = task === 'column_schema' ? 0 : sel.r
   const schema = d.schema?.[sel.c]
   const note = ans(sel.r).cells?.[sel.c]
   const colNote = cols[sel.c]
@@ -114,12 +121,12 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
               {rows.map((r, i) => (
                 <TableRow key={i} onClick={() => rowMode && setSel({ r: i, c: -1 })} className={cn(rowMode && 'cursor-pointer', rowMode && sel.r === i && 'bg-primary/10')}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                  {rowMode && <TableCell>{task === 'regression' ? (ans(i).value !== undefined ? <span className="font-mono font-medium">{ans(i).value}{project.scale?.unit && ` ${project.scale.unit}`}</span> : <span className="text-muted-foreground">—</span>) : labelsOf(ans(i)).length ? <span className="flex flex-wrap gap-1">{labelsOf(ans(i)).map((id) => <span key={id} className="rounded-full border px-2 py-0.5 text-xs font-medium" style={color(id)}>{labelName(id)}</span>)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
+                  {rowMode && <TableCell className={cn(pending(i) && 'italic opacity-60')}>{task === 'regression' ? (ans(i).value !== undefined ? <span className="font-mono font-medium">{ans(i).value}{project.scale?.unit && ` ${project.scale.unit}`}</span> : <span className="text-muted-foreground">—</span>) : labelsOf(ans(i)).length ? <span className="flex flex-wrap gap-1">{labelsOf(ans(i)).map((id) => <span key={id} className="rounded-full border px-2 py-0.5 text-xs font-medium" style={color(id)}>{labelName(id)}</span>)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
                   {r.map((cell, j) => {
                     const n = ans(i).cells?.[j]
                     return (
                       <TableCell key={j} onClick={() => task === 'cell_review' && setSel({ r: i, c: j })}
-                        className={cn(task === 'cell_review' && 'cursor-pointer', task === 'cell_review' && sel.r === i && sel.c === j && 'bg-primary/10 outline-2 -outline-offset-2 outline-primary', task === 'column_schema' && sel.c === j && 'bg-primary/5', cell === '' && 'text-muted-foreground')}
+                        className={cn(task === 'cell_review' && 'cursor-pointer', task === 'cell_review' && sel.r === i && sel.c === j && 'bg-primary/10 outline-2 -outline-offset-2 outline-primary', task === 'column_schema' && sel.c === j && 'bg-primary/5', cell === '' && 'text-muted-foreground', n && pending(i) && 'opacity-70 outline-1 -outline-offset-1 outline-dashed outline-current')}
                         style={n ? color(n.issue) : undefined}>
                         {shown(cell)}
                         {n && <span className="ml-1 text-[10px] font-semibold">{labelName(n.issue)}{n.corrected ? ` → ${n.corrected}` : ''}</span>}
@@ -133,6 +140,9 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
         </div>
 
         <aside className="space-y-4 rounded-lg border p-4 lg:sticky lg:top-4">
+          {proposalRow >= 0 && pending(proposalRow) && (
+            <ProposalBanner proposal={pending(proposalRow)!} edited={false} onAccept={() => commitAnswer(project.id, proposalRow, pending(proposalRow)!.answer, pending(proposalRow))} onReject={() => rejectProposal(project.id, proposalRow, pending(proposalRow)!)} />
+          )}
           {rowMode && (sel.r < 0 ? <p className="text-sm text-muted-foreground">{t('datasets.annotation.tab.pickRow')}</p> : (
             <>
               <div className="flex items-center justify-between">

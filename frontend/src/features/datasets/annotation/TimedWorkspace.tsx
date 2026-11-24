@@ -14,7 +14,8 @@ import { fmtTime } from './audioMock'
 import { ScaleInput } from './ScaleInput'
 import type { Player } from './useAudioPlayer'
 import { Waveform, type AudioTool } from './Waveform'
-import { DEFAULT_TRACKS, labelsOf, saveAnswer, useAnnotations, usesRegions, withLabel, type Answer, type AnnotationProject, type AudioSegment } from './store'
+import { DEFAULT_TRACKS, labelsOf, useAnnotations, usesRegions, withLabel, commitAnswer, rejectProposal, type Answer, type Proposal, type AnnotationProject, type AudioSegment, withOrigin } from './store'
+import { ProposalBanner } from './ProposalBanner'
 import { color } from './ui'
 
 const uid = () => Math.random().toString(36).slice(2, 8)
@@ -41,7 +42,9 @@ export type UseMedia = (file: string, duration: number, dataset: Dataset) => Med
  */
 export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dataset; project: AnnotationProject; useMedia: UseMedia }) {
   const { t } = useTranslation()
-  const saved = useAnnotations().answers[project.id]
+  const store = useAnnotations()
+  const saved = store.answers[project.id]
+  const proposed = store.proposals[project.id]
   const task = project.task
   const regionsMode = usesRegions(project)
   const tracks = project.tracks?.length ? project.tracks : DEFAULT_TRACKS
@@ -50,6 +53,7 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
 
   const [idx, setIdx] = useState(0)
   const [draft, setDraft] = useState<Answer>(() => saved?.[0] ?? {})
+  const [proposal, setProposal] = useState<Proposal | null>(null)
   const [tool, setTool] = useState<AudioTool>('region')
   const [chosen, setChosen] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -68,7 +72,16 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
   const doneCount = Object.keys(saved ?? {}).length
   const textRegions = kind === 'transcription' || kind === 'caption'
 
-  const go = (i: number) => { player.pause(); setIdx(i); setDraft(saved?.[i] ?? {}); setSelected(null); setMarkStart(null) }
+  /** What an item starts from: the answer already given, else the proposal of the model if the task has one. */
+  const load = (i: number) => {
+    const pr = saved?.[i] ? null : (proposed?.[i] ?? null)
+    setProposal(pr)
+    setDraft(saved?.[i] ?? pr?.answer ?? {})
+  }
+  useEffect(() => { load(0) }, [project.id])
+  // A proposal can arrive while the item is on screen (the run is still going): take it if nothing was typed yet.
+  useEffect(() => { if (!proposal && !saved?.[idx] && proposed?.[idx] && Object.keys(draft).length === 0) load(idx) }, [proposed?.[idx]])
+  const go = (i: number) => { player.pause(); setIdx(i); load(i); setSelected(null); setMarkStart(null) }
   /** What makes a region worth keeping, according to the task. */
   const keep = (s: AudioSegment) =>
     kind === 'transcription' ? !!s.text?.trim() || !!s.label
@@ -79,7 +92,7 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
   const submit = () => {
     const clean: Answer = { ...draft, captions: draft.captions?.filter((c) => c.trim()) }
     if (regionsMode) clean.segments = segments.filter(keep)
-    saveAnswer(project.id, idx, clean)
+    commitAnswer(project.id, idx, clean, proposal)
     go(Math.min(rows.length - 1, idx + 1))
   }
   const setSegments = (segs: AudioSegment[]) => setDraft({ ...draft, segments: segs })
@@ -160,6 +173,8 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
       <div className="mt-2 flex gap-1">
         {rows.map((_, i) => <button key={i} aria-label={`#${i}`} onClick={() => go(i)} className={cn('h-1.5 flex-1 rounded-full', saved?.[i] ? 'bg-primary' : 'bg-muted', i === idx && 'ring-2 ring-ring ring-offset-1')} />)}
       </div>
+
+      {proposal && <ProposalBanner proposal={proposal} edited={withOrigin({ ...draft, segments: regionsMode ? segments.filter(keep) : draft.segments }, proposal).origin === 'model_edited'} onAccept={submit} onReject={() => { rejectProposal(project.id, idx, proposal); setProposal(null); setDraft({}) }} />}
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-3">
