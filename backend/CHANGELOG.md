@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/mitchou10/MyHug/compare/backend-v0.4.0...backend-v0.4.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **backend:** satisfy the new type checker ([d195f52](https://github.com/mitchou10/MyHug/commit/d195f5231b5b929f94df910716ed139138ba9b79))
+
 ## [0.4.0](https://github.com/mitchou10/app-starter/compare/backend-v0.3.0...backend-v0.4.0) (2026-11-04)
 
 
