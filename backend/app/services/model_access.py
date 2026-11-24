@@ -44,3 +44,16 @@ class ModelAccess:
         if role not in EDITORS:
             raise NotAllowed
         return model
+
+    async def get_readable_model(self, actor: Actor, model: Model) -> tuple[Model, str | None]:
+        """The same, for a model that is already loaded."""
+        role = await self.role(actor, model)
+        if model.visibility != PUBLIC and role is None:
+            raise ModelNotFound
+        return model, role
+
+    async def require_editable(self, actor: Actor, model: Model) -> None:
+        """The same for editing: ModelNotFound if the actor cannot see it, NotAllowed if they can only read it."""
+        _, role = await self.get_readable_model(actor, model)
+        if role not in EDITORS:
+            raise NotAllowed

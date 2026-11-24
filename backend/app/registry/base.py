@@ -54,6 +54,10 @@ class ModelRegistry(Protocol):
         """A run to put the artifacts of a new version in. The experiment of the model is made the first time."""
         ...
 
+    async def log_artifact(self, run: RegistryRun, path: str, data: bytes) -> None:
+        """Puts a small file in the artifacts of a run (a manifest, a card). Large files do not go through here."""
+        ...
+
     async def finish_run(self, run_id: str, *, failed: bool = False) -> None: ...
 
     async def delete_run(self, run_id: str) -> None:

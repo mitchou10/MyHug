@@ -43,7 +43,7 @@ RESET = (
     "TRUNCATE feedback_attachments, feedback_messages, feedbacks, feedback_types, feedback_statuses, "
     "user_profiles, notifications, dataset_likes, dataset_members, dataset_upload_files, dataset_uploads, "
     "dataset_file_derivatives, dataset_files, dataset_versions, datasets, "
-    "model_files, model_versions, model_members, model_likes, models"
+    "model_upload_files, model_uploads, model_files, model_versions, model_members, model_likes, models"
 )
 
 
@@ -209,6 +209,7 @@ class MemoryRegistry:
         self.aliases: dict[tuple[str, str], str] = {}
         self.artifacts: dict[str, list[RegistryArtifact]] = {}  # `<experiment>/<run>/artifacts[/path]` -> its folder
         self.experiments: dict[str, str] = {}
+        self.logged: dict[str, bytes] = {}  # `<run>/<path>` -> what was put in the artifacts
         self.calls: list[str] = []
         self.down = False
         self.fail_on: str | None = None
@@ -243,6 +244,10 @@ class MemoryRegistry:
         run_id = uuid.uuid4().hex
         self.runs[run_id] = {"experiment": experiment, "status": "RUNNING"}
         return RegistryRun(experiment, run_id, f"mlflow-artifacts:/{experiment}/{run_id}/artifacts")
+
+    async def log_artifact(self, run: RegistryRun, path: str, data: bytes) -> None:
+        self._enter("log_artifact")
+        self.logged[f"{run.run_id}/{path.strip('/')}"] = data
 
     async def finish_run(self, run_id: str, *, failed: bool = False) -> None:
         self._enter("finish_run")

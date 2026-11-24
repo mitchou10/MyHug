@@ -6,7 +6,15 @@ from datetime import datetime
 from sqlalchemy import delete, exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from app.models import DatasetFile, DatasetFileDerivative, DatasetUpload, DatasetUploadFile
+from app.models import (
+    DatasetFile,
+    DatasetFileDerivative,
+    DatasetUpload,
+    DatasetUploadFile,
+    ModelFile,
+    ModelUpload,
+    ModelUploadFile,
+)
 from app.models.dataset_upload import OPEN
 from app.repositories.base import Repository
 
@@ -45,6 +53,10 @@ class StorageReferenceRepository(Repository):
             .join(DatasetUpload, DatasetUpload.id == DatasetUploadFile.upload_id)
             .where(DatasetUpload.status == OPEN, DatasetUploadFile.storage_key.in_(keys)),
             select(DatasetFileDerivative.storage_key).where(DatasetFileDerivative.storage_key.in_(keys)),
+            select(ModelFile.storage_key).where(ModelFile.storage_key.in_(keys)),
+            select(ModelUploadFile.storage_key)
+            .join(ModelUpload, ModelUpload.id == ModelUploadFile.upload_id)
+            .where(ModelUpload.status == OPEN, ModelUploadFile.storage_key.in_(keys)),
         )
         for query in queries:
             found.update((await self._db.execute(query)).scalars())
@@ -75,10 +87,16 @@ class StorageReferenceRepository(Repository):
         copies = await self._db.execute(
             select(DatasetFileDerivative.multipart_id).where(DatasetFileDerivative.multipart_id.is_not(None))
         )
-        return {item for item in (*sessions.scalars(), *copies.scalars()) if item}
+        models = await self._db.execute(
+            select(ModelUploadFile.multipart_id)
+            .join(ModelUpload, ModelUpload.id == ModelUploadFile.upload_id)
+            .where(ModelUpload.status == OPEN, ModelUploadFile.multipart_id.is_not(None))
+        )
+        return {item for item in (*sessions.scalars(), *copies.scalars(), *models.scalars()) if item}
 
     async def sample_keys(self, count: int) -> list[str]:
-        """Keys of files of versions, taken at random: to check that their objects are there."""
-        keys = select(DatasetFile.storage_key).distinct().subquery()
+        """Keys of files of versions (of datasets and of models), taken at random: to check that their objects are
+        there."""
+        keys = select(DatasetFile.storage_key).union(select(ModelFile.storage_key)).subquery()
         result = await self._db.execute(select(keys.c.storage_key).order_by(func.random()).limit(count))
         return list(result.scalars())

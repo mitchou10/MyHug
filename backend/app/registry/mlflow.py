@@ -119,6 +119,19 @@ class MlflowRegistry:
             experiment_id=str(info["experiment_id"]), run_id=info["run_id"], artifact_uri=info["artifact_uri"]
         )
 
+    async def log_artifact(self, run: RegistryRun, path: str, data: bytes) -> None:
+        location = f"{run.experiment_id}/{run.run_id}/artifacts/{path.strip('/')}"
+        try:
+            async with httpx2.AsyncClient(
+                base_url=self._base_url, headers=self._headers, timeout=self._timeout, transport=self._transport
+            ) as client:
+                response = await client.put(f"{ARTIFACTS_API}/{location}", content=data)
+        except httpx2.HTTPError as error:
+            logger.error("MLflow does not answer (PUT artifact): %s", error)
+            raise RegistryUnavailable("The models service does not answer") from None
+        if response.status_code >= 400:
+            raise self._error("PUT", "artifact", response)
+
     async def finish_run(self, run_id: str, *, failed: bool = False) -> None:
         await self._call(
             "POST",

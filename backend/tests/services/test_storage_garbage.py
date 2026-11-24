@@ -284,7 +284,9 @@ async def test_the_pass_goes_on_from_one_prefix_to_the_next(db: AsyncSession) ->
     first = await gc.collect(dry_run=False)
     assert first.next_after == "datasets/d1/a"
     second = await gc.collect(after=first.next_after, dry_run=False)
-    assert second.next_after is None and not store.objects
+    assert second.next_after == "derived/parquet/x/b"
+    third = await gc.collect(after=second.next_after, dry_run=False)  # `models/` has nothing: the walk is over
+    assert third.next_after is None and not store.objects
 
 
 async def test_a_row_whose_object_is_not_there_is_told_and_not_hidden(db: AsyncSession) -> None:

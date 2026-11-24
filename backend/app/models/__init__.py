@@ -11,6 +11,7 @@ from app.models.feedback_status import FeedbackStatus
 from app.models.feedback_type import FeedbackType
 from app.models.model import Model
 from app.models.model_member import ModelLike, ModelMember
+from app.models.model_upload import ModelUpload, ModelUploadFile
 from app.models.model_version import ModelFile, ModelVersion
 from app.models.notification import Notification
 from app.models.user_profile import UserProfile
@@ -34,6 +35,8 @@ __all__ = [
     "ModelFile",
     "ModelLike",
     "ModelMember",
+    "ModelUpload",
+    "ModelUploadFile",
     "ModelVersion",
     "Notification",
     "UserProfile",

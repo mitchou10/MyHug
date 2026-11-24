@@ -13,7 +13,7 @@ from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.datasets import DatasetRepository
 from app.services.actor import Actor
 from app.services.dataset_access import DatasetAccess
-from app.services.dataset_versions import README, DatasetVersionService, clean_path
+from app.services.dataset_versions import README, DatasetVersionService
 from app.services.errors import (
     EmptyFile,
     FileTooLarge,
@@ -24,6 +24,7 @@ from app.services.errors import (
     UploadIncomplete,
     UploadNotFound,
 )
+from app.services.paths import clean_path
 from app.storage import ObjectStore, PartInfo
 
 MIB = 1024 * 1024

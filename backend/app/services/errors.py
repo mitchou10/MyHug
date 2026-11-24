@@ -204,6 +204,26 @@ class MemberNotFound(ServiceError):
     message = "This person is not a member of the model"
 
 
+class ModelVersionNotFound(ServiceError):
+    message = "This version does not exist"
+
+
+class ModelFileNotFound(ServiceError):
+    message = "This file does not exist"
+
+
+class EmptyVersion(ServiceError):
+    message = "A version needs files, a link to the code, or both"
+
+
+class InvalidCodeReference(ServiceError):
+    message = "This reference to the code is not accepted"
+
+
+class VersionFailed(ServiceError):
+    message = "The files of this version did not pass the checks"
+
+
 # ---- the registry of the models (MLflow)
 class RegistryUnavailable(ServiceError):
     """MLflow does not answer, or does not take what the backend sends it (a key it refuses, an error of its own)."""
