@@ -56,8 +56,20 @@ jobs:
       LATEST_TAG: ${{ github.ref_name == 'main' }}
       TAG_MAJOR_AND_MINOR: ${{ github.ref_name == 'main' }}
 
+  # An image reference must be lowercase. The repository is called MyHug: the build workflow lowercases it by itself,
+  # Trivy does not and stops with "could not parse reference". Expressions have no lowercase function, so a step does it.
+  image-name:
+    needs: release
+    if: needs.release.outputs.release-created == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.name.outputs.base }}
+    steps:
+      - id: name
+        run: echo "base=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
   scan-images:
-    needs: [release, build]
+    needs: [release, build, image-name]
     if: needs.release.outputs.release-created == 'true'
     strategy:
       fail-fast: false
@@ -69,7 +81,7 @@ jobs:
       packages: read
     with:
       SCAN_TYPE: image
-      TARGET: ghcr.io/${{ github.repository }}-${{ matrix.service }}:${{ needs.release.outputs.version }}
+      TARGET: ${{ needs.image-name.outputs.base }}-${{ matrix.service }}:${{ needs.release.outputs.version }}
       CATEGORY: trivy-${{ matrix.service }}
 
   # Must be the LAST job: keeps dev = main + unreleased work after a release.
