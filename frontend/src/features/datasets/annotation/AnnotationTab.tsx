@@ -51,7 +51,7 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
                 {p.labels.length > 0 && <div className="flex flex-wrap gap-1">{p.labels.map((l) => <Badge key={l.id} variant={l.kind === 'semantic' ? 'secondary' : 'outline'} title={l.description}>{l.name}</Badge>)}</div>}
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1" render={<Link to={`/datasets/${key}/annotate/${p.id}`} />}>{t('datasets.annotation.start')}</Button>
-                  {p.createdBy === CURRENT_USER && (p.labels.length > 0 || !!p.scale || !!p.tracks || p.task === 'audio_caption') && <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil />{t('datasets.annotation.edit')}</Button>}
+                  {p.createdBy === CURRENT_USER && (p.labels.length > 0 || !!p.scale || !!p.tracks || p.task === 'audio_caption' || p.task === 'video_caption') && <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil />{t('datasets.annotation.edit')}</Button>}
                 </div>
               </CardContent>
             </Card>

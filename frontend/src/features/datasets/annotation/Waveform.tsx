@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
-import { fmtTime, type Clip } from './audioMock'
+import { fmtTime } from './audioMock'
 import type { AudioSegment } from './store'
 
 export type AudioTool = 'select' | 'region'
@@ -14,7 +14,7 @@ type Drag = { kind: 'create'; t0: number; lane: number } | { kind: 'start' | 'en
  * region to adjust it, or its body to move it (also to another lane). `zoom` stretches the time axis (the box scrolls).
  */
 export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, selectedId, tool, hueOf, tagOf, onSeek, onSelect, onCreate, onChange, onActiveTrack }: {
-  clip: Clip; time: number; zoom: number; segments: AudioSegment[]; tracks: string[]; activeTrack: number; selectedId: string | null; tool: AudioTool
+  clip: { duration: number; peaks: number[] }; time: number; zoom: number; segments: AudioSegment[]; tracks: string[]; activeTrack: number; selectedId: string | null; tool: AudioTool
   hueOf: (s: AudioSegment) => number | null; tagOf: (s: AudioSegment) => string
   onSeek: (t: number) => void; onSelect: (id: string | null) => void; onCreate: (start: number, end: number, track: number) => void
   onChange: (s: AudioSegment[]) => void; onActiveTrack: (i: number) => void
@@ -90,10 +90,10 @@ export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, sele
   return (
     <div ref={scroller} className="overflow-x-auto rounded-lg border bg-muted/30">
       <div ref={box} className="relative touch-none select-none" style={{ width: `${zoom * 100}%`, cursor: tool === 'region' ? 'crosshair' : 'pointer' }} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
-        <div className="relative h-28">
-          <svg viewBox={`0 0 ${clip.peaks.length} 100`} preserveAspectRatio="none" className="absolute inset-0 top-5 h-[calc(100%-1.25rem)] w-full text-muted-foreground" aria-hidden>
+        <div className={`relative ${clip.peaks.length ? 'h-28' : 'h-9'}`}>
+          {clip.peaks.length > 0 && <svg viewBox={`0 0 ${clip.peaks.length} 100`} preserveAspectRatio="none" className="absolute inset-0 top-5 h-[calc(100%-1.25rem)] w-full text-muted-foreground" aria-hidden>
             <path d={path} stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" fill="none" />
-          </svg>
+          </svg>}
           {ticks.map((t) => <span key={t} className="pointer-events-none absolute top-0 h-full border-l border-dashed border-border pl-1 text-[10px] text-muted-foreground" style={{ left: pct(t) }}>{t}s</span>)}
         </div>
 

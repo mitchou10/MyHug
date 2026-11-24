@@ -9,15 +9,15 @@ import { LabelsEditor, labelsValid } from './LabelsEditor'
 import { AudioRegionOptions } from './AudioRegionOptions'
 import { MultiLabelToggle } from './MultiLabelToggle'
 import { emptyScale, ScaleForm, scaleValid as isScaleValid, toScale } from './ScaleForm'
-import { addProject, CURRENT_USER, AUDIO_TASKS, DEFAULT_TRACKS, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, type LabelDef, type TaskType } from './store'
+import { addProject, CURRENT_USER, AUDIO_TASKS, DEFAULT_TRACKS, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, VIDEO_TASKS, type LabelDef, type TaskType } from './store'
 
 /** Tasks that need a list of labels; `regression` needs a scale; `qa` needs nothing more. */
-const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa' && t !== 'audio_transcription' && t !== 'audio_caption'
+const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa' && t !== 'audio_transcription' && t !== 'audio_caption' && t !== 'video_caption'
 
 /** Creates an annotation task in two steps (what, then how): everyone who can see the dataset will be able to annotate it. */
 export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: { datasetKey: string; modality: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
-  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : modality === 'audio' ? AUDIO_TASKS : TEXT_TASKS
+  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : modality === 'audio' ? AUDIO_TASKS : modality === 'video' ? VIDEO_TASKS : TEXT_TASKS
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [task, setTask] = useState<TaskType>(TASKS[0])
@@ -29,13 +29,17 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
 
   const scale = toScale(sc)
   const scaleValid = isScaleValid(scale)
-  const isAudio = modality === 'audio'
+  // Sounds and videos are both timed: they share the regions and the tracks.
+  const isTimed = modality === 'audio' || modality === 'video'
+  const kind = task.replace(/^(audio|video)_/, '')
+  /** Tracking has its own tool: no regions, no tracks to name. */
+  const timedRegions = isTimed && task !== 'video_tracking'
   /** For audio, classification, description and regression can apply to the whole clip or to stretches of it. */
-  const canChoose = isAudio && (task === 'audio_classification' || task === 'audio_caption' || task === 'regression')
-  const regionsMode = isAudio && (canChoose ? regions : task === 'audio_segments' || task === 'audio_transcription')
+  const canChoose = timedRegions && (kind === 'classification' || kind === 'caption' || task === 'regression')
+  const regionsMode = timedRegions && (canChoose ? regions : kind === 'segments' || kind === 'transcription')
   // Speakers are optional when transcribing: none, or at least two.
   const optionalLabels = task === 'audio_transcription'
-  const hasStep2 = needsLabels(task) || task === 'regression' || isAudio
+  const hasStep2 = needsLabels(task) || task === 'regression' || timedRegions
   const labelsOk = needsLabels(task) ? labelsValid(labels) : optionalLabels ? labels.length === 0 || labelsValid(labels) : true
   const valid = !!name.trim() && labelsOk && (task !== 'regression' || scaleValid) && (!regionsMode || tracks.length > 0)
 
@@ -79,7 +83,7 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
           </div>
         ) : (
           <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
-            {isAudio && <AudioRegionOptions canChoose={canChoose} regions={regionsMode} onRegions={setRegions} tracks={tracks} onTracks={setTracks} />}
+            {timedRegions && <AudioRegionOptions canChoose={canChoose} regions={regionsMode} onRegions={setRegions} tracks={tracks} onTracks={setTracks} />}
             {(needsLabels(task) || optionalLabels) && (
               <div className="space-y-3">
                 {optionalLabels && <p className="text-sm text-muted-foreground">{t('datasets.annotation.audio.speakersHint')}</p>}

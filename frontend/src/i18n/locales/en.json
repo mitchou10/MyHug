@@ -369,6 +369,22 @@
         "audio_caption": {
           "title": "Audio to text",
           "hint": "Describe each clip with one or more sentences."
+        },
+        "video_classification": {
+          "title": "Video classification",
+          "hint": "Give one or several labels to each video."
+        },
+        "video_segments": {
+          "title": "Labelled segments",
+          "hint": "Mark the stretches of the video: actions, events, scenes."
+        },
+        "video_tracking": {
+          "title": "Object tracking",
+          "hint": "Follow objects through the video with a box and keyframes."
+        },
+        "video_caption": {
+          "title": "Video to text",
+          "hint": "Describe each video, or each of its parts."
         }
       },
       "labelName": "Label name",
@@ -574,7 +590,23 @@
         "speakersHint": "Speakers are optional. If you add some, each region of the transcription can be given one.",
         "timeText": "Text"
       },
-      "editTask": "Edit the task"
+      "editTask": "Edit the task",
+      "video": {
+        "hintSegments": "Drag on the timeline to create a region, drag its edges to adjust. Space plays, M marks the start and the end, , and . step by one frame.",
+        "hintPlain": "Space plays or pauses, click the timeline to move, , and . step by one frame.",
+        "empty": "Generated placeholder video: the real files will come from the backend.",
+        "prevFrame": "Previous frame",
+        "nextFrame": "Next frame",
+        "box": "Box",
+        "noTrack": "No object yet. Choose a label and draw a box around an object.",
+        "hintTracking": "Draw a box around an object, move forward, and correct the box when it drifts: each correction is a keyframe (◆), the box follows between keyframes. Dashed means interpolated.",
+        "tracks": "Objects",
+        "keyframes": "{{n}} keyframes",
+        "prevKey": "Prev. key",
+        "nextKey": "Next key",
+        "outside": "Left the frame",
+        "removeKey": "Delete key"
+      }
     }
   }
 }

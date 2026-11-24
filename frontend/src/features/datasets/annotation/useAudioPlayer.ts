@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Clip } from './audioMock'
 
+/** What a player offers: the audio one and the clock one of the videos have the same shape. */
+export type Player = {
+  playing: boolean; time: number; speed: number
+  toggle: () => void; pause: () => void; playRange: (from: number, to: number) => void; seek: (t: number) => void; setSpeed: (r: number) => void
+}
+
 /** Plays a clip with the Web Audio API: play from a time, up to a time, at a speed, and follow the position. */
-export function useAudioPlayer(clip: Clip) {
+export function useAudioPlayer(clip: Clip): Player {
   const ctx = useRef<AudioContext | null>(null)
   const src = useRef<AudioBufferSourceNode | null>(null)
   const run = useRef({ at: 0, from: 0, to: clip.duration, speed: 1 })

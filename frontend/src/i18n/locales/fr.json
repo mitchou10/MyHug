@@ -369,6 +369,22 @@
         "audio_caption": {
           "title": "Audio vers texte",
           "hint": "Décrire chaque extrait avec une ou plusieurs phrases."
+        },
+        "video_classification": {
+          "title": "Classification vidéo",
+          "hint": "Donner un ou plusieurs labels à chaque vidéo."
+        },
+        "video_segments": {
+          "title": "Segments étiquetés",
+          "hint": "Marquer les passages de la vidéo : actions, événements, scènes."
+        },
+        "video_tracking": {
+          "title": "Suivi d'objets",
+          "hint": "Suivre des objets dans la vidéo avec une boîte et des images clés."
+        },
+        "video_caption": {
+          "title": "Vidéo vers texte",
+          "hint": "Décrire chaque vidéo, ou chacune de ses parties."
         }
       },
       "labelName": "Nom du label",
@@ -574,7 +590,23 @@
         "speakersHint": "Les locuteurs sont facultatifs. Si vous en ajoutez, chaque région de la transcription peut en recevoir un.",
         "timeText": "Texte"
       },
-      "editTask": "Modifier la tâche"
+      "editTask": "Modifier la tâche",
+      "video": {
+        "hintSegments": "Glissez sur la timeline pour créer une région, glissez ses bords pour l'ajuster. Espace lance la lecture, M marque le début puis la fin, , et . avancent d'une image.",
+        "hintPlain": "Espace lance ou met en pause, cliquez la timeline pour vous déplacer, , et . avancent d'une image.",
+        "empty": "Vidéo de substitution générée : les vrais fichiers viendront du backend.",
+        "prevFrame": "Image précédente",
+        "nextFrame": "Image suivante",
+        "box": "Boîte",
+        "noTrack": "Aucun objet. Choisissez un label et tracez une boîte autour d'un objet.",
+        "hintTracking": "Tracez une boîte autour d'un objet, avancez, et corrigez la boîte quand elle dérive : chaque correction est une image clé (◆), la boîte suit entre deux images clés. Pointillés = interpolée.",
+        "tracks": "Objets",
+        "keyframes": "{{n}} images clés",
+        "prevKey": "Clé préc.",
+        "nextKey": "Clé suiv.",
+        "outside": "Sorti du champ",
+        "removeKey": "Suppr. la clé"
+      }
     }
   }
 }
