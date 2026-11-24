@@ -162,8 +162,8 @@ class ModelVersionService:
             id=uuid.uuid4(),
             model_id=model.id,
             number=number,
-            # What was sent in parts is read by a worker; a version with nothing like that has nothing to wait for.
-            status=PENDING if any(file.sha256 is None for file in added) else READY,
+            # A file nobody fingerprinted yet is read by a worker; a version without one has nothing to wait for.
+            status=PENDING if any(file.sha256 is None for file in files) else READY,
             message=message,
             size_bytes=sum(file.size_bytes for file in files),
             created_by=actor.user_id,

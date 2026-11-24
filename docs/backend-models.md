@@ -170,8 +170,27 @@ les fichiers de modèles. Ce que MLflow garde sous `mlflow/` (manifestes, ancien
 
 `MODEL_FILE_MAX_BYTES` (50 Gio), `MODEL_VERSION_MAX_FILES` (500), les parties et la durée d'une session comme les datasets.
 
-### Reste à faire pour fermer #17
+### La vérification des fichiers par le worker
 
-Le **worker** doit calculer le sha256 des fichiers envoyés en parties et comparer à l'annonce (une version `pending` passe
-`ready`, ou `failed` en nommant le fichier). D'ici là, les versions avec des fichiers restent `pending`, et la
-déduplication par empreinte ne joue pas encore (aucun fichier n'a d'empreinte calculée).
+Un fichier envoyé en parties n'a pas d'empreinte: la version est `pending` et `POST /api/internal/model-versions/{id}/…`
+(`claim`, `result`, `failure`, `release`, `waiting`, même schéma que pour les datasets) laisse le worker la vérifier. La tâche
+`models.process_version` (même file `datasets`) télécharge chaque fichier **sans le garder** (on ne lit rien dedans: un
+poids peut faire des dizaines de Gio) et renvoie sa taille et son sha256. L'API:
+
+- compare la taille à celle annoncée, et l'empreinte à celle que le navigateur avait annoncée: un écart met la version en
+  `failed` avec **le fichier nommé** dans `error`, sans rien garder des empreintes écrites; une version `failed` ne se
+  télécharge pas (409) et peut être revérifiée;
+- écrit les empreintes, et si le même contenu est déjà dans le modèle sous une autre clé, fait pointer le fichier vers
+  l'objet existant et supprime le doublon (**un contenu n'est stocké qu'une fois**);
+- passe la version à `ready`.
+
+Reprise: un worker mort est remplacé au bout de `PROCESSING_STALE_MINUTES`, le balayage (`datasets.process_waiting`) remet en
+file les versions oubliées, trois essais au plus. Le manifeste donné à MLflow garde les empreintes inconnues au moment de la
+création (`null`): c'est la base de la plateforme qui fait foi. Un fichier dont l'empreinte est connue n'est plus renvoyé
+(`already_stored`), et une version dont tous les fichiers sont connus est `ready` d'emblée.
+
+### Vérifié à la main
+
+Un fichier de 300 Mio (5 parties de 64 Mio) contre le vrai compose (RustFS, MLflow, worker): envoi en 7 s, version `ready`
+après la vérification du worker, empreinte égale à celle calculée à l'envoi, téléchargement par adresse signée identique,
+version et lien MLflow présents, puis suppression du modèle (MLflow et stockage).

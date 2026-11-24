@@ -6,7 +6,7 @@ from worker.celery_app import celery_app
 from worker.config import settings
 from worker.copier import make_copy
 from worker.errors import FileProblem
-from worker.reader import read
+from worker.reader import fingerprint, read
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,31 @@ def process_version(version_id: str) -> str | None:
 
 
 @celery_app.task(
+    name="models.process_version",  # the name the API queues it by
+    autoretry_for=(Exception,),  # what is not the file's fault: the API or the storage was down
+    retry_backoff=True,
+    retry_backoff_max=600,
+    max_retries=3,
+)
+def process_model_version(version_id: str) -> str | None:
+    """Computes the fingerprints of the files of a version of a model, and tells the API, which compares them with what
+    was announced. Returns where the version ended, or None when there was nothing to do."""
+    api, version = _backend(), uuid.UUID(version_id)
+    files = api.claim_model_version(version)
+    if files is None:
+        return None
+    try:
+        found = [fingerprint(api, file) for file in files]
+    except FileProblem as error:
+        logger.warning("Model version %s cannot be read: %s", version, error)
+        return api.model_version_failure(version, str(error))
+    except Exception:
+        api.model_version_release(version)  # not the file's fault: it is taken again by the retry
+        raise
+    return api.model_version_result(version, found)
+
+
+@celery_app.task(
     name="datasets.convert_file",  # the name the API queues it by
     autoretry_for=(Exception,),
     retry_backoff=True,
@@ -67,14 +92,18 @@ def convert_file(derivative_id: str) -> str | None:
 
 @celery_app.task(name="datasets.process_waiting")
 def process_waiting() -> int:
-    """Queues the jobs nobody is doing: the reading of versions and the making of copies. Returns how many."""
+    """Queues the jobs nobody is doing: the reading of versions (of datasets and of models) and the making of copies.
+    Returns how many."""
     api = _backend()
     versions, copies = api.waiting(), api.waiting_copies()
+    models = api.waiting_model_versions()
     for version in versions:
         process_version.apply_async(args=[str(version)])
+    for model_version in models:
+        process_model_version.apply_async(args=[str(model_version)])
     for copy in copies:
         convert_file.apply_async(args=[str(copy)])
-    return len(versions) + len(copies)
+    return len(versions) + len(copies) + len(models)
 
 
 @celery_app.task(name="datasets.expire_uploads")

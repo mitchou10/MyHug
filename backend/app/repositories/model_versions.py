@@ -1,8 +1,10 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 
 from app.models import Model, ModelFile, ModelVersion
+from app.models.model_version import FAILED, PENDING, PROCESSING
 from app.repositories.base import Repository
 
 
@@ -104,3 +106,72 @@ class ModelVersionRepository(Repository):
 
     async def count_downloads(self, model_id: uuid.UUID) -> None:
         await self._db.execute(update(Model).where(Model.id == model_id).values(downloads=Model.downloads + 1))
+
+    # ---- for the worker
+
+    async def claim(self, version_id: uuid.UUID, stale_before: datetime) -> ModelVersion | None:
+        """Takes a version in hand, for one worker only: it is `processing` from then on, and the attempt is counted.
+
+        A version can be taken when it waits, when it failed (somebody asks to check it again), or when it has been
+        `processing` for so long that its worker must have died. None when it is not up for the taking."""
+        taken = await self._db.execute(
+            update(ModelVersion)
+            .where(
+                ModelVersion.id == version_id,
+                or_(
+                    ModelVersion.status.in_((PENDING, FAILED)),
+                    and_(ModelVersion.status == PROCESSING, ModelVersion.processing_started_at < stale_before),
+                ),
+            )
+            .values(status=PROCESSING, processing_started_at=func.now(), attempts=ModelVersion.attempts + 1, error=None)
+            .returning(ModelVersion)
+            .execution_options(populate_existing=True)
+        )
+        version = taken.scalar_one_or_none()
+        await self._db.commit()  # the other workers see it at once
+        return version
+
+    async def release(self, version_id: uuid.UUID) -> None:
+        """Back to waiting after a failure that is not its fault (the storage was down): it will be taken again."""
+        await self._db.execute(
+            update(ModelVersion)
+            .where(ModelVersion.id == version_id, ModelVersion.status == PROCESSING)
+            .values(status=PENDING)
+        )
+        await self._db.commit()
+
+    async def waiting(self, *, older_than: datetime, stale_before: datetime, limit: int) -> list[uuid.UUID]:
+        """The versions nobody is checking: waiting for a while (the job may have been lost), or being checked by a
+        worker that stopped answering."""
+        result = await self._db.execute(
+            select(ModelVersion.id)
+            .where(
+                or_(
+                    and_(ModelVersion.status == PENDING, ModelVersion.created_at < older_than),
+                    and_(ModelVersion.status == PROCESSING, ModelVersion.processing_started_at < stale_before),
+                )
+            )
+            .order_by(ModelVersion.created_at)
+            .limit(limit)
+        )
+        return list(result.scalars())
+
+    async def find_twin(self, model_id: uuid.UUID, sha256: str, size: int, key: str) -> ModelFile | None:
+        """A file of the model with the same content as this one but another object in the storage."""
+        result = await self._db.execute(
+            select(ModelFile)
+            .join(ModelVersion)
+            .where(
+                ModelVersion.model_id == model_id,
+                ModelFile.sha256 == sha256,
+                ModelFile.size_bytes == size,
+                ModelFile.storage_key != key,
+            )
+            .order_by(ModelFile.created_at)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def repoint(self, old_key: str, new_key: str) -> None:
+        """Every file that was the object `old_key` is the object `new_key` from now on (they hold the same content)."""
+        await self._db.execute(update(ModelFile).where(ModelFile.storage_key == old_key).values(storage_key=new_key))
