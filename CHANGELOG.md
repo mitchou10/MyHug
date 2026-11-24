@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.0](https://github.com/mitchou10/MyHug/compare/v0.7.0...v0.8.0) (2026-11-24)
+
+
+### Features
+
+* **collections:** gather datasets and models in collections ([e5a96c1](https://github.com/mitchou10/MyHug/commit/e5a96c1a6bd1398cc122e9093a5a796b24934855))
+* **datasets:** link the pre-annotation to the page of its model ([a41e1b6](https://github.com/mitchou10/MyHug/commit/a41e1b6748114de8c259c0cd3c158fea4098ae46))
+* **models:** add a space for models, like the one for datasets ([ca9a63e](https://github.com/mitchou10/MyHug/commit/ca9a63ec540500b217594095fc8ba4e190a9c866))
+* **models:** evaluate a model with the important metrics of its tasks ([367e94a](https://github.com/mitchou10/MyHug/commit/367e94ae5ab986298c99df541872a06c26d75662))
+
 ## [0.7.0](https://github.com/mitchou10/MyHug/compare/v0.6.0...v0.7.0) (2026-11-24)
 
 
