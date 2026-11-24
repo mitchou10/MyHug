@@ -1,0 +1,239 @@
+{
+  "app": {
+    "title": "App"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "required": "Vous devez vous connecter pour voir cette page.",
+    "openApp": "Ouvrir l'application"
+  },
+  "language": {
+    "label": "Langue",
+    "en": "English",
+    "fr": "Français"
+  },
+  "landing": {
+    "hero": {
+      "title": "Construisez votre prochaine application sur des bases solides",
+      "description": "Un backend, un frontend, l'authentification, la CI et les releases : tout est branché, il ne reste que votre produit à écrire.",
+      "cta": "Découvrir les fonctionnalités"
+    },
+    "features": {
+      "title": "Tout pour bien démarrer",
+      "description": "Chaque brique est petite, remplaçable et documentée.",
+      "backend": {
+        "title": "Backend FastAPI",
+        "description": "API Python typée avec uv, tests et couverture prêts à l'emploi."
+      },
+      "frontend": {
+        "title": "Frontend React",
+        "description": "Vite, Tailwind CSS et des composants shadcn/ui que vous possédez et modifiez."
+      },
+      "auth": {
+        "title": "Connexion sécurisée",
+        "description": "Un backend-for-frontend compatible avec tout fournisseur OpenID Connect : les tokens n'atteignent jamais le navigateur."
+      },
+      "releases": {
+        "title": "Releases par service",
+        "description": "Un changelog et une version pour chaque service, plus une release globale."
+      },
+      "i18n": {
+        "title": "Multilingue",
+        "description": "Anglais et français inclus, un fichier JSON par langue."
+      },
+      "containers": {
+        "title": "Conteneurs",
+        "description": "Images Docker construites, scannées et publiées à chaque release."
+      }
+    }
+  },
+  "footer": "© {{year}} App. Tous droits réservés.",
+  "nav": {},
+  "notFound": {
+    "title": "Page introuvable",
+    "description": "La page que vous cherchez n'existe pas.",
+    "back": "Retour à l'accueil"
+  },
+  "appNav": {
+    "home": "Accueil",
+    "toggle": "Afficher ou masquer la barre latérale",
+    "adminFeedback": "Gérer les retours"
+  },
+  "userMenu": {
+    "open": "Ouvrir le menu utilisateur",
+    "settings": "Paramètres",
+    "language": "Langue",
+    "signOut": "Se déconnecter",
+    "giveFeedback": "Donner mon avis",
+    "myFeedback": "Gérer mes retours",
+    "admin": "Administration",
+    "feedback": "Retours",
+    "notifications": "Notifications",
+    "openUnread_one": "Ouvrir le menu utilisateur, 1 notification non lue",
+    "openUnread_other": "Ouvrir le menu utilisateur, {{count}} notifications non lues",
+    "unread_one": "1 notification non lue",
+    "unread_other": "{{count}} notifications non lues"
+  },
+  "appHome": {
+    "welcome": "Bienvenue, {{name}}",
+    "empty": "Rien ici pour l'instant : c'est ici que commence votre produit."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "name": "Nom",
+    "email": "E-mail",
+    "roles": "Rôles"
+  },
+  "profile": {
+    "change": "Changer la photo",
+    "remove": "Supprimer la photo",
+    "hint": "PNG, JPEG ou WebP, 2 Mo au maximum.",
+    "errors": {
+      "tooLarge": "Cette photo est trop volumineuse (2 Mo au maximum).",
+      "unsupported": "Ce fichier n'est pas une image PNG, JPEG ou WebP.",
+      "failed": "La photo n'a pas pu être enregistrée. Réessayez."
+    }
+  },
+  "feedback": {
+    "screenshots": {
+      "add": "Ajouter des captures",
+      "hint": "PNG, JPEG ou WebP, 5 Mo chacune, {{max}} au maximum. Vous pouvez aussi coller une image.",
+      "remove": "Retirer {{name}}",
+      "open": "Ouvrir {{name}}",
+      "errors": {
+        "tooMany": "{{max}} captures au maximum.",
+        "tooLarge": "Une capture est trop volumineuse (5 Mo au maximum).",
+        "unsupported": "Seulement des images PNG, JPEG ou WebP."
+      }
+    },
+    "form": {
+      "title": "Titre",
+      "type": "Type",
+      "typePlaceholder": "Choisir un type",
+      "description": "Description",
+      "screenshots": "Captures d'écran (facultatif)",
+      "required": "Ce champ est obligatoire.",
+      "cancel": "Annuler",
+      "submit": "Envoyer",
+      "attachPage": "Joindre la page où je suis :"
+    },
+    "dialog": {
+      "title": "Donner mon avis",
+      "description": "Un bug, une idée, une question : dites-le nous. Nous répondons dans Mes retours."
+    },
+    "filters": {
+      "status": "Filtrer par statut",
+      "type": "Filtrer par type",
+      "allStatuses": "Tous les statuts",
+      "open": "Ouverts",
+      "allTypes": "Tous les types"
+    },
+    "list": {
+      "replies": "Réponses",
+      "empty": "Aucun retour ici.",
+      "myTitle": "Mes retours",
+      "myDescription": "Ce que vous nous avez envoyé et où cela en est.",
+      "new": "Nouveau retour",
+      "label": "Liste des retours",
+      "more": "Afficher {{count}} de plus",
+      "count": "{{shown}} sur {{total}}"
+    },
+    "thread": {
+      "statusChanged": "{{name}} a changé le statut",
+      "staff": "Équipe",
+      "label": "Suivi",
+      "empty": "Pas encore de réponse.",
+      "older": "Afficher {{count}} messages plus anciens ({{total}} masqués)"
+    },
+    "reply": {
+      "label": "Votre réponse",
+      "send": "Envoyer la réponse"
+    },
+    "controls": {
+      "status": "Statut",
+      "type": "Type",
+      "close": "Clore ce retour",
+      "reopen": "Rouvrir ce retour"
+    },
+    "detail": {
+      "notFound": "Ce retour n'existe pas.",
+      "back": "Retour à la liste",
+      "by": "par {{name}} le {{date}}",
+      "label": "Retour sélectionné",
+      "select": "Sélectionnez un retour pour le lire et le suivre.",
+      "page": "Page :"
+    },
+    "tones": {
+      "gray": "Gris",
+      "blue": "Bleu",
+      "green": "Vert",
+      "amber": "Ambre",
+      "red": "Rouge",
+      "violet": "Violet"
+    },
+    "admin": {
+      "settingsDescription": "Les types et les statuts proposés. Archivez une valeur plutôt que la supprimer : les retours existants la gardent.",
+      "types": "Types",
+      "statuses": "Statuts",
+      "add": "Ajouter",
+      "edit": "Modifier",
+      "name": "Nom",
+      "description": "Description",
+      "color": "Couleur",
+      "isClosed": "Un statut final : le retour est terminé",
+      "save": "Enregistrer",
+      "createdBy": "Créé par",
+      "createdAt": "Créé le",
+      "actions": "Actions",
+      "closedFlag": "final",
+      "system": "Système",
+      "archive": "Archiver",
+      "restore": "Restaurer",
+      "pageTitle": "Gérer les retours",
+      "pageDescription": "Tout ce que les utilisateurs ont envoyé : répondre, changer le statut ou le type. Les types et statuts sont dans le second onglet.",
+      "tabFeedback": "Retours",
+      "tabSettings": "Types et statuts"
+    },
+    "state": {
+      "loading": "Chargement..."
+    }
+  },
+  "forbidden": {
+    "title": "Accès refusé",
+    "description": "Cette page est réservée aux administrateurs.",
+    "back": "Retour à l'application"
+  },
+  "errors": {
+    "tooLarge": "Une image est trop volumineuse (5 Mo au maximum).",
+    "unsupported": "Seulement des images PNG, JPEG ou WebP.",
+    "tooMany": "5 captures au maximum.",
+    "forbidden": "Vous n'avez pas le droit de faire cela.",
+    "notFound": "Cela n'existe plus.",
+    "duplicate": "Une valeur porte déjà ce nom.",
+    "invalid": "Il manque quelque chose ou ce n'est pas valide. Vérifiez votre saisie.",
+    "network": "Le serveur est injoignable. Réessayez.",
+    "failed": "Une erreur est survenue. Réessayez.",
+    "conflict": "Impossible : l'application elle-même s'en sert."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Ce que les applications vous disent.",
+    "tabs": {
+      "all": "Toutes",
+      "unread": "Non lues ({{count}})"
+    },
+    "markAllRead": "Tout marquer comme lu",
+    "markRead": "Marquer comme lue",
+    "markUnread": "Marquer comme non lue",
+    "open": "Ouvrir",
+    "openOn": "Ouvrir sur {{host}}",
+    "unreadLabel": "Non lue :",
+    "empty": {
+      "all": "Vous n'avez aucune notification.",
+      "unread": "Aucune notification non lue."
+    },
+    "count": "{{shown}} sur {{total}}",
+    "more": "Afficher {{count}} de plus",
+    "loading": "Chargement..."
+  }
+}

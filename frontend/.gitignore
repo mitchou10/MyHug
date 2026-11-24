@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+*.local
+.vitest
+
+# The root .gitignore (Python template) ignores every lib/ folder; src/lib holds the shadcn helpers.
+!src/lib/

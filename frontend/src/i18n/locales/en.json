@@ -1,0 +1,239 @@
+{
+  "app": {
+    "title": "App"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "required": "You need to sign in to see this page.",
+    "openApp": "Open the app"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "fr": "Français"
+  },
+  "landing": {
+    "hero": {
+      "title": "Build your next app on solid ground",
+      "description": "A backend, a frontend, authentication, CI and releases: everything is wired, you only write your product.",
+      "cta": "Discover the features"
+    },
+    "features": {
+      "title": "Everything you need to start",
+      "description": "Each piece is small, replaceable and documented.",
+      "backend": {
+        "title": "FastAPI backend",
+        "description": "Typed Python API with uv, tests and coverage out of the box."
+      },
+      "frontend": {
+        "title": "React frontend",
+        "description": "Vite, Tailwind CSS and shadcn/ui components you own and can edit."
+      },
+      "auth": {
+        "title": "Secure login",
+        "description": "A backend-for-frontend with any OpenID Connect provider: tokens never reach the browser."
+      },
+      "releases": {
+        "title": "Releases per service",
+        "description": "One changelog and one version for each service, plus a global release."
+      },
+      "i18n": {
+        "title": "Multilingual",
+        "description": "English and French included, one JSON file per language."
+      },
+      "containers": {
+        "title": "Containers",
+        "description": "Docker images built, scanned and published on every release."
+      }
+    }
+  },
+  "footer": "© {{year}} App. All rights reserved.",
+  "nav": {},
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist.",
+    "back": "Back to home"
+  },
+  "appNav": {
+    "home": "Home",
+    "toggle": "Toggle the sidebar",
+    "adminFeedback": "Manage feedback"
+  },
+  "userMenu": {
+    "open": "Open the user menu",
+    "settings": "Settings",
+    "language": "Language",
+    "signOut": "Sign out",
+    "giveFeedback": "Give feedback",
+    "myFeedback": "Manage my feedback",
+    "admin": "Administration",
+    "feedback": "Feedback",
+    "notifications": "Notifications",
+    "openUnread_one": "Open the user menu, 1 unread notification",
+    "openUnread_other": "Open the user menu, {{count}} unread notifications",
+    "unread_one": "1 unread notification",
+    "unread_other": "{{count}} unread notifications"
+  },
+  "appHome": {
+    "welcome": "Welcome, {{name}}",
+    "empty": "Nothing here yet: this is where your product starts."
+  },
+  "settings": {
+    "title": "Settings",
+    "name": "Name",
+    "email": "Email",
+    "roles": "Roles"
+  },
+  "profile": {
+    "change": "Change photo",
+    "remove": "Remove photo",
+    "hint": "PNG, JPEG or WebP, 2 MB at most.",
+    "errors": {
+      "tooLarge": "This photo is too large (2 MB at most).",
+      "unsupported": "This file is not a PNG, JPEG or WebP image.",
+      "failed": "The photo could not be saved. Try again."
+    }
+  },
+  "feedback": {
+    "screenshots": {
+      "add": "Add screenshots",
+      "hint": "PNG, JPEG or WebP, 5 MB each, {{max}} at most. You can also paste an image.",
+      "remove": "Remove {{name}}",
+      "open": "Open {{name}}",
+      "errors": {
+        "tooMany": "{{max}} screenshots at most.",
+        "tooLarge": "A screenshot is too large (5 MB at most).",
+        "unsupported": "Only PNG, JPEG or WebP images."
+      }
+    },
+    "form": {
+      "title": "Title",
+      "type": "Type",
+      "typePlaceholder": "Choose a type",
+      "description": "Description",
+      "screenshots": "Screenshots (optional)",
+      "required": "This field is required.",
+      "cancel": "Cancel",
+      "submit": "Send",
+      "attachPage": "Attach the page I am on:"
+    },
+    "dialog": {
+      "title": "Give feedback",
+      "description": "A bug, an idea, a question: tell us. We answer in My feedback."
+    },
+    "filters": {
+      "status": "Filter by status",
+      "type": "Filter by type",
+      "allStatuses": "All statuses",
+      "open": "Open",
+      "allTypes": "All types"
+    },
+    "list": {
+      "replies": "Answers",
+      "empty": "No feedback here.",
+      "myTitle": "My feedback",
+      "myDescription": "What you sent us and where it stands.",
+      "new": "New feedback",
+      "label": "Feedback list",
+      "more": "Show {{count}} more",
+      "count": "{{shown}} of {{total}}"
+    },
+    "thread": {
+      "statusChanged": "{{name}} changed the status",
+      "staff": "Team",
+      "label": "Follow-up",
+      "empty": "No answer yet.",
+      "older": "Show {{count}} older messages ({{total}} hidden)"
+    },
+    "reply": {
+      "label": "Your answer",
+      "send": "Send answer"
+    },
+    "controls": {
+      "status": "Status",
+      "type": "Type",
+      "close": "Close this feedback",
+      "reopen": "Reopen this feedback"
+    },
+    "detail": {
+      "notFound": "This feedback does not exist.",
+      "back": "Back to the list",
+      "by": "by {{name}} on {{date}}",
+      "label": "Selected feedback",
+      "select": "Select a feedback to read it and follow up.",
+      "page": "Page:"
+    },
+    "tones": {
+      "gray": "Gray",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "red": "Red",
+      "violet": "Violet"
+    },
+    "admin": {
+      "settingsDescription": "The types and statuses people can choose from. Archive a value rather than deleting it: existing feedback keeps it.",
+      "types": "Types",
+      "statuses": "Statuses",
+      "add": "Add",
+      "edit": "Edit",
+      "name": "Name",
+      "description": "Description",
+      "color": "Color",
+      "isClosed": "A closed status: the feedback is done with",
+      "save": "Save",
+      "createdBy": "Created by",
+      "createdAt": "Created on",
+      "actions": "Actions",
+      "closedFlag": "closed",
+      "system": "System",
+      "archive": "Archive",
+      "restore": "Restore",
+      "pageTitle": "Manage feedback",
+      "pageDescription": "Everything users sent: answer, change the status or the type. The types and statuses are in the second tab.",
+      "tabFeedback": "Feedback",
+      "tabSettings": "Types and statuses"
+    },
+    "state": {
+      "loading": "Loading..."
+    }
+  },
+  "forbidden": {
+    "title": "Access denied",
+    "description": "This page is for administrators.",
+    "back": "Back to the app"
+  },
+  "errors": {
+    "tooLarge": "An image is too large (5 MB at most).",
+    "unsupported": "Only PNG, JPEG or WebP images.",
+    "tooMany": "5 screenshots at most.",
+    "forbidden": "You are not allowed to do this.",
+    "notFound": "This does not exist any more.",
+    "duplicate": "A value with this name already exists.",
+    "invalid": "Something is missing or not valid. Check what you typed.",
+    "network": "The server cannot be reached. Try again.",
+    "failed": "Something went wrong. Try again.",
+    "conflict": "This cannot be done: the app itself relies on it."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "What the applications tell you.",
+    "tabs": {
+      "all": "All",
+      "unread": "Unread ({{count}})"
+    },
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "open": "Open",
+    "openOn": "Open on {{host}}",
+    "unreadLabel": "Unread:",
+    "empty": {
+      "all": "You have no notifications.",
+      "unread": "No unread notifications."
+    },
+    "count": "{{shown}} of {{total}}",
+    "more": "Show {{count}} more",
+    "loading": "Loading..."
+  }
+}
