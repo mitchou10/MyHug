@@ -60,7 +60,7 @@ export const DATASETS: Dataset[] = [
     tags: ['vision', 'routes', 'yolo'], rows: 18400, sizeMb: 2300, downloads: 640, likes: 18, updatedAt: '2026-10-28',
     files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'images.zip', sizeMb: 2250 }, { path: 'annotations.json', sizeMb: 50 }],
     columns: ['image', 'width', 'height', 'objects'],
-    sample: [['img_0001.jpg', 1280, 720, 3], ['img_0002.jpg', 1280, 720, 1], ['img_0003.jpg', 1920, 1080, 5]],
+    sample: [['img_0001.jpg', 1280, 720, 3], ['img_0002.jpg', 1280, 720, 1], ['img_0003.jpg', 1920, 1080, 5], ['img_0004.jpg', 1024, 768, 2], ['img_0005.jpg', 1280, 720, 4], ['img_0006.jpg', 1600, 900, 0]],
     card: 'Panneaux routiers européens annotés au format COCO.',
   },
   {
