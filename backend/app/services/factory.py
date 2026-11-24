@@ -25,10 +25,12 @@ from app.services.model_access import ModelAccess
 from app.services.model_code import ModelCodeResolution
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
+from app.services.model_serving import ModelServingService
 from app.services.model_uploads import ModelUploadService
 from app.services.model_versions import ModelVersionService
 from app.services.models import ModelService
 from app.services.storage_garbage import StorageGarbage
+from app.serving import RateLimiter, ServingClient
 from app.storage import ObjectStore
 
 
@@ -177,4 +179,16 @@ def build_model_code(db: AsyncSession) -> ModelCodeResolution:
         hosts=settings.MODEL_CODE_HOSTS,
         max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
         stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
+    )
+
+
+def build_model_serving(db: AsyncSession, client: ServingClient, limiter: RateLimiter) -> ModelServingService:
+    models = ModelRepository(db)
+    return ModelServingService(
+        models,
+        ModelAccess(models),
+        client,
+        limiter,
+        origins=settings.MODEL_SERVING_ORIGINS,
+        rate_per_minute=settings.SERVING_RATE_PER_MINUTE,
     )

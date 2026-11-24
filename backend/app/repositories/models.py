@@ -5,7 +5,7 @@ from typing import Literal
 from sqlalchemy import ColumnElement, String, cast, delete, exists, func, or_, select, true, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.models import Model, ModelFile, ModelLike, ModelMember, ModelVersion
+from app.models import Model, ModelEndpoint, ModelFile, ModelLike, ModelMember, ModelVersion
 from app.repositories.base import Repository
 
 Sort = Literal["downloads", "likes", "updated"]
@@ -65,6 +65,25 @@ class ModelRepository(Repository):
             select(ModelFile.storage_key).join(ModelVersion).where(ModelVersion.model_id == model_id).distinct()
         )
         return set(result.scalars())
+
+    # ---- the endpoint where it is tried
+
+    async def get_endpoint(self, model_id: uuid.UUID) -> ModelEndpoint | None:
+        return await self._db.get(ModelEndpoint, model_id, populate_existing=True)  # never a stale copy
+
+    async def set_endpoint(self, model_id: uuid.UUID, created_by: str, **values: object) -> None:
+        """Makes the endpoint of the model, or replaces it."""
+        await self._db.execute(
+            pg_insert(ModelEndpoint)
+            .values(model_id=model_id, created_by=created_by, **values)
+            .on_conflict_do_update(index_elements=["model_id"], set_={**values, "updated_at": func.now()})
+        )
+
+    async def delete_endpoint(self, model_id: uuid.UUID) -> bool:
+        removed = await self._db.execute(
+            delete(ModelEndpoint).where(ModelEndpoint.model_id == model_id).returning(ModelEndpoint.model_id)
+        )
+        return removed.first() is not None
 
     # ---- members
 

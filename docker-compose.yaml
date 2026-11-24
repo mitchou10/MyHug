@@ -30,6 +30,9 @@ services:
       # The server of the models' versions and artifacts, reached only from inside this compose.
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_PUBLIC_URL: http://localhost:5000 # where the people who edit a model open it in MLflow
+      # The servers a model may be tried on (JSON list of origins). Empty: no model can be served. The backend calls
+      # what the editors write, so only these origins are called. See docs/backend-models.md.
+      # MODEL_SERVING_ORIGINS: '["http://mlflow-serving:5001"]'
     depends_on:
       redis:
         condition: service_healthy

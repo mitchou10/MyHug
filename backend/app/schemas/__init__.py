@@ -21,6 +21,8 @@ from app.schemas.health import HealthOut
 from app.schemas.message import MessageOut, MessagesPageOut
 from app.schemas.model import (
     CodeVersionIn,
+    EndpointIn,
+    EndpointOut,
     MemberIn,
     MemberOut,
     ModelChange,
@@ -31,6 +33,8 @@ from app.schemas.model import (
     ModelUploadIn,
     ModelVersionDetailOut,
     ModelVersionOut,
+    PredictIn,
+    PredictOut,
 )
 from app.schemas.notification import (
     EmittedOut,
@@ -60,6 +64,8 @@ __all__ = [
     "DatasetOut",
     "DatasetSummaryOut",
     "EmittedOut",
+    "EndpointIn",
+    "EndpointOut",
     "FileOut",
     "FeedbackChange",
     "FeedbackOut",
@@ -73,6 +79,8 @@ __all__ = [
     "HealthOut",
     "LikeOut",
     "PartsIn",
+    "PredictIn",
+    "PredictOut",
     "PartsOut",
     "LogoutOut",
     "MarkedReadOut",

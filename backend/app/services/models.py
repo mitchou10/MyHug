@@ -17,6 +17,13 @@ from app.storage import ObjectStore
 
 
 @dataclass(frozen=True)
+class ServingInfo:
+    kind: str
+    input_kind: str
+    output_kind: str
+
+
+@dataclass(frozen=True)
 class ModelView:
     """A model with what depends on who looks at it."""
 
@@ -25,6 +32,8 @@ class ModelView:
     can_edit: bool
     # Where to see it in MLflow: only for who can edit it, and only once MLflow knows something of it.
     mlflow_url: str | None = None
+    # How the model can be tried (what it takes, what it gives): never where. None: it cannot be tried.
+    serving: "ServingInfo | None" = None
 
 
 def check_code_url(url: str, hosts: list[str]) -> str:
@@ -62,7 +71,9 @@ class ModelService:
         url = None
         if can_edit and await self._models.has_registered_versions(model.id):
             url = self._links.model(registered_name(model.owner, model.name))
-        return ModelView(model, await self._models.is_liked(model.id, actor.user_id), can_edit, url)
+        endpoint = await self._models.get_endpoint(model.id)
+        serving = ServingInfo(endpoint.kind, endpoint.input_kind, endpoint.output_kind) if endpoint else None
+        return ModelView(model, await self._models.is_liked(model.id, actor.user_id), can_edit, url, serving)
 
     async def create(self, actor: Actor, *, name: str, **fields: Any) -> ModelView:
         """Raises ModelNameTaken if the person already has a model with this name, InvalidCodeUrl for a bad link.

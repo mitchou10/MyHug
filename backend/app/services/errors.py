@@ -228,6 +228,39 @@ class VersionFailed(ServiceError):
     message = "The files of this version did not pass the checks"
 
 
+# ---- trying a model: the relay to the server that serves it
+class NoEndpoint(ServiceError):
+    message = "This model has no server to try it on"
+
+
+class InvalidEndpoint(ServiceError):
+    message = "This endpoint is not accepted"
+
+
+class EndpointUnavailable(ServiceError):
+    message = "The server of this model does not answer"
+
+
+class EndpointTimeout(ServiceError):
+    message = "The server of this model took too long to answer"
+
+
+class BadEndpointAnswer(ServiceError):
+    message = "The server of this model gave an answer that cannot be used"
+
+
+class InputRejected(ServiceError):
+    message = "The model refused this input"
+
+
+class InputTooLarge(ServiceError):
+    message = "This input is too large"
+
+
+class TooManyRequests(ServiceError):
+    message = "Too many tries: wait a little"
+
+
 # ---- the registry of the models (MLflow)
 class RegistryUnavailable(ServiceError):
     """MLflow does not answer, or does not take what the backend sends it (a key it refuses, an error of its own)."""
