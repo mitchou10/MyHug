@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import mimetypes
 import posixpath
 import uuid
@@ -10,13 +11,14 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.jobs import Jobs, NoJobs
-from app.models import Dataset, DatasetFile, DatasetVersion
+from app.models import Dataset, DatasetFile, DatasetFileDerivative, DatasetVersion
 from app.models.dataset_version import READY
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
-from app.services import tables
+from app.services import parquet_pages, tables
 from app.services.actor import Actor
 from app.services.dataset_access import DatasetAccess
+from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.errors import (
     DatasetFileNotFound,
     FileTooLarge,
@@ -29,6 +31,7 @@ from app.services.errors import (
 )
 from app.storage import ObjectStore
 
+logger = logging.getLogger(__name__)
 README = "README.md"
 SPLIT_ORDER = ("train", "validation", "test")
 MEDIA = ("image/", "audio/", "video/")
@@ -97,6 +100,7 @@ class DatasetVersionService:
         max_files: int,
         signed_seconds: int,
         jobs: Jobs | None = None,
+        derivatives: DatasetDerivatives | None = None,
     ) -> None:
         self._datasets = datasets
         self._versions = versions
@@ -106,6 +110,7 @@ class DatasetVersionService:
         self._max_files = max_files
         self._signed_seconds = signed_seconds
         self._jobs: Jobs = jobs or NoJobs()
+        self._derivatives = derivatives
 
     # ---- writing
 
@@ -302,16 +307,13 @@ class DatasetVersionService:
             raise SplitNotFound
         parts = [file for file in files if file.split == chosen]
         columns = [tables.Column(c["name"], c["dtype"]) for c in parts[0].columns]
+        copies = await self._copies(parts)  # the Parquet copies of the big files: read by ranges, not whole
 
         if query:
             needle = query.lower()
-            matches = (
-                row
-                for file in parts
-                async for row in self._rows_of(file)
-                if any(needle in str(cell).lower() for cell in row if cell is not None)
-            )
-            found = [row async for row in matches]
+            found: list[list[Any]] = []
+            for file in parts:
+                found.extend(await self._matching(file, copies, needle))
             return RowsPage(chosen, splits, columns, found[offset : offset + limit], len(found))
 
         page: list[list[Any]] = []
@@ -321,13 +323,43 @@ class DatasetVersionService:
             if skipped + count <= offset:  # the whole file is before the page
                 skipped += count
                 continue
-            rows = [row async for row in self._rows_of(file)]
             start = max(0, offset - skipped)
-            page.extend(islice(rows, start, start + limit - len(page)))
+            page.extend(await self._page(file, copies, start, limit - len(page)))
             skipped += count
             if len(page) >= limit:
                 break
         return RowsPage(chosen, splits, columns, page, sum(f.rows or 0 for f in parts))
+
+    async def _copies(self, parts: list[DatasetFile]) -> dict[str, DatasetFileDerivative]:
+        if self._derivatives is None:
+            return {}
+        return await self._derivatives.ready_for([file.storage_key for file in parts])
+
+    async def _page(
+        self, file: DatasetFile, copies: dict[str, DatasetFileDerivative], start: int, count: int
+    ) -> list[list[Any]]:
+        copy = copies.get(file.storage_key)
+        if copy is not None and copy.storage_key and copy.size_bytes:
+            try:
+                return await parquet_pages.page(self._store, copy.storage_key, copy.size_bytes, start, count)
+            except Exception:  # a copy is only a faster way: the original is still there
+                logger.exception("The copy of %s cannot be read: reading the file itself", file.path)
+        return list(islice([row async for row in self._rows_of(file)], start, start + count))
+
+    async def _matching(
+        self, file: DatasetFile, copies: dict[str, DatasetFileDerivative], needle: str
+    ) -> list[list[Any]]:
+        copy = copies.get(file.storage_key)
+        if copy is not None and copy.storage_key and copy.size_bytes:
+            try:
+                return await parquet_pages.matching(self._store, copy.storage_key, copy.size_bytes, needle)
+            except Exception:
+                logger.exception("The copy of %s cannot be read: reading the file itself", file.path)
+        return [
+            row
+            async for row in self._rows_of(file)
+            if any(needle in str(cell).lower() for cell in row if cell is not None)
+        ]
 
     async def _rows_of(self, file: DatasetFile):
         stored = await self._store.get(file.storage_key)

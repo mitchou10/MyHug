@@ -205,3 +205,118 @@ async def test_the_client_of_the_queue_is_built_once() -> None:
     queue = jobs.CeleryJobs()
     assert queue._celery() is queue._celery()  # noqa: SLF001
     assert queue._celery().conf.broker_url == settings.REDIS_URL  # noqa: SLF001
+
+
+# ---- the copies of the files in Parquet
+
+
+async def a_copy(db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch):
+    from sqlalchemy import select
+
+    from app.models import DatasetFileDerivative
+    from tests.reading import Reader
+
+    monkeypatch.setattr(settings, "DERIVATIVE_MIN_BYTES", 0)
+    version = await setup(db, store, ("train.csv", CSV))
+    await Reader(db, store).process(version.id)
+    return (await db.execute(select(DatasetFileDerivative))).scalar_one()
+
+
+async def test_the_worker_makes_a_copy_through_the_routes(
+    client: httpx2.AsyncClient, db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    copy = await a_copy(db, store, monkeypatch)
+    base = f"{BASE}/derivatives/{copy.id}"
+    claimed = (await client.post(f"{base}/claim", headers=HEADERS)).json()
+    assert claimed["claimed"] is True and claimed["source_path"] == "train.csv"
+    assert claimed["source_url"].startswith("memory://get/") and claimed["part_bytes"] > 0
+    assert (await client.post(f"{base}/claim", headers=HEADERS)).json() == {
+        "claimed": False,
+        "id": None,
+        "source_url": None,
+        "source_path": None,
+        "source_size_bytes": None,
+        "part_bytes": None,
+    }
+
+    parts = (await client.post(f"{base}/parts", json={"numbers": [1]}, headers=HEADERS)).json()["parts"]
+    sink = io.BytesIO()
+    pq.write_table(pa.table({"n": [1, 2, 3]}), sink)
+    store.receive(parts[0]["url"], sink.getvalue())
+    body = {"rows": 3, "columns": [{"name": "n", "dtype": "int"}]}
+    assert (await client.post(f"{base}/result", json=body, headers=HEADERS)).json() == {"status": "ready"}
+    await db.refresh(copy)
+    assert (copy.status, copy.rows, copy.size_bytes) == ("ready", 3, len(sink.getvalue()))
+
+
+async def test_the_routes_of_the_copies_need_the_key(
+    client: httpx2.AsyncClient, db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy = await a_copy(db, store, monkeypatch)
+    for method, path in (
+        ("POST", "claim"),
+        ("POST", "parts"),
+        ("POST", "result"),
+        ("POST", "failure"),
+        ("GET", "waiting"),
+    ):
+        target = f"{BASE}/derivatives/{path if path == 'waiting' else f'{copy.id}/{path}'}"
+        assert (await client.request(method, target)).status_code == 401
+
+
+async def test_a_copy_that_is_not_held_is_refused_and_one_that_does_not_exist_is_not_found(
+    client: httpx2.AsyncClient, db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy = await a_copy(db, store, monkeypatch)
+    body = {"rows": 1, "columns": []}
+    assert (await client.post(f"{BASE}/derivatives/{copy.id}/result", json=body, headers=HEADERS)).status_code == 409
+    assert (
+        await client.post(f"{BASE}/derivatives/{uuid.uuid4()}/failure", json={"error": "x"}, headers=HEADERS)
+    ).status_code == 404
+
+
+async def test_the_worker_can_say_that_a_copy_cannot_be_made_or_give_it_back(
+    client: httpx2.AsyncClient, db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy = await a_copy(db, store, monkeypatch)
+    base = f"{BASE}/derivatives/{copy.id}"
+    await client.post(f"{base}/claim", headers=HEADERS)
+    assert (await client.post(f"{base}/release", headers=HEADERS)).status_code == 200
+    await db.refresh(copy)
+    assert copy.status == "pending"
+    await client.post(f"{base}/claim", headers=HEADERS)
+    failed = await client.post(f"{base}/failure", json={"error": "not a csv"}, headers=HEADERS)
+    assert failed.json() == {"status": "failed"}
+    await db.refresh(copy)
+    assert copy.error == "not a csv"
+
+
+async def test_the_sweep_lists_the_copies_nobody_is_making(
+    client: httpx2.AsyncClient, db: AsyncSession, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.models import DatasetFileDerivative
+
+    copy = await a_copy(db, store, monkeypatch)
+    assert (await client.get(f"{BASE}/derivatives/waiting", headers=HEADERS)).json() == {"ids": []}  # too recent
+    await db.execute(update(DatasetFileDerivative).values(created_at=datetime.now(UTC) - timedelta(hours=1)))
+    await db.commit()
+    assert (await client.get(f"{BASE}/derivatives/waiting", headers=HEADERS)).json() == {"ids": [str(copy.id)]}
+
+
+async def test_a_copy_is_queued_by_the_name_of_the_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple] = []
+
+    class Fake:
+        def send_task(self, name: str, **options) -> None:
+            sent.append((name, options))
+
+    queue = jobs.CeleryJobs()
+    monkeypatch.setattr(queue, "_celery", lambda: Fake())
+    derivative = uuid.uuid4()
+    await queue.convert_file(derivative)
+    assert sent == [("datasets.convert_file", {"args": [str(derivative)], "queue": "datasets"})]

@@ -74,6 +74,9 @@ The defaults suit local development; **change the ones marked \*** before any re
 | `WORKER_API_KEY` | empty | The key the worker calls `/api/internal` with, 16 characters at least (empty: the worker is refused) |
 | `PROCESSING_STALE_MINUTES` | `30` | A version read for longer than this is taken to have lost its worker, and is read again |
 | `PROCESSING_MAX_ATTEMPTS` | `3` | How many times a version is taken in hand before it is given up as `failed` |
+| `DERIVATIVE_MIN_BYTES` | 8 MiB | A csv, tsv or jsonl file at least this big gets a Parquet copy, made by the worker (below it the copy gains nothing) |
+| `DERIVATIVE_MAX_SOURCE_BYTES` | 20 GiB | A source over this is left as it is |
+| `DERIVATIVE_PART_BYTES` | 16 MiB | The size of the parts the worker sends a copy in |
 | `DATASET_FILE_MAX_BYTES`, `DATASET_VERSION_MAX_FILES` | 100 MiB, `100` | Largest file, and most files, of a version sent through the API (small files) |
 | `NOTIFICATION_API_KEYS` | empty | The applications allowed to emit notifications, as `name=key` pairs separated by commas (a key under 16 characters is ignored); the name becomes the `source` \* |
 | `AUTH_MODE` | `oidc` | `oidc`, or `full-access`: no login, a fixed admin (development and tests only) |
@@ -372,7 +375,9 @@ downloads the files from the storage with the signed addresses the backend gives
 | `REDIS_URL` | `redis://localhost:6379/0` | Where the jobs wait |
 | `BACKEND_URL` | `http://localhost:8000` | The backend |
 | `WORKER_API_KEY` | empty | Its key (the same as the backend's) |
-| `WORKER_TEMP_DIR` | empty (system) | Where a file is kept while it is read: room for the largest one |
+| `WORKER_TEMP_DIR` | empty (system) | Where a file is kept while it is read or converted: room for the source **and** its copy |
+| `ROW_GROUP_ROWS` | `50000` | Rows in a row group of a Parquet copy (what a page of the preview reads) |
+| `BATCH_BYTES` | 64 MiB | The most memory a batch of rows takes before it is written, whatever the rows |
 | `SWEEP_SECONDS` | `60` | How often the versions nobody reads are queued again |
 | `EXPIRE_UPLOADS_SECONDS` | `900` | How often the abandoned uploads are given up |
 

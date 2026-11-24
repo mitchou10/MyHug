@@ -83,7 +83,7 @@ def _binary(source: BinaryIO) -> BinaryIO:
     return source
 
 
-def _convert(cell: str) -> Any:
+def convert_cell(cell: str) -> Any:
     """A cell of a csv as the number or the boolean it looks like. An empty one is nothing."""
     if cell == "":
         return None
@@ -99,7 +99,7 @@ def _text(source: BinaryIO) -> io.TextIOWrapper:
     return io.TextIOWrapper(_binary(source), encoding="utf-8-sig", newline="")
 
 
-def _csv_rows(source: BinaryIO, delimiter: str, path: str) -> Iterator[list[str]]:
+def csv_rows(source: BinaryIO, delimiter: str, path: str) -> Iterator[list[str]]:
     text = _text(source)
     try:
         yield from csv.reader(text, delimiter=delimiter)
@@ -111,7 +111,7 @@ def _csv_rows(source: BinaryIO, delimiter: str, path: str) -> Iterator[list[str]
         text.detach()  # the caller keeps the file
 
 
-def _jsonl_objects(source: BinaryIO, path: str) -> Iterator[dict[str, Any]]:
+def jsonl_objects(source: BinaryIO, path: str) -> Iterator[dict[str, Any]]:
     text = _text(source)
     try:
         for number, line in enumerate(text, start=1):
@@ -146,12 +146,12 @@ def inspect(path: str, source: BinaryIO) -> TableInfo:
             file.metadata.num_rows, [Column(field.name, _dtype_of_arrow(field.type)) for field in file.schema_arrow]
         )
     if kind in (CSV, TSV):
-        rows = _csv_rows(source, "\t" if kind == TSV else ",", path)
+        rows = csv_rows(source, "\t" if kind == TSV else ",", path)
         header = next(rows, None)
         if not header or not any(name.strip() for name in header):
             raise UnreadableDataFile(f"{path} has no header")
         names = [name.strip() for name in header]
-        sample = [[_convert(cell) for cell in row] for row in islice(rows, SAMPLE_ROWS)]
+        sample = [[convert_cell(cell) for cell in row] for row in islice(rows, SAMPLE_ROWS)]
         count = len(sample) + sum(1 for _ in rows)
         return TableInfo(
             count,
@@ -163,7 +163,7 @@ def inspect(path: str, source: BinaryIO) -> TableInfo:
     names: list[str] = []
     sample_objects: list[dict[str, Any]] = []
     count = 0
-    for item in _jsonl_objects(source, path):
+    for item in jsonl_objects(source, path):
         count += 1
         if count <= SAMPLE_ROWS:
             sample_objects.append(item)

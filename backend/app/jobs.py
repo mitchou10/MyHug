@@ -13,6 +13,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 # The names the worker registers its tasks under (see `worker/worker/tasks.py`).
 PROCESS_VERSION = "datasets.process_version"
+CONVERT_FILE = "datasets.convert_file"
 QUEUE = "datasets"
 
 
@@ -21,11 +22,18 @@ class Jobs(Protocol):
         """A version was recorded: its files are to be read."""
         ...
 
+    async def convert_file(self, derivative_id: uuid.UUID) -> None:
+        """A copy of a file is to be made."""
+        ...
+
 
 class NoJobs:
     """Nothing is queued (tests, scripts): the versions wait until something reads them."""
 
     async def process_version(self, version_id: uuid.UUID) -> None:
+        return None
+
+    async def convert_file(self, derivative_id: uuid.UUID) -> None:
         return None
 
 
@@ -41,8 +49,14 @@ class CeleryJobs:
             self._client = Celery("app", broker=settings.REDIS_URL, set_as_current=False)
         return self._client
 
-    async def process_version(self, version_id: uuid.UUID) -> None:
+    async def _send(self, task: str, subject: uuid.UUID) -> None:
         try:
-            await asyncio.to_thread(self._celery().send_task, PROCESS_VERSION, args=[str(version_id)], queue=QUEUE)
+            await asyncio.to_thread(self._celery().send_task, task, args=[str(subject)], queue=QUEUE)
         except Exception:
-            logger.exception("Could not queue the reading of version %s: the sweep will find it", version_id)
+            logger.exception("Could not queue %s for %s: the sweep will find it", task, subject)
+
+    async def process_version(self, version_id: uuid.UUID) -> None:
+        await self._send(PROCESS_VERSION, version_id)
+
+    async def convert_file(self, derivative_id: uuid.UUID) -> None:
+        await self._send(CONVERT_FILE, derivative_id)

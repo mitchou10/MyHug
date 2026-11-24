@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     WORKER_API_KEY: str = ""
     # Where a file is kept while it is read (empty: the system's temporary folder): room for the largest one.
     WORKER_TEMP_DIR: str = ""
+    # The Parquet copies: how many rows go in a row group (what a page of the preview reads), and the most memory a
+    # batch of rows may take before it is written, whatever the number of rows (a cell can be a whole text).
+    ROW_GROUP_ROWS: int = 50_000
+    BATCH_BYTES: int = 64 * 1024**2
     # How long the API, or the storage, is waited for.
     HTTP_TIMEOUT_SECONDS: float = 60.0
     # How often the safety nets run: queue the versions that nobody reads, give up the abandoned uploads.

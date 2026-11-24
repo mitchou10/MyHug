@@ -80,6 +80,22 @@ class S3Store:
                 async for chunk in body.iter_chunks(chunk_size):
                     yield chunk
 
+    async def get_range(self, key: str, start: int, length: int) -> bytes:
+        async with self._client() as s3:
+            try:
+                response = await s3.get_object(
+                    Bucket=self._bucket, Key=key, Range=f"bytes={start}-{start + length - 1}"
+                )
+            except ClientError as error:
+                code = error.response["Error"]["Code"]
+                if code in ("NoSuchKey", "404", "NoSuchBucket"):
+                    raise ObjectNotFound(key) from None
+                if code == "InvalidRange":  # starts at or after the end
+                    return b""
+                raise
+            async with response["Body"] as body:
+                return await body.read()
+
     async def delete(self, key: str) -> None:
         async with self._client() as s3:
             await s3.delete_object(Bucket=self._bucket, Key=key)
@@ -100,9 +116,11 @@ class S3Store:
             response = await s3.create_multipart_upload(Bucket=self._bucket, Key=key, ContentType=content_type)
             return response["UploadId"]
 
-    async def presign_part(self, key: str, upload_id: str, number: int, expires_in: int) -> str:
-        # Signing is done here, without a call to the storage: only the address in it matters to the browser.
-        async with self._client(public=True) as s3:
+    async def presign_part(
+        self, key: str, upload_id: str, number: int, expires_in: int, *, internal: bool = False
+    ) -> str:
+        # Signing is done here, without a call to the storage: only the address in it matters to the caller.
+        async with self._client(public=not internal) as s3:
             return await s3.generate_presigned_url(
                 "upload_part",
                 Params={"Bucket": self._bucket, "Key": key, "UploadId": upload_id, "PartNumber": number},

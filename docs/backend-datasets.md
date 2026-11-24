@@ -355,6 +355,65 @@ worker lit et calcule.
 fichiers. À terme, le worker peut aussi préparer l'aperçu (les premières lignes de chaque partie, stockées avec la
 version) ou convertir les données en Parquet pour une lecture par groupes de lignes.
 
+## 6 ter. Copies Parquet des fichiers tabulaires
+
+Un fichier csv, tsv ou jsonl se lit en entier pour compter ses lignes ou montrer une page. Le worker en fait donc une
+**copie Parquet** (colonnes typées, compressée, avec son nombre de lignes dans le pied de fichier). C'est un **cache
+dérivé géré par le système**, pas un fichier du dataset.
+
+**Ce que la copie est et n'est pas**
+- Elle n'est **pas dans l'arborescence** du dataset, **pas comptée** dans les lignes ni dans la taille d'une version, et
+  l'original n'est **jamais remplacé** ni caché. Le téléchargement donne toujours le fichier de l'utilisateur.
+- Elle appartient au **contenu du fichier source** (sa clé de stockage), pas à une version: toutes les versions qui
+  gardent ce fichier la partagent, et elle n'est jamais refaite. Deux fichiers de même contenu en ont une seule.
+- Elle est identifiée par (source, type, `params_hash`). `params_hash` vient de la version du convertisseur
+  (`CONVERTER`, dans `app/models/dataset_derivative.py`): changer la façon de convertir donne d'autres copies.
+- Un échec de copie **n'est pas un échec de version**: la version reste `ready`, la copie est `failed` avec la raison,
+  et tout continue de marcher avec l'original.
+
+**Quels fichiers**: tabulaires (csv, tsv, jsonl), déjà lus (leurs lignes sont connues), d'au moins `DERIVATIVE_MIN_BYTES`
+et d'au plus `DERIVATIVE_MAX_SOURCE_BYTES`. Un fichier déjà Parquet n'est pas converti. Les enregistrements sont créés
+quand une version passe `ready`, puis un job `datasets.convert_file` est mis dans Redis.
+
+**Déroulement** (le worker n'a toujours ni base ni clé du stockage)
+1. `POST /api/internal/derivatives/{id}/claim`: prend la copie en main pour un worker (même mécanique que les versions:
+   tentatives comptées, reprise après `PROCESSING_STALE_MINUTES`), crée l'envoi en parties de la copie, répond l'adresse
+   signée de la source et la taille des parties. Les parties d'un worker mort sont abandonnées.
+2. Le worker télécharge la source sur disque, la convertit sur disque, puis envoie la copie par parties
+   (`POST …/parts` donne les adresses signées) sans clé.
+3. `POST …/result` (lignes, colonnes): le backend assemble les parties, vérifie que la copie a **autant de lignes que
+   la source** (sinon la copie est `failed` et supprimée), puis la marque `ready`.
+4. `…/failure` (la source est illisible: la copie est `failed`) et `…/release` (panne qui n'est pas la faute du fichier:
+   elle attend de nouveau). Balayage: `GET …/derivatives/waiting`, appelé avec celui des versions.
+
+**Conversion** (`worker/worker/converter.py`)
+- Le fichier est lu **deux fois** sur disque, jamais en mémoire entière: une première fois pour trouver le type de
+  **chaque colonne sur toutes les lignes** (un type deviné sur les premières lignes casserait sur la ligne qui ne
+  rentre pas), une seconde pour écrire avec ces types. La mémoire ne dépend pas de la taille du fichier (testé).
+- Les lignes sont écrites par **groupes** de `ROW_GROUP_ROWS` (ou moins si le lot dépasse `BATCH_BYTES`): une page de
+  l'aperçu ne lit qu'un groupe. Compression zstd.
+- Une colonne qui **mélange des types** est écrite en **texte tel qu'il a été écrit** (`007` reste `007`; `1` dans une
+  colonne qui contient aussi `abc` est `"1"` et non le nombre). Un entier trop grand pour 64 bits est du texte. C'est la
+  seule différence avec la lecture de l'original, qui type chaque cellule seule.
+- Un csv: une ligne vide est une ligne de rien (comme le compte l'original), une ligne courte est complétée et une ligne
+  longue tronquée. jsonl: l'union des clés, `null` quand une clé manque.
+- **Listes et objets** (jsonl): écrits en texte JSON, avec `json=1` dans les métadonnées du champ; l'API les relit tels
+  quels. (Choix volontaire: des structures Parquet imbriquées imposeraient un schéma identique pour tout le fichier.)
+- Noms de colonnes vides ou en double: le schéma Parquet reçoit un nom unique, mais les colonnes annoncées gardent les
+  noms d'origine.
+
+**Lecture** (`app/services/parquet_pages.py`): l'aperçu (`GET …/rows`) lit la copie **par plages** (le pied de fichier,
+puis seulement les groupes d'une page) au lieu du fichier entier; la recherche parcourt les groupes un à un. Si la copie
+ne se lit pas, l'aperçu **retombe sur l'original** et le dit dans les logs. Le stockage donne les plages
+(`ObjectStore.get_range`); pyarrow lit dans un thread et chaque plage est demandée à la boucle d'événements.
+
+**À savoir**
+- La copie double les octets stockés des gros fichiers tabulaires: d'où le seuil.
+- Le worker a besoin de disque pour la source **et** la copie en même temps (`WORKER_TEMP_DIR`).
+- Les copies vivent sous `derived/parquet/…`, hors de `datasets/`. Quand le ramasse-miettes existera, il devra les
+  supprimer avec leur source (issue sur le ramasse-miettes).
+- Pas encore: publier la copie comme vrai fichier, statistiques par colonne, filtres et tris côté serveur.
+
 ## 7. Export des annotations
 
 Un projet d'annotation validé produit une **nouvelle configuration** du dataset (comme les `configs` de

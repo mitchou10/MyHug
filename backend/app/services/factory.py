@@ -6,10 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.jobs import Jobs
+from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services.dataset_access import DatasetAccess
+from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
@@ -35,6 +37,7 @@ def build_dataset_versions(db: AsyncSession, store: ObjectStore, jobs: Jobs) -> 
         max_files=settings.DATASET_VERSION_MAX_FILES,
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         jobs=jobs,
+        derivatives=build_dataset_derivatives(db, store),
     )
 
 
@@ -55,7 +58,20 @@ def build_dataset_uploads(db: AsyncSession, store: ObjectStore, jobs: Jobs) -> D
     )
 
 
-def build_dataset_processing(db: AsyncSession, store: ObjectStore) -> DatasetProcessing:
+def build_dataset_derivatives(db: AsyncSession, store: ObjectStore) -> DatasetDerivatives:
+    return DatasetDerivatives(
+        DatasetDerivativeRepository(db),
+        store,
+        min_bytes=settings.DERIVATIVE_MIN_BYTES,
+        max_bytes=settings.DERIVATIVE_MAX_SOURCE_BYTES,
+        part_bytes=settings.DERIVATIVE_PART_BYTES,
+        max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
+        stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+    )
+
+
+def build_dataset_processing(db: AsyncSession, store: ObjectStore, jobs: Jobs | None = None) -> DatasetProcessing:
     return DatasetProcessing(
         DatasetRepository(db),
         DatasetVersionRepository(db),
@@ -64,4 +80,6 @@ def build_dataset_processing(db: AsyncSession, store: ObjectStore) -> DatasetPro
         max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
         stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+        derivatives=build_dataset_derivatives(db, store),
+        jobs=jobs,
     )
