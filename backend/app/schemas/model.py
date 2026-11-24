@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
@@ -9,6 +9,7 @@ from app.models import ModelFile
 from app.repositories.models import ModelRow
 from app.schemas.dataset import Modality, Slug, Tag, UploadFileIn, Visibility, _distinct
 from app.services.code_reference import tree_url
+from app.services.model_serving import EndpointView
 from app.services.model_versions import VersionView
 from app.services.models import ModelView
 
@@ -139,11 +140,18 @@ class ModelOut(ModelSummaryOut):
     # The page of the model in MLflow. Not in the answer at all (not even null) unless the person may edit the model and
     # MLflow knows something of it.
     mlflow_url: str | None = Field(None, exclude_if=lambda value: value is None)
+    # What can be tried here, for everybody: what the model takes and gives, never where it is. None: nothing to try.
+    serving: "ServingOut | None" = None
 
     @classmethod
     def from_view(cls, view: ModelView) -> "ModelOut":
+        serving = (
+            ServingOut.model_validate({"kind": s.kind, "input": s.input_kind, "output": s.output_kind})
+            if (s := view.serving)
+            else None
+        )
         return cls.model_validate(view.model).model_copy(
-            update={"liked": view.liked, "can_edit": view.can_edit, "mlflow_url": view.mlflow_url}
+            update={"liked": view.liked, "can_edit": view.can_edit, "mlflow_url": view.mlflow_url, "serving": serving}
         )
 
 
@@ -278,3 +286,95 @@ class ModelVersionDetailOut(ModelVersionOut):
         return cls(
             **ModelVersionOut.from_view(view).model_dump(), files=[ModelFileOut.model_validate(f) for f in files]
         )
+
+
+# ---- where a model is tried
+
+EndpointKind = Literal["mlflow", "custom"]
+Output = Literal["labels", "boxes", "text", "values", "json"]
+
+
+class ServingOut(BaseModel):
+    """What a person who may read the model knows of how it is tried: no address, no login, no API."""
+
+    kind: EndpointKind
+    input: Modality
+    output: Output
+
+
+class ApiIn(BaseModel):
+    """The API of a service that is not an MLflow server. The relay sends `POST {address}{path}` with the JSON
+    `{input_field: <the input>}`, and gives back what is at `output_path` in the answer."""
+
+    path: str = Field("/predict", max_length=200)
+    input_field: str = Field("input", pattern=r"^[A-Za-z_][A-Za-z0-9_-]{0,63}$")
+    output_path: str = Field(
+        "",
+        max_length=200,
+        pattern=r"^[A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*$",
+        description="Keys, and numbers for the places in a list: `predictions.0.label`. Empty: the whole answer",
+    )
+
+
+class EndpointIn(BaseModel):
+    """Where a model is served. `mlflow`: an MLflow model server (it must answer `/ping`). `custom`: a service of
+    your own, with its `api`. The address must be on a server the administrators allow."""
+
+    kind: EndpointKind
+    url: str = Field(max_length=512)
+    alias: str | None = Field(None, max_length=100, description="The alias it serves in the registry (`production`)")
+    input_kind: Modality
+    output_kind: Output
+    api: ApiIn | None = None
+    auth_header: str | None = Field(None, max_length=100, description="`Authorization`, `X-Api-Key`...")
+    auth_value: str | None = Field(
+        None,
+        max_length=1000,
+        description="Never read back. Send the header alone to keep the value that is already there",
+    )
+
+
+class EndpointOut(BaseModel):
+    """For the editors. The value of the login is never here."""
+
+    kind: EndpointKind
+    url: str
+    alias: str | None
+    input_kind: Modality
+    output_kind: Output
+    api: ApiIn | None
+    auth_header: str | None
+    has_auth: bool
+    # Whether an MLflow server answers right now. None for a service of your own: nothing is known of its API.
+    available: bool | None
+    updated_at: datetime
+
+    @classmethod
+    def from_view(cls, view: EndpointView) -> "EndpointOut":
+        endpoint = view.endpoint
+        return cls.model_validate(
+            {
+                "kind": endpoint.kind,
+                "url": endpoint.url,
+                "alias": endpoint.alias,
+                "input_kind": endpoint.input_kind,
+                "output_kind": endpoint.output_kind,
+                "api": endpoint.api,
+                "auth_header": endpoint.auth_header,
+                "has_auth": bool(endpoint.auth_value),
+                "available": view.available,
+                "updated_at": endpoint.updated_at,
+            }
+        )
+
+
+class PredictIn(BaseModel):
+    input: Any = Field(description="What the model takes: a text, a list, an object... (at most 1 MiB)")
+
+
+class PredictOut(BaseModel):
+    output: Any
+    took_ms: int
+
+
+ModelOut.model_rebuild()  # `serving` is defined after it

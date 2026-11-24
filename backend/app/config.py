@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     MLFLOW_PUBLIC_URL: str = ""
     # The hosts the code of a model may be linked at. The platform never clones or runs that code: it keeps the link.
     MODEL_CODE_HOSTS: list[str] = ["github.com", "gitlab.com"]
+    # Where a model can be served from: the origins (`http://mlflow-serving:5001`, `https://models.example.org`) that an
+    # editor may name as the endpoint of a model. The backend calls what the editors write there, so only what is listed
+    # here is called, with exactly this scheme, host and port. Empty: nothing can be served.
+    MODEL_SERVING_ORIGINS: list[str] = []
+    SERVING_TIMEOUT_SECONDS: float = 30.0
+    SERVING_MAX_BODY_BYTES: int = 1024**2  # what a person may send to try a model
+    SERVING_MAX_RESPONSE_BYTES: int = 5 * 1024**2
+    SERVING_RATE_PER_MINUTE: int = 30  # per person, over all the models
 
     # A tabular file (csv, tsv, jsonl) at least this big gets a copy in Parquet, made by the worker: below it the copy
     # would gain nothing. A source over the maximum is left as it is.

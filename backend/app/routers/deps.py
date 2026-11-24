@@ -34,6 +34,7 @@ from app.services.factory import (
     build_model_code,
     build_model_members,
     build_model_processing,
+    build_model_serving,
     build_model_uploads,
     build_model_versions,
     build_models,
@@ -46,6 +47,7 @@ from app.services.messages import MessageService
 from app.services.model_code import ModelCodeResolution
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
+from app.services.model_serving import ModelServingService
 from app.services.model_uploads import ModelUploadService
 from app.services.model_versions import ModelVersionService
 from app.services.models import ModelService
@@ -53,6 +55,7 @@ from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
 from app.services.storage_garbage import StorageGarbage
 from app.services.workflow import FeedbackWorkflow
+from app.serving import RateLimiter, ServingClient, get_rate_limiter, get_serving_client
 from app.storage import ObjectStore, get_store
 
 
@@ -239,3 +242,14 @@ def get_model_code(db: DB) -> ModelCodeResolution:
 
 
 ModelCodeDep = Annotated[ModelCodeResolution, Depends(get_model_code)]
+
+
+def get_model_serving(
+    db: DB,
+    client: Annotated[ServingClient, Depends(get_serving_client)],
+    limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
+) -> ModelServingService:
+    return build_model_serving(db, client, limiter)
+
+
+ModelServingDep = Annotated[ModelServingService, Depends(get_model_serving)]

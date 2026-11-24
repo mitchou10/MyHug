@@ -272,3 +272,62 @@ nom (`models.resolve_code`) quand la version est enregistrée.
 
 La licence et la branche par défaut du dépôt, que l'issue mentionne comme « informatives », ne sont pas gardées: aucune colonne
 ne les attend et rien ne s'en sert pour l'instant.
+
+## Essayer un modèle: le serving (issue #18)
+
+**La plateforme n'exécute jamais un modèle.** Elle garde où il est servi, et relaie. Un modèle n'est servi **que si
+quelqu'un dit où**: sans serveur déclaré, il n'y a rien à essayer (`POST …/predict` répond 409). Deux sources:
+
+| `kind` | C'est | Ce qu'on vérifie |
+|---|---|---|
+| `mlflow` | un serveur de modèle MLflow (`mlflow models serve`, ou un déploiement) | qu'il **répond** (`GET {url}/ping`) au moment de le déclarer: un serveur qui ne répond pas n'est pas enregistré (503). La requête est `POST {url}/invocations` avec `{"inputs": …}` et la réponse est ce qu'il y a dans `predictions` |
+| `custom` | un service à soi | rien de sa réponse (on ne sait rien de son API), mais l'éditeur **décrit son API**: `path` (`/classify`), `input_field` (le champ du JSON envoyé: `{"text": …}`), `output_path` (où lire la sortie dans la réponse, `result.0.label`; vide = tout) |
+
+L'éditeur dit aussi ce que le modèle prend (`input_kind`: une des modalités des datasets) et ce qu'il rend (`output_kind`:
+`labels`, `boxes`, `text`, `values`, `json`), un alias (`production`, pour la page) et, si le service en veut un, un en-tête
+d'authentification (`auth_header` + `auth_value`).
+
+| Route | Qui |
+|---|---|
+| `PUT / GET / DELETE /api/models/{o}/{n}/endpoint` | les éditeurs (créateur, `maintainer`, admin). `GET` dit aussi si un serveur MLflow répond **maintenant** (`available`) |
+| `POST /api/models/{o}/{n}/predict` | tout lecteur du modèle, `{"input": …}` → `{"output": …, "took_ms": …}` |
+| `GET /api/models/{o}/{n}` | tout lecteur: `serving: {kind, input, output}` (ce qu'on peut essayer, jamais où), ou `null` |
+
+### Ce que le relais ne donne jamais
+
+L'adresse, l'alias, l'API décrite et le secret ne sont **dans aucune réponse à un lecteur** (testé), ni dans les listes. Le
+secret (`auth_value`) n'est même **jamais relu**, par personne: les éditeurs voient `has_auth`; envoyer l'en-tête sans valeur
+garde celle qui existe. Il est gardé tel quel en base (il n'y a pas de clé pour le chiffrer ici): qui lit la base le lit.
+Ce que dit le serveur de lui-même (ses erreurs, ses en-têtes) n'est jamais transmis: un lecteur reçoit les mêmes phrases
+quoi qu'il se soit passé.
+
+| Code | Quand |
+|---|---|
+| 409 | le modèle n'a pas de serveur déclaré |
+| 503 | le serveur ne répond pas, redirige (jamais suivi), refuse la plateforme (401/403), répond 404, 429 ou 5xx |
+| 504 | le serveur a dépassé `SERVING_TIMEOUT_SECONDS` (30 s) |
+| 502 | la réponse n'est pas du JSON, dépasse `SERVING_MAX_RESPONSE_BYTES` (5 Mio), ou n'a pas la sortie décrite |
+| 422 | le modèle refuse l'entrée (400/415/422 du serveur), ou le corps n'est pas `{"input": …}` |
+| 413 | l'entrée dépasse `SERVING_MAX_BODY_BYTES` (1 Mio): le corps est lu au fil de l'eau et refusé dès qu'il dépasse, jamais gardé en entier |
+| 429 | plus de `SERVING_RATE_PER_MINUTE` essais (30) par personne et par minute, tous modèles confondus (compté dans Redis, donc commun à tous les processus; si Redis ne répond pas, l'essai passe) |
+
+### Le SSRF
+
+Le backend appelle ce que les éditeurs écrivent. La défense est une **liste d'origines** (`MODEL_SERVING_ORIGINS`, une liste
+JSON d'origines `schéma://hôte[:port]`): seule une origine **exactement** listée est acceptée (ni autre port, ni autre
+schéma, ni `hôte.evil`, ni identifiants, ni `..`, requête ou fragment dans l'adresse), à la déclaration **et à chaque appel**
+(la liste peut changer). Liste vide: rien n'est servi. Les administrateurs choisissent donc ce qui est joignable, y compris un
+serveur interne comme `http://mlflow-serving:5001`; un éditeur ne peut pas viser autre chose. Une redirection n'est jamais
+suivie. L'en-tête d'authentification ne peut pas être `Host`, `Content-Length` ni ceux qui changeraient où va la requête.
+
+### Rendre un modèle servable dans MLflow
+
+1. Le modèle doit être **emballé pour MLflow** (un fichier `MLmodel` avec un *flavor*: `sklearn`, `pytorch`, `transformers`,
+   `pyfunc`…). Un modèle fait seulement de fichiers (safetensors, gguf…) est stocké et téléchargé, mais MLflow ne sait pas le
+   servir: il faut un `pyfunc` qui l'enveloppe, ou un service à soi (`custom`).
+2. Les poids d'une version ne sont pas dans MLflow (la plateforme n'y met qu'un manifeste): il faut donc enregistrer le modèle
+   emballé dans MLflow à part, ou le servir depuis un autre endroit.
+3. Lancer un serveur: `mlflow models serve -m "models:/<propriétaire>~<nom>@production" -p 5001 --host 0.0.0.0`
+   (le nom est celui du modèle enregistré, voir [mlflow.md](mlflow.md)), puis **ajouter son origine à
+   `MODEL_SERVING_ORIGINS`** (`["http://mlflow-serving:5001"]`) et le déclarer: `PUT …/endpoint` avec `kind: "mlflow"`.
+4. Le serveur MLflow n'a pas de login: il ne doit jamais être publié, seulement joignable par le backend.
