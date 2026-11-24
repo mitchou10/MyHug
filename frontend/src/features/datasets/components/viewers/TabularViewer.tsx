@@ -3,8 +3,8 @@ import type { Dataset } from '../../mockData'
 
 /** Mini histogram (numbers) or distinct count (text) shown under each column name. */
 function ColumnStat({ values }: { values: (string | number)[] }) {
-  if (typeof values[0] === 'string') return <span className="text-xs font-normal text-muted-foreground">{new Set(values).size} valeurs · string</span>
-  const nums = values as number[]
+  const nums = values.filter((v): v is number => typeof v === 'number')
+  if (nums.length < values.length / 2) return <span className="text-xs font-normal text-muted-foreground">{new Set(values).size} valeurs · string</span>
   const min = Math.min(...nums), max = Math.max(...nums), bins = Array<number>(6).fill(0)
   nums.forEach((v) => bins[Math.min(5, Math.floor(((v - min) / (max - min || 1)) * 6))]++)
   return (

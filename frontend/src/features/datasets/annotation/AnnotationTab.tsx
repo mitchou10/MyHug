@@ -45,10 +45,11 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
                   <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${Math.min(100, (done / total) * 100)}%` }} /></div>
                   <p className="mt-1 text-xs text-muted-foreground">{formatCount(done)} / {formatCount(total)}</p>
                 </div>
+                {p.scale && <Badge variant="outline">{p.scale.min} – {p.scale.max}{p.scale.unit ? ` ${p.scale.unit}` : ''}</Badge>}
                 {p.labels.length > 0 && <div className="flex flex-wrap gap-1">{p.labels.map((l) => <Badge key={l.id} variant={l.kind === 'semantic' ? 'secondary' : 'outline'} title={l.description}>{l.name}</Badge>)}</div>}
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1" render={<Link to={`/datasets/${key}/annotate/${p.id}`} />}>{t('datasets.annotation.start')}</Button>
-                  {p.createdBy === CURRENT_USER && p.task !== 'qa' && <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil />{t('datasets.annotation.editLabels')}</Button>}
+                  {p.createdBy === CURRENT_USER && (p.labels.length > 0 || !!p.scale) && <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil />{t('datasets.annotation.edit')}</Button>}
                 </div>
               </CardContent>
             </Card>
@@ -56,7 +57,7 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
         })}
       </div>
       {editing && <EditLabelsDialog key={editing.id} project={projects.find((x) => x.id === editing.id)!} open onOpenChange={(o) => !o && setEditing(null)} />}
-      <NewProjectDialog datasetKey={key} open={open} onOpenChange={setOpen} />
+      <NewProjectDialog datasetKey={key} modality={d.modality} open={open} onOpenChange={setOpen} />
     </div>
   )
 }

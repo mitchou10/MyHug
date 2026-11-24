@@ -19,6 +19,8 @@ export interface Dataset {
   columns: string[]
   sample: (string | number)[][]
   card: string
+  /** Tabular only: what each column is supposed to contain. */
+  schema?: { name: string; valueType: 'text' | 'date' | 'number' | 'identifier' | 'amount'; formats?: string[]; unit?: string }[]
   /** Time series only: points drawn by the viewer. */
   series?: { date: string; value: number }[]
 }
@@ -118,7 +120,19 @@ export const DATASETS: Dataset[] = [
     tags: ['immobilier', 'régression'], rows: 85000, sizeMb: 12, downloads: 2210, likes: 64, updatedAt: '2026-10-05',
     files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'houses.csv', sizeMb: 12 }],
     columns: ['id', 'surface_m2', 'rooms', 'city', 'price_eur'],
-    sample: [[1, 54, 3, 'Lyon', 262000], [2, 82, 4, 'Paris', 710000], [3, 38, 2, 'Lille', 158000], [4, 120, 6, 'Nantes', 489000], [5, 67, 3, 'Lyon', 331000], [6, 95, 5, 'Bordeaux', 402000]],
+    schema: [
+      { name: 'id', valueType: 'identifier', formats: ['D+'] },
+      { name: 'surface_m2', valueType: 'number', formats: ['D+'], unit: 'm²' },
+      { name: 'rooms', valueType: 'number', formats: ['D+'] },
+      { name: 'city', valueType: 'text' },
+      { name: 'price_eur', valueType: 'amount', formats: ['D+'], unit: '€' },
+    ],
+    sample: [
+      [1, 54, 3, 'Lyon', 262000], [2, 82, 4, 'Paris', 710000], [3, 38, 2, 'Lille', 158000], [4, 120, 6, 'Nantes', 489000],
+      [5, 67, 3, 'Lyon', 331000], [6, 95, 5, 'Bordeaux', 402000], [7, 5, 3, 'Paris', 890000], [8, 74, 0, 'lyon ', 298000],
+      [9, 54, 3, 'Lyon', 262000], [10, 61, 3, 'Toulouse', ''], [11, 210, 9, 'Nice', 1250000], [12, 48, 2, 'Rennes', 'n/a'],
+      [13, 88, 4, 'Marseille', -310000], [14, 102, 5, 'Strasbourg', 365000],
+    ],
     card: 'Transactions anonymisées issues de données publiques.',
   },
   {

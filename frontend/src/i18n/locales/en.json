@@ -309,6 +309,22 @@
         "qa": {
           "title": "Question answering",
           "hint": "Write several question-answer pairs per text and highlight their source."
+        },
+        "row_label": {
+          "title": "Row labelling",
+          "hint": "Give a label to each row (normal, suspect, duplicate…)."
+        },
+        "cell_review": {
+          "title": "Cell review",
+          "hint": "Flag a wrong or missing value and give the right one."
+        },
+        "column_schema": {
+          "title": "Column schema",
+          "hint": "Describe each column: role, type, format and unit."
+        },
+        "regression": {
+          "title": "Regression",
+          "hint": "Give a number to each text or row: a score, a rating, a price…"
         }
       },
       "labelName": "Label name",
@@ -373,7 +389,58 @@
         "source": "Source",
         "noSource": "No source highlighted yet.",
         "add": "Add a question"
-      }
+      },
+      "tab": {
+        "row": "Row {{n}}",
+        "annotation": "Annotation",
+        "cell": "Cell",
+        "column": "Column",
+        "value": "Value",
+        "issue": "Issue",
+        "corrected": "Corrected value",
+        "clear": "Clear",
+        "next": "Next",
+        "prev": "Previous",
+        "role": "Role of the column",
+        "unit": "Unit",
+        "description": "Description",
+        "expectedFormat": "Expected format",
+        "noIssue": "No issue reported",
+        "hintRow": "Click a row, choose a label. Arrow keys move, 1-9 pick a label.",
+        "hintCell": "Click a cell and say what is wrong with it. Arrow keys move, 1-9 pick an issue.",
+        "hintColumn": "Click a column header and describe it. Arrow keys move, 1-9 pick a role.",
+        "saved": "Saved automatically",
+        "progressRows": "{{done}} / {{total}} rows annotated by you",
+        "progressCells": "{{done}} cells flagged in {{rows}} rows",
+        "progressColumns": "{{done}} / {{total}} columns described",
+        "pickRow": "Select a row to annotate it.",
+        "pickCell": "Select a cell to annotate it.",
+        "pickColumn": "Select a column to describe it.",
+        "mismatch": "Does not match {{format}}",
+        "valuesOf": "Values of the row",
+        "hintValue": "Click a row and give it a value on the scale. Arrow keys move."
+      },
+      "scale": {
+        "value": "Value",
+        "clear": "Clear",
+        "min": "Minimum",
+        "max": "Maximum",
+        "step": "Step",
+        "unit": "Unit",
+        "minLabel": "Legend of the minimum",
+        "maxLabel": "Legend of the maximum",
+        "invalid": "The minimum must be lower than the maximum, and the step positive."
+      },
+      "step2": {
+        "labels": "Define the labels. Each one needs a name and, ideally, a description.",
+        "scale": "Define the scale annotators will use."
+      },
+      "step": "Step {{n}} of 2",
+      "next": "Next",
+      "back": "Back",
+      "edit": "Edit",
+      "editScale": "Edit the scale",
+      "editScaleHint": "Changing the scale does not change the values already given."
     }
   }
 }
