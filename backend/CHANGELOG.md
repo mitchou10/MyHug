@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/mitchou10/MyHug/compare/backend-v0.10.0...backend-v0.11.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** upload and download the artifacts of a model, as versions ([ce871d0](https://github.com/mitchou10/MyHug/commit/ce871d0f6405327f65c5092534b5c8c5091bbd2e))
+
 ## [0.10.0](https://github.com/mitchou10/MyHug/compare/backend-v0.9.0...backend-v0.10.0) (2026-11-24)
 
 
