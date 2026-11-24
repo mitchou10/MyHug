@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.5.0...frontend-v0.6.0) (2026-11-24)
+
+
+### Features
+
+* **datasets:** pre-annotate tasks with a model, validated by a human ([5160e7a](https://github.com/mitchou10/MyHug/commit/5160e7a1264d00918f62414009788440eff8e5bf))
+
 ## [0.5.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.4.0...frontend-v0.5.0) (2026-11-24)
 
 
