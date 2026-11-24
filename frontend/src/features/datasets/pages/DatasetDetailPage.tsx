@@ -48,7 +48,7 @@ export function DatasetDetailPage() {
           <TabsList>
             <TabsTrigger value="card">{t('datasets.tabs.card')}</TabsTrigger>
             <TabsTrigger value="preview">{t('datasets.tabs.preview')}</TabsTrigger>
-            {(d.modality === 'text' || d.modality === 'tabular') && <TabsTrigger value="annotation">{t('datasets.tabs.annotation')}</TabsTrigger>}
+            {(d.modality === 'text' || d.modality === 'tabular' || d.modality === 'image') && <TabsTrigger value="annotation">{t('datasets.tabs.annotation')}</TabsTrigger>}
             <TabsTrigger value="files">{t('datasets.tabs.files')}</TabsTrigger>
           </TabsList>
 
