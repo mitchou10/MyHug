@@ -40,7 +40,8 @@ SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
     "TRUNCATE feedback_attachments, feedback_messages, feedbacks, feedback_types, feedback_statuses, "
     "user_profiles, notifications, dataset_likes, dataset_members, dataset_upload_files, dataset_uploads, "
-    "dataset_file_derivatives, dataset_files, dataset_versions, datasets"
+    "dataset_file_derivatives, dataset_files, dataset_versions, datasets, "
+    "model_files, model_versions, model_members, model_likes, models"
 )
 
 
