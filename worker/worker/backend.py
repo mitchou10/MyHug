@@ -87,6 +87,37 @@ class Backend:
     def expire_uploads(self) -> int:
         return self._call("POST", "/dataset-uploads/expire")["expired"]
 
+    # ---- the files of the versions of the models
+
+    def claim_model_version(self, version_id: uuid.UUID) -> list[FileToRead] | None:
+        """The files to fingerprint in the version it took in hand, or None when there is nothing for this worker."""
+        answer = self._call("POST", f"/model-versions/{version_id}/claim")
+        if not answer["claimed"]:
+            return None
+        return [
+            FileToRead(
+                id=uuid.UUID(file["id"]),
+                path=file["path"],
+                size_bytes=file["size_bytes"],
+                url=file["url"],
+                needs_fingerprint=True,
+                needs_rows=False,
+            )
+            for file in answer["files"]
+        ]
+
+    def model_version_result(self, version_id: uuid.UUID, files: list[dict[str, Any]]) -> str:
+        return self._call("POST", f"/model-versions/{version_id}/result", json={"files": files})["status"]
+
+    def model_version_failure(self, version_id: uuid.UUID, error: str) -> str:
+        return self._call("POST", f"/model-versions/{version_id}/failure", json={"error": error[:2000]})["status"]
+
+    def model_version_release(self, version_id: uuid.UUID) -> None:
+        self._call("POST", f"/model-versions/{version_id}/release")
+
+    def waiting_model_versions(self) -> list[uuid.UUID]:
+        return [uuid.UUID(item) for item in self._call("GET", "/model-versions/waiting")["ids"]]
+
     # ---- the Parquet copies
 
     def claim_copy(self, derivative_id: uuid.UUID) -> "CopyToMake | None":

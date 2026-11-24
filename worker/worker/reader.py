@@ -31,4 +31,17 @@ def read(backend: Backend, file: FileToRead) -> dict[str, Any]:
         return found
 
 
-__all__ = ["FileMissing", "UnreadableFile", "read"]
+def fingerprint(backend: Backend, file: FileToRead) -> dict[str, Any]:
+    """The size and the fingerprint of a file, computed as it comes: it is never kept (a model file can be tens of GiB,
+    and nothing is read in it)."""
+    digest, size = hashlib.sha256(), 0
+    try:
+        for chunk in backend.download(file.url):
+            digest.update(chunk)
+            size += len(chunk)
+    except FileMissing:
+        raise FileMissing(f"{file.path} is missing from the storage") from None
+    return {"id": str(file.id), "size_bytes": size, "sha256": digest.hexdigest()}
+
+
+__all__ = ["FileMissing", "UnreadableFile", "fingerprint", "read"]

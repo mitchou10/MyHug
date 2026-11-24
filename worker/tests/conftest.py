@@ -24,6 +24,7 @@ class FakePlatform:
         self.keys: list[str | None] = []
         self.storage_failure: int | None = None  # a status the storage answers instead
         self.waiting_ids: list[str] = []
+        self.waiting_model_ids: list[str] = []
         self.waiting_copy_ids: list[str] = []
         self.copy: dict | None = None  # what `claim` of a copy answers (None: nothing to do)
         self.uploaded: dict[int, bytes] = {}  # the parts of the copy that reached the storage
@@ -94,6 +95,8 @@ class FakePlatform:
             return httpx2.Response(200, json={"status": "failed"})
         if path.endswith("/release"):
             return httpx2.Response(200, json={"status": "pending"})
+        if path == "/model-versions/waiting":
+            return httpx2.Response(200, json={"ids": self.waiting_model_ids})
         if path.endswith("/waiting"):
             return httpx2.Response(200, json={"ids": self.waiting_ids})
         if path.endswith("/expire"):

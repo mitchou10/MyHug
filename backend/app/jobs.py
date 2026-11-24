@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # The names the worker registers its tasks under (see `worker/worker/tasks.py`).
 PROCESS_VERSION = "datasets.process_version"
 CONVERT_FILE = "datasets.convert_file"
+PROCESS_MODEL_VERSION = "models.process_version"
 QUEUE = "datasets"
 
 
@@ -26,6 +27,10 @@ class Jobs(Protocol):
         """A copy of a file is to be made."""
         ...
 
+    async def process_model_version(self, version_id: uuid.UUID) -> None:
+        """A version of a model was recorded: its files are to be fingerprinted."""
+        ...
+
 
 class NoJobs:
     """Nothing is queued (tests, scripts): the versions wait until something reads them."""
@@ -34,6 +39,9 @@ class NoJobs:
         return None
 
     async def convert_file(self, derivative_id: uuid.UUID) -> None:
+        return None
+
+    async def process_model_version(self, version_id: uuid.UUID) -> None:
         return None
 
 
@@ -60,3 +68,6 @@ class CeleryJobs:
 
     async def convert_file(self, derivative_id: uuid.UUID) -> None:
         await self._send(CONVERT_FILE, derivative_id)
+
+    async def process_model_version(self, version_id: uuid.UUID) -> None:
+        await self._send(PROCESS_MODEL_VERSION, version_id)

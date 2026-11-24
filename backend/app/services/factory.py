@@ -23,6 +23,7 @@ from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.model_access import ModelAccess
 from app.services.model_members import ModelMemberService
+from app.services.model_processing import ModelProcessing
 from app.services.model_uploads import ModelUploadService
 from app.services.model_versions import ModelVersionService
 from app.services.models import ModelService
@@ -140,7 +141,7 @@ def build_model_versions(
 
 
 def build_model_uploads(
-    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks
+    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks, jobs: Jobs | None = None
 ) -> ModelUploadService:
     models = ModelRepository(db)
     return ModelUploadService(
@@ -153,5 +154,17 @@ def build_model_uploads(
         max_files=settings.MODEL_VERSION_MAX_FILES,
         part_bytes=settings.UPLOAD_PART_BYTES,
         session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+        jobs=jobs,
+    )
+
+
+def build_model_processing(db: AsyncSession, store: ObjectStore) -> ModelProcessing:
+    return ModelProcessing(
+        ModelVersionRepository(db),
+        ModelUploadRepository(db),
+        store,
+        max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
+        stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
     )

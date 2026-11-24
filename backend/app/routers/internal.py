@@ -12,12 +12,14 @@ from app.config import settings
 from app.routers.deps import (
     DatasetDerivativesDep,
     DatasetProcessingDep,
+    ModelProcessingDep,
     ModelUploadExpiryDep,
     StorageGarbageDep,
     UploadExpiryDep,
 )
 from app.services import tables
 from app.services.dataset_processing import FileRead
+from app.services.model_processing import FileChecked
 
 router = APIRouter(prefix="/api/internal", tags=["worker"])
 
@@ -102,6 +104,55 @@ class WaitingOut(BaseModel):
 
 @router.get("/dataset-versions/waiting", summary="The versions nobody is reading, for the worker to queue again")
 async def waiting(_: Worker, service: DatasetProcessingDep) -> WaitingOut:
+    return WaitingOut(ids=await service.waiting())
+
+
+# ---- the files of the versions of the models: the worker computes their fingerprints
+
+
+class ModelFileToCheckOut(BaseModel):
+    id: uuid.UUID
+    path: str
+    size_bytes: int
+    url: str
+
+
+class ModelClaimOut(BaseModel):
+    claimed: bool
+    files: list[ModelFileToCheckOut]
+
+
+@router.post("/model-versions/{version_id}/claim", summary="Take a version of a model in hand: what to fingerprint")
+async def claim_model_version(version_id: uuid.UUID, _: Worker, service: ModelProcessingDep) -> ModelClaimOut:
+    files = await service.claim(version_id)
+    if files is None:
+        return ModelClaimOut(claimed=False, files=[])
+    return ModelClaimOut(claimed=True, files=[ModelFileToCheckOut(**vars(file)) for file in files])
+
+
+@router.post("/model-versions/{version_id}/result", summary="The fingerprints found in the files of a version")
+async def model_version_result(
+    version_id: uuid.UUID, data: ResultIn, _: Worker, service: ModelProcessingDep
+) -> StatusOut:
+    read = [FileChecked(id=item.id, size_bytes=item.size_bytes, sha256=item.sha256) for item in data.files]
+    return StatusOut(status=(await service.complete(version_id, read)).status)
+
+
+@router.post("/model-versions/{version_id}/failure", summary="A file of the version cannot be read: it is failed")
+async def model_version_failure(
+    version_id: uuid.UUID, data: FailureIn, _: Worker, service: ModelProcessingDep
+) -> StatusOut:
+    return StatusOut(status=(await service.fail(version_id, data.error)).status)
+
+
+@router.post("/model-versions/{version_id}/release", summary="Put a version back to waiting (not the file's fault)")
+async def model_version_release(version_id: uuid.UUID, _: Worker, service: ModelProcessingDep) -> StatusOut:
+    await service.release(version_id)
+    return StatusOut(status="pending")
+
+
+@router.get("/model-versions/waiting", summary="The versions of models nobody is checking, for the worker to queue")
+async def waiting_model_versions(_: Worker, service: ModelProcessingDep) -> WaitingOut:
     return WaitingOut(ids=await service.waiting())
 
 
