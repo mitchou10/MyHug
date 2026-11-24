@@ -14,6 +14,7 @@ from app.routers import (
     feedback_messages,
     feedback_references,
     health,
+    internal,
     notifications,
     profile,
 )
@@ -47,3 +48,4 @@ app.include_router(notifications.router)
 app.include_router(emit.router)
 app.include_router(datasets.router)
 app.include_router(dataset_uploads.router)
+app.include_router(internal.router)

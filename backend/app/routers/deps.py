@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
+from app.jobs import CeleryJobs, Jobs, NoJobs
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -18,10 +19,11 @@ from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
+from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
-from app.services.factory import build_dataset_uploads, build_dataset_versions, build_datasets
+from app.services.factory import build_dataset_processing, build_dataset_uploads, build_dataset_versions, build_datasets
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
@@ -30,7 +32,6 @@ from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
 from app.services.workflow import FeedbackWorkflow
 from app.storage import ObjectStore, get_store
-from app.worker.jobs import CeleryJobs, Jobs
 
 
 def get_profile_service(
@@ -138,3 +139,15 @@ def get_dataset_upload_service(db: DB, store: Store, jobs: JobsDep) -> DatasetUp
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 DatasetVersionServiceDep = Annotated[DatasetVersionService, Depends(get_dataset_version_service)]
 DatasetUploadServiceDep = Annotated[DatasetUploadService, Depends(get_dataset_upload_service)]
+
+
+def get_dataset_processing(db: DB, store: Store) -> DatasetProcessing:
+    return build_dataset_processing(db, store)
+
+
+def get_upload_expiry(db: DB, store: Store) -> DatasetUploadService:
+    return build_dataset_uploads(db, store, NoJobs())
+
+
+DatasetProcessingDep = Annotated[DatasetProcessing, Depends(get_dataset_processing)]
+UploadExpiryDep = Annotated[DatasetUploadService, Depends(get_upload_expiry)]

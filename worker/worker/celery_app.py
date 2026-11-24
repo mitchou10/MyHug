@@ -1,14 +1,14 @@
 from celery import Celery
 
-from app.config import settings
+from worker.config import settings
 
-# The worker of the app: Celery, with Redis between the API and it. Start it with
-# `celery -A app.worker.celery_app worker -Q datasets`, and the scheduler with `celery -A app.worker.celery_app beat`.
-celery_app = Celery("app", broker=settings.REDIS_URL, include=["app.worker.tasks"])
+# Start it with `celery -A worker.celery_app worker -Q datasets`, and the clock of the safety nets with
+# `celery -A worker.celery_app beat` (one only).
+celery_app = Celery("worker", broker=settings.REDIS_URL, include=["worker.tasks"])
 
 celery_app.conf.update(
     task_default_queue="datasets",
-    # The state is in the database, not in Celery: nobody reads the result of a task.
+    # The state is in the API's database, not in Celery: nobody reads the result of a task.
     task_ignore_result=True,
     # A job is taken off the queue when it is done, not when it starts: a worker that dies gives it back.
     task_acks_late=True,
@@ -21,9 +21,9 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     beat_schedule={
-        # The safety net: a version whose job was lost (Redis restarted) or whose worker died is queued again.
-        "process-waiting-versions": {"task": "datasets.process_waiting", "schedule": 60.0},
+        # A version whose job was lost (Redis restarted) or whose worker died is queued again.
+        "process-waiting-versions": {"task": "datasets.process_waiting", "schedule": settings.SWEEP_SECONDS},
         # Nobody comes back to an upload that was abandoned: its parts would stay in the storage for ever.
-        "expire-uploads": {"task": "datasets.expire_uploads", "schedule": 15 * 60.0},
+        "expire-uploads": {"task": "datasets.expire_uploads", "schedule": settings.EXPIRE_UPLOADS_SECONDS},
     },
 )

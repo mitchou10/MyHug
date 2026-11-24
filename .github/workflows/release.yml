@@ -3,6 +3,7 @@ name: Release
 # One release PR for the whole repository. Merging it creates:
 #   - the global release         vX.Y.Z           (CHANGELOG.md)
 #   - one release per service    backend-vX.Y.Z   (backend/CHANGELOG.md)
+#                                worker-vX.Y.Z    (worker/CHANGELOG.md)
 #                                frontend-vX.Y.Z  (frontend/CHANGELOG.md)
 # Only the services that changed since their last release are bumped.
 # `dev` produces release candidates (-rc.N), `main` stable releases.
@@ -36,14 +37,14 @@ jobs:
     #   APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
     #   APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 
-  # Both images carry the global version (the workflow's outputs are the root package's).
+  # The three images carry the global version (the workflow's outputs are the root package's).
   build:
     needs: release
     if: needs.release.outputs.release-created == 'true'
     strategy:
       fail-fast: false
       matrix:
-        service: [backend, frontend]
+        service: [backend, worker, frontend]
     uses: Mitchou10/github-workflow/.github/workflows/build-docker.yml@v0
     permissions:
       contents: read
@@ -74,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [backend, frontend]
+        service: [backend, worker, frontend]
     uses: Mitchou10/github-workflow/.github/workflows/scan-trivy.yml@v0
     permissions:
       contents: read

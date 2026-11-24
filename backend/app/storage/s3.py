@@ -139,9 +139,11 @@ class S3Store:
                 if error.response["Error"]["Code"] != "NoSuchUpload":
                     raise
 
-    async def presign_get(self, key: str, expires_in: int, filename: str | None = None) -> str:
+    async def presign_get(
+        self, key: str, expires_in: int, filename: str | None = None, *, internal: bool = False
+    ) -> str:
         params = {"Bucket": self._bucket, "Key": key}
         if filename:
             params["ResponseContentDisposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
-        async with self._client(public=True) as s3:
+        async with self._client(public=not internal) as s3:
             return await s3.generate_presigned_url("get_object", Params=params, ExpiresIn=expires_in)

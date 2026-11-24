@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.jobs import Jobs, NoJobs
 from app.models import Dataset, DatasetFile, DatasetVersion
 from app.models.dataset_version import READY
 from app.repositories.dataset_versions import DatasetVersionRepository
@@ -27,7 +28,6 @@ from app.services.errors import (
     VersionNotReady,
 )
 from app.storage import ObjectStore
-from app.worker.jobs import Jobs, NoJobs
 
 README = "README.md"
 SPLIT_ORDER = ("train", "validation", "test")

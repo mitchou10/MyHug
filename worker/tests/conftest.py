@@ -1,0 +1,86 @@
+import hashlib
+import uuid
+from collections.abc import Callable
+
+import httpx2
+import pytest
+
+from worker import tasks
+from worker.backend import Backend
+
+KEY = "worker-key-of-sixteen-characters"
+CSV = b"n\n1\n2\n3\n"
+
+
+class FakePlatform:
+    """The API and the storage, as the worker meets them: an httpx transport that answers like them, and remembers what
+    the worker said."""
+
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}  # signed address -> content
+        self.to_read: list[dict] | None = []  # what `claim` answers (None: nothing to do)
+        self.calls: list[tuple[str, str]] = []
+        self.bodies: dict[str, dict] = {}
+        self.keys: list[str | None] = []
+        self.storage_failure: int | None = None  # a status the storage answers instead
+        self.waiting_ids: list[str] = []
+
+    def add_file(self, path: str, data: bytes, *, rows: bool = True, fingerprint: bool = True) -> dict:
+        url = f"https://storage.test/{uuid.uuid4().hex}/{path}"
+        self.files[url] = data
+        return {
+            "id": str(uuid.uuid4()),
+            "path": path,
+            "size_bytes": len(data),
+            "url": url,
+            "needs_fingerprint": fingerprint,
+            "needs_rows": rows,
+        }
+
+    def handle(self, request: httpx2.Request) -> httpx2.Response:
+        if request.url.host == "storage.test":
+            self.keys.append(request.headers.get("X-Api-Key"))
+            if self.storage_failure:
+                return httpx2.Response(self.storage_failure)
+            data = self.files.get(str(request.url))
+            return httpx2.Response(200, content=data) if data is not None else httpx2.Response(404)
+        self.keys.append(request.headers.get("X-Api-Key"))
+        path = request.url.path.removeprefix("/api/internal")
+        self.calls.append((request.method, path))
+        if request.content:
+            import json
+
+            self.bodies[path] = json.loads(request.content)
+        if path.endswith("/claim"):
+            if self.to_read is None:
+                return httpx2.Response(200, json={"claimed": False, "files": []})
+            return httpx2.Response(200, json={"claimed": True, "files": self.to_read})
+        if path.endswith("/result"):
+            return httpx2.Response(200, json={"status": "ready"})
+        if path.endswith("/failure"):
+            return httpx2.Response(200, json={"status": "failed"})
+        if path.endswith("/release"):
+            return httpx2.Response(200, json={"status": "pending"})
+        if path.endswith("/waiting"):
+            return httpx2.Response(200, json={"ids": self.waiting_ids})
+        if path.endswith("/expire"):
+            return httpx2.Response(200, json={"expired": 2})
+        return httpx2.Response(404)
+
+
+@pytest.fixture
+def platform(monkeypatch: pytest.MonkeyPatch) -> FakePlatform:
+    fake = FakePlatform()
+    monkeypatch.setattr(
+        tasks, "_backend", lambda: Backend("http://api.test", KEY, transport=httpx2.MockTransport(fake.handle))
+    )
+    return fake
+
+
+@pytest.fixture
+def backend() -> Callable[[FakePlatform], Backend]:
+    return lambda fake: Backend("http://api.test", KEY, transport=httpx2.MockTransport(fake.handle))
+
+
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
