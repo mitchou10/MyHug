@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from urllib.parse import quote
 
 import aioboto3
+from aiobotocore.config import AioConfig
 from botocore.exceptions import ClientError
 
 from app.storage.base import ObjectInfo, ObjectNotFound, PartInfo, StoredObject
@@ -27,6 +28,9 @@ class S3Store:
             "aws_access_key_id": access_key_id,
             "aws_secret_access_key": secret_access_key,
             "region_name": region,
+            # The signed addresses are signed with version 4: without it boto signs them with the old version 2, which
+            # RustFS and recent AWS regions refuse (SignatureDoesNotMatch).
+            "config": AioConfig(signature_version="s3v4"),
         }
         # The browser may not reach the storage at the address the API does (inside Docker, `rustfs:9000`): the signed
         # addresses are made for the one it reaches.

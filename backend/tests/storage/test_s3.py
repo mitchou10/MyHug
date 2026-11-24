@@ -118,6 +118,15 @@ async def test_the_signed_address_is_the_one_the_browser_reaches(s3_url: str) ->
     )  # the API itself speaks to the storage at its own address
     assert (await store.presign_part("k", upload_id, 1, 600)).startswith("https://files.example.com/public/k?")
     assert (await store.presign_get("k", 600)).startswith("https://files.example.com/public/k?")
+    assert (await store.presign_get("k", 600, internal=True)).startswith(f"{s3_url}/public/k?")  # for the worker
+
+
+async def test_the_signed_addresses_use_signature_version_4(s3_url: str) -> None:
+    """With the old version 2 (boto's default for these addresses) RustFS answers SignatureDoesNotMatch."""
+    store = make_store(s3_url, "signed")
+    upload_id = await store.create_multipart("k", "text/plain")
+    for url in (await store.presign_part("k", upload_id, 1, 600), await store.presign_get("k", 600)):
+        assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url and "X-Amz-Signature=" in url
 
 
 async def test_giving_up_an_upload_frees_it_and_can_be_done_twice(s3_url: str) -> None:
