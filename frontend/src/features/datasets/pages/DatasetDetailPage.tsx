@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { AddToCollection } from '@/features/collections/components/AddToCollection'
+import { InCollections } from '@/features/collections/components/InCollections'
 import { AnnotationTab } from '../annotation/AnnotationTab'
 import { DatasetViewer } from '../components/DatasetViewer'
 import { formatCount, formatSize } from '../format'
@@ -38,6 +40,7 @@ export function DatasetDetailPage() {
           <div className="mt-2 flex flex-wrap gap-1.5">{d.tags.map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}</div>
         </div>
         <div className="flex gap-2">
+          <AddToCollection type="dataset" reference={`${d.owner}/${d.name}`} />
           <Button variant="outline"><Heart />{formatCount(d.likes)}</Button>
           <Button><Download />{t('datasets.download')}</Button>
         </div>
@@ -78,6 +81,7 @@ export function DatasetDetailPage() {
           {meta.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-2"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
           ))}
+          <InCollections type="dataset" reference={`${d.owner}/${d.name}`} />
         </aside>
       </div>
     </Container>

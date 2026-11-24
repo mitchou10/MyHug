@@ -10,6 +10,8 @@ import { formatCount, formatSize } from '@/features/datasets/format'
 import { getDataset } from '@/features/datasets/mockData'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { EvaluationsSection } from '../components/EvaluationsSection'
+import { AddToCollection } from '@/features/collections/components/AddToCollection'
+import { InCollections } from '@/features/collections/components/InCollections'
 import { ModelWidget } from '../components/ModelWidget'
 import { describe } from '../describe'
 import { findModel, toggleLike, useModels } from '../store'
@@ -55,6 +57,7 @@ export function ModelDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <AddToCollection type="model" reference={m.id} />
           <Button variant={isLiked ? 'default' : 'outline'} aria-pressed={isLiked} onClick={() => toggleLike(m.id)}><Heart />{formatCount(m.likes + (isLiked ? 1 : 0))}</Button>
           <Button variant="outline" disabled><Download />{formatCount(m.downloads)}</Button>
         </div>
@@ -145,6 +148,7 @@ export function ModelDetailPage() {
 
         <aside className="h-fit space-y-2 rounded-lg border p-4 text-sm">
           {meta.map(([k, v]) => <div key={k} className="flex justify-between gap-2"><span className="text-muted-foreground">{k}</span><span className="text-right font-medium">{v}</span></div>)}
+          <InCollections type="model" reference={m.id} />
         </aside>
       </div>
     </Container>
