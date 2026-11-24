@@ -59,7 +59,8 @@
     "toggle": "Toggle the sidebar",
     "adminFeedback": "Manage feedback",
     "datasets": "Datasets",
-    "models": "Models"
+    "models": "Models",
+    "collections": "Collections"
   },
   "userMenu": {
     "open": "Open the user menu",
@@ -856,5 +857,43 @@
       "hota": "Balance between detecting and associating objects.",
       "id_switches": "Number of times an object changes identity."
     }
+  },
+  "collections": {
+    "title": "Collections",
+    "subtitle": "Selections of datasets and models, with the reasons for gathering them.",
+    "new": "New collection",
+    "newHint": "Gather datasets and models around a subject, and say why they are there.",
+    "edit": "Edit",
+    "search": "Search collections…",
+    "mine": "Mine",
+    "sort": {
+      "likes": "Most liked",
+      "updatedAt": "Recent"
+    },
+    "none": "No collection matches.",
+    "back": "All collections",
+    "empty": "This collection is empty. Add datasets and models to it.",
+    "datasets_one": "{{count}} dataset",
+    "datasets_other": "{{count}} datasets",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} models",
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "private": "Private collection",
+      "privateHint": "Visible only to you."
+    },
+    "add": "Add to a collection",
+    "addTitle": "Add to a collection",
+    "newInline": "New collection…",
+    "addItems": "Add items",
+    "searchItems": "Search…",
+    "added": "Added",
+    "addOne": "Add",
+    "note": "Why is it here? (note)",
+    "up": "Move up",
+    "down": "Move down",
+    "remove": "Remove from the collection",
+    "missing": "no longer exists"
   }
 }

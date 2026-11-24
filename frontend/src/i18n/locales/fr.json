@@ -59,7 +59,8 @@
     "toggle": "Afficher ou masquer la barre latérale",
     "adminFeedback": "Gérer les retours",
     "datasets": "Datasets",
-    "models": "Modèles"
+    "models": "Modèles",
+    "collections": "Collections"
   },
   "userMenu": {
     "open": "Ouvrir le menu utilisateur",
@@ -856,5 +857,43 @@
       "hota": "Équilibre entre détection et association des objets.",
       "id_switches": "Nombre de fois où un objet change d'identité."
     }
+  },
+  "collections": {
+    "title": "Collections",
+    "subtitle": "Des sélections de datasets et de modèles, avec les raisons de les avoir réunis.",
+    "new": "Nouvelle collection",
+    "newHint": "Réunissez des datasets et des modèles autour d'un sujet, et dites pourquoi ils sont là.",
+    "edit": "Modifier",
+    "search": "Rechercher une collection…",
+    "mine": "Les miennes",
+    "sort": {
+      "likes": "Plus aimées",
+      "updatedAt": "Récentes"
+    },
+    "none": "Aucune collection ne correspond.",
+    "back": "Toutes les collections",
+    "empty": "Cette collection est vide. Ajoutez-y des datasets et des modèles.",
+    "datasets_one": "{{count}} dataset",
+    "datasets_other": "{{count}} datasets",
+    "models_one": "{{count}} modèle",
+    "models_other": "{{count}} modèles",
+    "fields": {
+      "title": "Titre",
+      "description": "Description",
+      "private": "Collection privée",
+      "privateHint": "Visible seulement par vous."
+    },
+    "add": "Ajouter à une collection",
+    "addTitle": "Ajouter à une collection",
+    "newInline": "Nouvelle collection…",
+    "addItems": "Ajouter des éléments",
+    "searchItems": "Rechercher…",
+    "added": "Ajouté",
+    "addOne": "Ajouter",
+    "note": "Pourquoi est-il là ? (note)",
+    "up": "Monter",
+    "down": "Descendre",
+    "remove": "Retirer de la collection",
+    "missing": "n'existe plus"
   }
 }
