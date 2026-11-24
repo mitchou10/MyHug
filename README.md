@@ -77,6 +77,12 @@ The defaults suit local development; **change the ones marked \*** before any re
 | `DERIVATIVE_MIN_BYTES` | 8 MiB | A csv, tsv or jsonl file at least this big gets a Parquet copy, made by the worker (below it the copy gains nothing) |
 | `DERIVATIVE_MAX_SOURCE_BYTES` | 20 GiB | A source over this is left as it is |
 | `DERIVATIVE_PART_BYTES` | 16 MiB | The size of the parts the worker sends a copy in |
+| `STORAGE_GC_ENABLED` | `true` | Kill switch of the collection of the objects that nothing points to |
+| `STORAGE_GC_DRY_RUN` | `true` | The collection only says what it would delete, until this is turned off |
+| `STORAGE_GC_GRACE_HOURS` | `0` | An object younger than this is never touched. 0: an upload session plus 12 h. Never less than that |
+| `STORAGE_GC_MAX_SCANNED` | `20000` | Objects looked at in one pass |
+| `STORAGE_GC_MAX_DELETIONS` | `5000` | Objects deleted in one pass |
+| `STORAGE_GC_CHECK_ROWS` | `200` | Files of versions whose object is checked to be there, in the first pass |
 | `DATASET_FILE_MAX_BYTES`, `DATASET_VERSION_MAX_FILES` | 100 MiB, `100` | Largest file, and most files, of a version sent through the API (small files) |
 | `NOTIFICATION_API_KEYS` | empty | The applications allowed to emit notifications, as `name=key` pairs separated by commas (a key under 16 characters is ignored); the name becomes the `source` \* |
 | `AUTH_MODE` | `oidc` | `oidc`, or `full-access`: no login, a fixed admin (development and tests only) |
@@ -378,6 +384,8 @@ downloads the files from the storage with the signed addresses the backend gives
 | `WORKER_TEMP_DIR` | empty (system) | Where a file is kept while it is read or converted: room for the source **and** its copy |
 | `ROW_GROUP_ROWS` | `50000` | Rows in a row group of a Parquet copy (what a page of the preview reads) |
 | `BATCH_BYTES` | 64 MiB | The most memory a batch of rows takes before it is written, whatever the rows |
+| `COLLECT_STORAGE_SECONDS` | `86400` | How often the worker asks the backend to collect the objects that nothing points to |
+| `COLLECT_MAX_PASSES` | `200` | The most passes of one collection (each is bounded on the backend) |
 | `SWEEP_SECONDS` | `60` | How often the versions nobody reads are queued again |
 | `EXPIRE_UPLOADS_SECONDS` | `900` | How often the abandoned uploads are given up |
 

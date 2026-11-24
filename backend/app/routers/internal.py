@@ -8,7 +8,8 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.auth.worker import Worker
-from app.routers.deps import DatasetDerivativesDep, DatasetProcessingDep, UploadExpiryDep
+from app.config import settings
+from app.routers.deps import DatasetDerivativesDep, DatasetProcessingDep, StorageGarbageDep, UploadExpiryDep
 from app.services import tables
 from app.services.dataset_processing import FileRead
 
@@ -177,3 +178,36 @@ async def release_copy(derivative_id: uuid.UUID, _: Worker, service: DatasetDeri
 @router.get("/derivatives/waiting", summary="The copies nobody is making, for the worker to queue again")
 async def waiting_copies(_: Worker, service: DatasetDerivativesDep) -> WaitingOut:
     return WaitingOut(ids=await service.waiting())
+
+
+# ---- the objects of the storage that nothing points to
+
+
+class CollectIn(BaseModel):
+    after: str | None = Field(None, max_length=1024, description="Where the last pass stopped (its `next_after`)")
+    dry_run: bool = Field(True, description="Only say what would be deleted. Cannot turn off the setting's dry run.")
+
+
+class CollectOut(BaseModel):
+    enabled: bool
+    busy: bool = False
+    dry_run: bool = True
+    scanned: int = 0
+    garbage_objects: int = 0
+    garbage_bytes: int = 0
+    deleted_objects: int = 0
+    orphan_copies: int = 0
+    started_uploads_given_up: int = 0
+    missing_objects: int = 0
+    missing_keys: list[str] = []
+    next_after: str | None = None
+
+
+@router.post("/storage/collect", summary="One pass of the collection of the objects that nothing points to")
+async def collect_storage(data: CollectIn, _: Worker, service: StorageGarbageDep) -> CollectOut:
+    """A pass looks at a bounded number of objects and says where to go on from (`next_after`) until it is null. The
+    request can only be more careful than the configuration: it can ask for a dry run, never turn it off."""
+    if not settings.STORAGE_GC_ENABLED:
+        return CollectOut(enabled=False)
+    result = await service.collect(after=data.after, dry_run=settings.STORAGE_GC_DRY_RUN or data.dry_run)
+    return CollectOut(enabled=True, **vars(result))

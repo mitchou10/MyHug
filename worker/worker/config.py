@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # How often the safety nets run: queue the versions that nobody reads, give up the abandoned uploads.
     SWEEP_SECONDS: float = 60.0
     EXPIRE_UPLOADS_SECONDS: float = 15 * 60.0
+    # How often the objects that nothing points to are collected (the backend decides what, and whether to delete),
+    # and the most passes of one collection: each pass is bounded on the backend and goes on from where it stopped.
+    COLLECT_STORAGE_SECONDS: float = 24 * 3600.0
+    COLLECT_MAX_PASSES: int = 200
 
 
 settings = Settings()

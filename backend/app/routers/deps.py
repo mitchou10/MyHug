@@ -30,6 +30,7 @@ from app.services.factory import (
     build_dataset_uploads,
     build_dataset_versions,
     build_datasets,
+    build_storage_garbage,
 )
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
@@ -37,6 +38,7 @@ from app.services.feedback_types import FeedbackTypeService
 from app.services.messages import MessageService
 from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
+from app.services.storage_garbage import StorageGarbage
 from app.services.workflow import FeedbackWorkflow
 from app.storage import ObjectStore, get_store
 
@@ -163,3 +165,10 @@ def get_upload_expiry(db: DB, store: Store) -> DatasetUploadService:
 DatasetProcessingDep = Annotated[DatasetProcessing, Depends(get_dataset_processing)]
 UploadExpiryDep = Annotated[DatasetUploadService, Depends(get_upload_expiry)]
 DatasetDerivativesDep = Annotated[DatasetDerivatives, Depends(get_dataset_derivatives)]
+
+
+def get_storage_garbage(db: DB, store: Store) -> StorageGarbage:
+    return build_storage_garbage(db, store)
+
+
+StorageGarbageDep = Annotated[StorageGarbage, Depends(get_storage_garbage)]

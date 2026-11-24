@@ -5,7 +5,15 @@ import aioboto3
 from aiobotocore.config import AioConfig
 from botocore.exceptions import ClientError
 
-from app.storage.base import ObjectInfo, ObjectNotFound, PartInfo, StoredObject
+from app.storage.base import (
+    ListedObject,
+    ObjectInfo,
+    ObjectListing,
+    ObjectNotFound,
+    PartInfo,
+    StartedUpload,
+    StoredObject,
+)
 
 
 class S3Store:
@@ -79,6 +87,51 @@ class S3Store:
             async with response["Body"] as body:
                 async for chunk in body.iter_chunks(chunk_size):
                     yield chunk
+
+    async def delete_many(self, keys: list[str]) -> None:
+        async with self._client() as s3:
+            for start in range(0, len(keys), 1000):  # the storage takes 1000 keys a call
+                batch = keys[start : start + 1000]
+                response = await s3.delete_objects(
+                    Bucket=self._bucket, Delete={"Objects": [{"Key": key} for key in batch], "Quiet": True}
+                )
+                if errors := response.get("Errors"):
+                    raise RuntimeError(f"{len(errors)} objects were not deleted, the first: {errors[0].get('Key')}")
+
+    async def list_objects(self, prefix: str, *, after: str | None = None, limit: int = 1000) -> ObjectListing:
+        async with self._client() as s3:
+            options = {"Bucket": self._bucket, "Prefix": prefix, "MaxKeys": min(limit, 1000)}
+            if after:
+                options["StartAfter"] = after
+            try:
+                response = await s3.list_objects_v2(**options)
+            except ClientError as error:
+                if error.response["Error"]["Code"] == "NoSuchBucket":
+                    return ObjectListing(items=[], next_after=None)
+                raise
+        items = [
+            ListedObject(key=o["Key"], size=o["Size"], modified=o["LastModified"]) for o in response.get("Contents", [])
+        ]
+        return ObjectListing(items=items, next_after=items[-1].key if response.get("IsTruncated") and items else None)
+
+    async def list_started_uploads(self, prefix: str) -> list[StartedUpload]:
+        found: list[StartedUpload] = []
+        markers: dict[str, str] = {}
+        async with self._client() as s3:
+            while True:
+                try:
+                    response = await s3.list_multipart_uploads(Bucket=self._bucket, Prefix=prefix, **markers)
+                except ClientError as error:
+                    if error.response["Error"]["Code"] == "NoSuchBucket":
+                        return found
+                    raise
+                found += [
+                    StartedUpload(key=u["Key"], upload_id=u["UploadId"], initiated=u["Initiated"])
+                    for u in response.get("Uploads", [])
+                ]
+                if not response.get("IsTruncated"):
+                    return found
+                markers = {"KeyMarker": response["NextKeyMarker"], "UploadIdMarker": response["NextUploadIdMarker"]}
 
     async def get_range(self, key: str, start: int, length: int) -> bytes:
         async with self._client() as s3:

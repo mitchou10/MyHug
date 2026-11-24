@@ -108,3 +108,60 @@ def test_the_number_of_parts_follows_the_size_of_the_copy() -> None:
     target = io.BytesIO(b"x" * 250)
     copier._send(Fake(), uuid.uuid4(), target, 100)  # ty: ignore[invalid-argument-type]
     assert sent == [[1, 2, 3]]
+
+
+# ---- the collection of the objects that nothing points to
+
+
+def a_pass(next_after: str | None = None, **found: int) -> dict:
+    return {
+        "enabled": True,
+        "busy": False,
+        "scanned": 100,
+        "garbage_objects": 0,
+        "deleted_objects": 0,
+        "next_after": next_after,
+        **found,
+    }
+
+
+def test_the_collection_goes_on_from_where_each_pass_stopped(platform: FakePlatform) -> None:
+    platform.collections = [
+        a_pass("datasets/a", garbage_objects=2),
+        a_pass("derived/b"),
+        a_pass(None, garbage_objects=1),
+    ]
+    done = tasks.collect_storage.apply().result
+    assert done == {"passes": 3, "scanned": 300, "garbage_objects": 3, "deleted_objects": 0}
+    assert [platform.bodies["/storage/collect"]["after"]] == ["derived/b"]  # the last body sent
+
+
+def test_the_collection_asks_from_the_start_then_after_the_last_key(platform: FakePlatform) -> None:
+    sent: list[str | None] = []
+    original = platform.handle
+
+    def spy(request):
+        if request.url.path.endswith("/storage/collect"):
+            import json
+
+            sent.append(json.loads(request.content)["after"])
+        return original(request)
+
+    platform.handle = spy
+    platform.collections = [a_pass("datasets/a"), a_pass(None)]
+    tasks.collect_storage.apply()
+    assert sent == [None, "datasets/a"]
+
+
+def test_a_collection_that_is_switched_off_or_busy_stops_at_once(platform: FakePlatform) -> None:
+    platform.collections = [{"enabled": False}]
+    assert tasks.collect_storage.apply().result["enabled"] is False
+    platform.collections = [a_pass("x"), {**a_pass(), "busy": True}]
+    done = tasks.collect_storage.apply().result
+    assert done["busy"] is True and done["passes"] == 1
+
+
+def test_a_collection_is_bounded_in_passes(platform: FakePlatform, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "COLLECT_MAX_PASSES", 3)
+    platform.collections = [a_pass(f"k{i}") for i in range(10)]
+    assert tasks.collect_storage.apply().result["passes"] == 3

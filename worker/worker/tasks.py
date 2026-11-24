@@ -3,6 +3,7 @@ import uuid
 
 from worker.backend import Backend
 from worker.celery_app import celery_app
+from worker.config import settings
 from worker.copier import make_copy
 from worker.errors import FileProblem
 from worker.reader import read
@@ -80,3 +81,25 @@ def process_waiting() -> int:
 def expire_uploads() -> int:
     """Gives up the uploads that took too long and frees what they had received. Returns how many."""
     return _backend().expire_uploads()
+
+
+@celery_app.task(name="storage.collect")
+def collect_storage() -> dict[str, int | bool]:
+    """Asks the backend to collect the objects of the storage that nothing points to, pass after pass (each is bounded)
+    until it has seen everything. The backend decides what is garbage and whether to delete it: this only asks."""
+    api = _backend()
+    totals: dict[str, int | bool] = {"passes": 0, "scanned": 0, "garbage_objects": 0, "deleted_objects": 0}
+    after: str | None = None
+    for _ in range(settings.COLLECT_MAX_PASSES):
+        done = api.collect_storage(after)
+        if not done["enabled"]:
+            return {**totals, "enabled": False}
+        if done["busy"]:  # another pass is running: this one is not needed
+            return {**totals, "busy": True}
+        totals["passes"] += 1
+        for name in ("scanned", "garbage_objects", "deleted_objects"):
+            totals[name] += done[name]
+        after = done["next_after"]
+        if after is None:
+            break
+    return totals
