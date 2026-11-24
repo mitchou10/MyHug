@@ -27,6 +27,7 @@ class FakePlatform:
         self.waiting_copy_ids: list[str] = []
         self.copy: dict | None = None  # what `claim` of a copy answers (None: nothing to do)
         self.uploaded: dict[int, bytes] = {}  # the parts of the copy that reached the storage
+        self.collections: list[dict] = []  # what each pass of the collection answers, in turn
 
     def add_file(self, path: str, data: bytes, *, rows: bool = True, fingerprint: bool = True) -> dict:
         url = f"https://storage.test/{uuid.uuid4().hex}/{path}"
@@ -79,6 +80,8 @@ class FakePlatform:
             import json
 
             self.bodies[path] = json.loads(request.content)
+        if path == "/storage/collect":
+            return httpx2.Response(200, json=self.collections.pop(0))
         if path.startswith("/derivatives/"):
             return self.handle_copy(path)
         if path.endswith("/claim"):

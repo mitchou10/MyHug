@@ -410,9 +410,55 @@ ne se lit pas, l'aperçu **retombe sur l'original** et le dit dans les logs. Le 
 **À savoir**
 - La copie double les octets stockés des gros fichiers tabulaires: d'où le seuil.
 - Le worker a besoin de disque pour la source **et** la copie en même temps (`WORKER_TEMP_DIR`).
-- Les copies vivent sous `derived/parquet/…`, hors de `datasets/`. Quand le ramasse-miettes existera, il devra les
-  supprimer avec leur source (issue sur le ramasse-miettes).
+- Les copies vivent sous `derived/parquet/…`, hors de `datasets/`. Le ramasse-miettes (section 6 quater) supprime une
+  copie dont plus aucun fichier ne tient la source, avec son objet.
 - Pas encore: publier la copie comme vrai fichier, statistiques par colonne, filtres et tris côté serveur.
+
+## 6 quater. Ramasse-miettes du stockage
+
+Les fichiers partagés entre versions ne sont stockés qu'une fois, sous une clé faite de leur contenu. Plusieurs cas
+laissent des objets que plus rien ne référence: un dataset supprimé (les lignes partent en cascade, pas les objets), un
+upload abandonné, un doublon retiré par le worker après un plantage, une version annulée à moitié, une copie Parquet
+dont le fichier source n'existe plus. Le ramasse-miettes les supprime.
+
+**Règle**: un objet est un déchet quand **aucun fichier d'aucune version (de n'importe quel dataset), aucun upload encore
+ouvert et aucune copie** ne pointe vers sa clé. La base fait foi. On cherche **par référence et jamais par dataset**:
+une clé peut être partagée.
+
+**Précautions** (un bug ici supprimerait de vraies données)
+- **Délai de grâce**: un objet est mis dans le stockage **avant** que sa ligne soit validée, donc un objet récent que rien
+  ne référence est normal. Seuls ceux plus vieux que le délai sont des déchets. Il est toujours plus long qu'une session
+  d'upload plus 12 h, quel que soit le réglage (`STORAGE_GC_GRACE_HOURS`).
+- **Préfixes possédés**: le ramasse-miettes ne parcourt que `datasets/` et `derived/`, jamais le bucket entier (avatars,
+  pièces jointes, artefacts MLflow en dehors). Testé.
+- **Relecture** des références juste avant de supprimer une page, **plafonds** par passe (objets regardés, objets
+  supprimés), et **simulation par défaut** (`STORAGE_GC_DRY_RUN=true`): tant qu'on ne l'éteint pas, il dit ce qu'il
+  supprimerait et ne supprime rien. Une requête peut être plus prudente que le réglage, jamais moins.
+- **Un seul à la fois**: verrou consultatif PostgreSQL sur une connexion à part, libéré à la fin. Une passe qui arrive
+  pendant une autre répond `busy`.
+
+**Ce qu'il fait** (`StorageGarbage`, `app/services/storage_garbage.py`)
+1. Première passe seulement: **copies orphelines** (la source n'est plus tenue par aucun fichier, copie intouchée depuis
+   le délai): ligne supprimée puis objet; **uploads en parties commencés que personne ne possède** (ni session ouverte,
+   ni copie en cours d'écriture) et plus vieux que le délai: abandonnés; **objets manquants**: quelques fichiers de
+   versions tirés au hasard sont vérifiés (`STORAGE_GC_CHECK_ROWS`), ceux dont l'objet n'est pas là sont **signalés**
+   (log d'erreur et réponse), jamais cachés ni « réparés ».
+2. Toutes les passes: les objets des préfixes, par pages, dans l'ordre des clés; ceux assez vieux que rien ne référence
+   sont supprimés par lots. Une passe est bornée et répond `next_after`: on repart de là jusqu'à `null`.
+
+**Appel**: `POST /api/internal/storage/collect` (clé du worker), corps `{"after": …, "dry_run": …}`. Le worker lance la
+tâche `storage.collect` (`beat`, tous les jours) qui enchaîne les passes (au plus `COLLECT_MAX_PASSES`). Le worker ne fait
+que demander: il n'a toujours ni base ni clé du stockage.
+
+**Pour l'activer vraiment**: lire d'abord le résultat des simulations (journal du backend, « Storage collection »,
+`garbage_objects` et `garbage_bytes`), puis mettre `STORAGE_GC_DRY_RUN=false`. À remplacer plus tard par un état en base si
+des passes doivent survivre à un redémarrage (aujourd'hui le curseur n'existe que le temps d'une collection).
+
+**À savoir**
+- Ce que supprime une version ou un dataset (à venir) devient des déchets que ce passage ramasse après le délai: il n'y a
+  aucune suppression synchrone d'objets partagés ailleurs.
+- Le contrôle des objets manquants tire au hasard (`ORDER BY random()` sur les clés distinctes): correct tant que la
+  table reste raisonnable, à remplacer par un parcours par curseur si elle grossit.
 
 ## 7. Export des annotations
 

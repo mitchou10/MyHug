@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 
 # The database the tests run against (docker compose -f docker-compose.test.yaml up -d --wait). Set before the app
 # is imported: its settings are read once.
@@ -24,7 +25,16 @@ from app.db import get_db  # noqa: E402
 from app.jobs import NoJobs  # noqa: E402
 from app.main import app  # noqa: E402
 from app.routers.deps import get_jobs  # noqa: E402
-from app.storage import ObjectInfo, ObjectNotFound, PartInfo, StoredObject, get_store  # noqa: E402
+from app.storage import (  # noqa: E402
+    ListedObject,
+    ObjectInfo,
+    ObjectListing,
+    ObjectNotFound,
+    PartInfo,
+    StartedUpload,
+    StoredObject,
+    get_store,
+)
 
 SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
@@ -83,15 +93,47 @@ class MemoryStore:
         self.objects: dict[str, StoredObject] = {}
         # Files being uploaded in parts: upload id -> where it goes, and the parts that arrived.
         self.uploads: dict[str, dict] = {}
+        # Since when each object is there (a listing gives it): tests set it to make an object old.
+        self.modified: dict[str, datetime] = {}
 
     async def put(self, key: str, data: bytes, content_type: str) -> None:
         self.objects[key] = StoredObject(data=data, content_type=content_type)
+        self.modified[key] = datetime.now(UTC)
+
+    def age(self, key: str, by: timedelta) -> None:
+        """Makes an object, or a started upload, `by` older than it is."""
+        if key in self.objects:
+            self.modified[key] = datetime.now(UTC) - by
+        for upload in self.uploads.values():
+            if upload["key"] == key:
+                upload["initiated"] = datetime.now(UTC) - by
 
     async def get(self, key: str) -> StoredObject | None:
         return self.objects.get(key)
 
     async def delete(self, key: str) -> None:
         self.objects.pop(key, None)
+        self.modified.pop(key, None)
+
+    async def delete_many(self, keys: list[str]) -> None:
+        for key in keys:
+            await self.delete(key)
+
+    async def list_objects(self, prefix: str, *, after: str | None = None, limit: int = 1000) -> ObjectListing:
+        keys = sorted(k for k in self.objects if k.startswith(prefix) and (after is None or k > after))
+        page = keys[: min(limit, 1000)]
+        items = [
+            ListedObject(key=k, size=len(self.objects[k].data), modified=self.modified.get(k, datetime.now(UTC)))
+            for k in page
+        ]
+        return ObjectListing(items=items, next_after=page[-1] if len(keys) > len(page) else None)
+
+    async def list_started_uploads(self, prefix: str) -> list[StartedUpload]:
+        return [
+            StartedUpload(key=u["key"], upload_id=upload_id, initiated=u["initiated"])
+            for upload_id, u in self.uploads.items()
+            if u["key"].startswith(prefix)
+        ]
 
     async def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
         stored = self.objects.get(key)
@@ -112,7 +154,12 @@ class MemoryStore:
 
     async def create_multipart(self, key: str, content_type: str) -> str:
         upload_id = uuid.uuid4().hex
-        self.uploads[upload_id] = {"key": key, "content_type": content_type, "parts": {}}
+        self.uploads[upload_id] = {
+            "key": key,
+            "content_type": content_type,
+            "parts": {},
+            "initiated": datetime.now(UTC),
+        }
         return upload_id
 
     async def presign_part(
@@ -135,6 +182,7 @@ class MemoryStore:
         upload = self.uploads.pop(upload_id)
         data = b"".join(upload["parts"][part.number][0] for part in sorted(parts, key=lambda p: p.number))
         self.objects[key] = StoredObject(data=data, content_type=upload["content_type"])
+        self.modified[key] = datetime.now(UTC)
 
     async def abort_multipart(self, key: str, upload_id: str) -> None:
         self.uploads.pop(upload_id, None)

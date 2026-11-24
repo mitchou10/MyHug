@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -22,6 +23,35 @@ class ObjectInfo(BaseModel):
 
     size: int
     content_type: str
+
+
+class ListedObject(BaseModel):
+    """An object as a listing shows it: where it is, how big, and since when."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    size: int
+    modified: datetime
+
+
+class ObjectListing(BaseModel):
+    """A page of a listing, in the order of the keys. `next_after` is where to go on from, None at the end."""
+
+    model_config = ConfigDict(frozen=True)
+
+    items: list[ListedObject]
+    next_after: str | None
+
+
+class StartedUpload(BaseModel):
+    """An upload in parts that was started and is not finished: its parts take room until it is."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    upload_id: str
+    initiated: datetime
 
 
 class PartInfo(BaseModel):
@@ -49,6 +79,20 @@ class ObjectStore(Protocol):
         ...
 
     async def delete(self, key: str) -> None: ...
+
+    async def delete_many(self, keys: list[str]) -> None:
+        """Deletes objects, as many as given (the storage takes them 1000 at a time). Those that are not there are
+        not an error."""
+        ...
+
+    async def list_objects(self, prefix: str, *, after: str | None = None, limit: int = 1000) -> ObjectListing:
+        """The objects whose key starts with `prefix`, in the order of the keys, `limit` at most (1000 at most), after
+        the key `after`. Goes on from `next_after` to read them all, however many they are."""
+        ...
+
+    async def list_started_uploads(self, prefix: str) -> list[StartedUpload]:
+        """The uploads in parts that were started under `prefix` and are not finished."""
+        ...
 
     def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
         """The content of an object as it comes, in chunks: a large file is never held whole in memory.

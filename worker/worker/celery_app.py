@@ -25,5 +25,7 @@ celery_app.conf.update(
         "process-waiting-versions": {"task": "datasets.process_waiting", "schedule": settings.SWEEP_SECONDS},
         # Nobody comes back to an upload that was abandoned: its parts would stay in the storage for ever.
         "expire-uploads": {"task": "datasets.expire_uploads", "schedule": settings.EXPIRE_UPLOADS_SECONDS},
+        # The objects of the storage that nothing points to: the backend does it, the worker only asks, every day.
+        "collect-storage": {"task": "storage.collect", "schedule": settings.COLLECT_STORAGE_SECONDS},
     },
 )

@@ -320,3 +320,56 @@ async def test_a_copy_is_queued_by_the_name_of_the_task(monkeypatch: pytest.Monk
     derivative = uuid.uuid4()
     await queue.convert_file(derivative)
     assert sent == [("datasets.convert_file", {"args": [str(derivative)], "queue": "datasets"})]
+
+
+# ---- the objects of the storage that nothing points to
+
+
+def an_old_orphan(store: MemoryStore) -> str:
+    key = "datasets/d1/orphan"
+    store.objects[key] = MemoryStore.stored(b"x", "application/octet-stream")
+    store.age(key, timedelta(days=30))
+    return key
+
+
+async def test_the_collection_needs_the_key(client: httpx2.AsyncClient) -> None:
+    assert (await client.post(f"{BASE}/storage/collect", json={})).status_code == 401
+
+
+async def test_the_collection_starts_as_a_dry_run_and_deletes_nothing(
+    client: httpx2.AsyncClient, store: MemoryStore
+) -> None:
+    key = an_old_orphan(store)
+    answer = (await client.post(f"{BASE}/storage/collect", json={}, headers=HEADERS)).json()
+    assert answer["enabled"] is True and answer["dry_run"] is True
+    assert (answer["garbage_objects"], answer["deleted_objects"], answer["next_after"]) == (1, 0, None)
+    assert key in store.objects
+
+
+async def test_the_collection_deletes_once_the_dry_run_is_turned_off(
+    client: httpx2.AsyncClient, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_GC_DRY_RUN", False)
+    key = an_old_orphan(store)
+    careful = (await client.post(f"{BASE}/storage/collect", json={"dry_run": True}, headers=HEADERS)).json()
+    assert careful["dry_run"] is True and key in store.objects  # a request can be more careful than the setting
+    done = (await client.post(f"{BASE}/storage/collect", json={"dry_run": False}, headers=HEADERS)).json()
+    assert (done["dry_run"], done["deleted_objects"]) == (False, 1) and key not in store.objects
+
+
+async def test_a_request_cannot_turn_off_the_dry_run_of_the_setting(
+    client: httpx2.AsyncClient, store: MemoryStore
+) -> None:
+    key = an_old_orphan(store)
+    answer = (await client.post(f"{BASE}/storage/collect", json={"dry_run": False}, headers=HEADERS)).json()
+    assert answer["dry_run"] is True and key in store.objects
+
+
+async def test_the_collection_can_be_switched_off(
+    client: httpx2.AsyncClient, store: MemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "STORAGE_GC_ENABLED", False)
+    monkeypatch.setattr(settings, "STORAGE_GC_DRY_RUN", False)
+    key = an_old_orphan(store)
+    answer = (await client.post(f"{BASE}/storage/collect", json={}, headers=HEADERS)).json()
+    assert answer["enabled"] is False and key in store.objects
