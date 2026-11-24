@@ -110,7 +110,7 @@ export const DATASETS: Dataset[] = [
     tags: ['vidéo', 'actions', 'egocentric'], rows: 4200, sizeMb: 18600, downloads: 520, likes: 27, updatedAt: '2026-11-02',
     files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'clips/', sizeMb: 18500 }, { path: 'labels.csv', sizeMb: 0.4 }],
     columns: ['clip', 'action', 'duration_s', 'fps'],
-    sample: [['clip_0001.mp4', 'couper', 6.2, 30], ['clip_0002.mp4', 'mélanger', 9.8, 30], ['clip_0003.mp4', 'verser', 4.5, 25], ['clip_0004.mp4', 'éplucher', 12.1, 30]],
+    sample: [['clip_0001.mp4', 'couper', 6.2, 25], ['clip_0002.mp4', 'mélanger', 9.8, 25], ['clip_0003.mp4', 'verser', 4.5, 25], ['clip_0004.mp4', 'éplucher', 12.1, 25], ['clip_0005.mp4', 'couper', 8.4, 25], ['clip_0006.mp4', 'mélanger', 11.0, 25]],
     card: 'Clips à la première personne filmés dans 40 cuisines.',
   },
   {

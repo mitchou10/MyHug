@@ -5,14 +5,17 @@ import type { ValueType } from './format'
 /**
  * Text: classification, ner, qa. Tabular: label a row, review cells, describe the columns. Image: detection and
  * segmentation (polygons), classification, image to text. Audio: classification, labelled segments, transcription,
- * description. Regression works for text, tabular and audio.
+ * description. Video: classification, labelled segments, object tracking, description. Regression works for text,
+ * tabular, audio and video.
  */
 export type TaskType = 'classification' | 'ner' | 'qa' | 'regression' | 'row_label' | 'cell_review' | 'column_schema'
   | 'image_detection' | 'image_segmentation' | 'image_polyline' | 'image_keypoints' | 'image_classification' | 'image_caption' | 'image_vqa'
   | 'audio_classification' | 'audio_segments' | 'audio_transcription' | 'audio_caption'
+  | 'video_classification' | 'video_segments' | 'video_tracking' | 'video_caption'
 export const TEXT_TASKS: TaskType[] = ['classification', 'ner', 'qa', 'regression']
 export const IMAGE_TASKS: TaskType[] = ['image_detection', 'image_segmentation', 'image_polyline', 'image_keypoints', 'image_classification', 'image_caption', 'image_vqa']
 export const AUDIO_TASKS: TaskType[] = ['audio_classification', 'audio_segments', 'audio_transcription', 'audio_caption', 'regression']
+export const VIDEO_TASKS: TaskType[] = ['video_classification', 'video_segments', 'video_tracking', 'video_caption', 'regression']
 export const TABULAR_TASKS: TaskType[] = ['row_label', 'cell_review', 'column_schema', 'regression']
 
 /** NER only. `entity`: a small unit (a name, a date…). `semantic`: a business meaning, often a longer passage (an offence, a sentence…). */
@@ -83,6 +86,11 @@ export interface AudioSegment {
   label?: string; labels?: string[]; text?: string; value?: number; reason?: string
 }
 
+/** Video tracking: where an object is at a moment (a box as fractions of the frame), or that it has left the frame. */
+export interface Keyframe { t: number; box: [number, number, number, number]; outside?: boolean }
+/** Video tracking: one object followed through the clip. Between two keyframes the box is interpolated. */
+export interface ObjectTrack { id: string; label: string; keyframes: Keyframe[]; reason?: string }
+
 /** Cell review: what is wrong with a cell (`issue` = id of a label), and what it should be. */
 export interface CellNote { issue: string; corrected?: string; reason?: string }
 /** Column schema: what a column is (`role` = id of a label), its type, formats, unit and description. */
@@ -90,7 +98,7 @@ export interface ColumnNote { role?: string; valueType?: ValueType; formats?: st
 
 /** `label` is the id of a LabelDef; `reason` is the optional "why" of the annotator. */
 /** Tasks where an item gets one or several labels from a list. */
-export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'audio_classification' || t === 'row_label'
+export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'audio_classification' || t === 'video_classification' || t === 'row_label'
 
 export interface Answer { label?: string; labels?: string[]; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
   /** Regression: the value given on the scale of the task. */
@@ -101,6 +109,8 @@ export interface Answer { label?: string; labels?: string[]; reason?: string; sp
   instances?: KeypointInstance[]
   /** Audio: the labelled or transcribed stretches of the clip. */
   segments?: AudioSegment[]
+  /** Video: the objects followed through the clip. */
+  tracks?: ObjectTrack[]
   /** Tabular: notes by column index. A column schema is stored at row 0. */
   cells?: Record<number, CellNote>
   columns?: Record<number, ColumnNote>
@@ -252,6 +262,33 @@ let state: State = {
         { id: 'angry', name: 'mécontent', description: 'Voix élevée, coupe la parole, reproches.' },
       ],
     },
+    {
+      id: 'p25', datasetKey: 'lab/kitchen-actions', name: 'Type de préparation', task: 'video_classification', multiLabel: true, createdBy: 'mitchou', annotators: 3, done: 900, total: 4200,
+      labels: [
+        { id: 'salad', name: 'salade', description: 'Légumes crus coupés et assaisonnés.' },
+        { id: 'soup', name: 'soupe', description: 'Préparation cuite dans un liquide.' },
+        { id: 'dessert', name: 'dessert', description: 'Préparation sucrée.' },
+      ],
+    },
+    {
+      id: 'p26', datasetKey: 'lab/kitchen-actions', name: 'Actions', task: 'video_segments', tracks: ['Main gauche', 'Main droite'], createdBy: 'mitchou', annotators: 2, done: 310, total: 4200,
+      labels: [
+        { id: 'cut', name: 'couper', description: 'Du premier contact de la lame jusqu’à la fin du geste.' },
+        { id: 'mix', name: 'mélanger', description: 'Mouvement répété d’un ustensile dans un récipient.' },
+        { id: 'pour', name: 'verser', description: 'Du début de l’inclinaison jusqu’à ce que le flux s’arrête.' },
+        { id: 'peel', name: 'éplucher', description: 'Retirer la peau d’un légume ou d’un fruit.' },
+      ],
+    },
+    {
+      id: 'p27', datasetKey: 'lab/kitchen-actions', name: 'Suivi des ustensiles', task: 'video_tracking', createdBy: 'mitchou', annotators: 2, done: 120, total: 4200,
+      labels: [
+        { id: 'knife', name: 'couteau', description: 'Le couteau entier, manche compris.' },
+        { id: 'spoon', name: 'cuillère', description: 'Cuillère ou louche.' },
+        { id: 'bowl', name: 'bol', description: 'Bol, saladier ou casserole.' },
+      ],
+    },
+    { id: 'p28', datasetKey: 'lab/kitchen-actions', name: 'Description de la recette', task: 'video_caption', granularity: 'regions', tracks: ['Étapes'], labels: [], createdBy: 'mitchou', annotators: 2, done: 75, total: 4200 },
+    { id: 'p29', datasetKey: 'lab/kitchen-actions', name: 'Qualité de l’image', task: 'regression', labels: [], scale: { min: 1, max: 5, step: 1, minLabel: 'Inutilisable', maxLabel: 'Excellente' }, createdBy: 'mitchou', annotators: 2, done: 540, total: 4200 },
   ],
   answers: {},
 }
@@ -268,7 +305,7 @@ export function patchProject(projectId: string, patch: Partial<AnnotationProject
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, ...patch } : p)) })
 }
 /** Whether the annotator marks stretches of a clip (with tracks) rather than the whole clip. */
-export const usesRegions = (p: AnnotationProject) => p.task === 'audio_segments' || p.task === 'audio_transcription' || p.granularity === 'regions'
+export const usesRegions = (p: AnnotationProject) => p.task === 'audio_segments' || p.task === 'audio_transcription' || p.task === 'video_segments' || p.granularity === 'regions'
 export const DEFAULT_TRACKS = ['Piste 1']
 export function updateLabels(projectId: string, labels: LabelDef[]) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, labels } : p)) })
