@@ -4,6 +4,7 @@ Ce document fixe ce que le backend devra faire pour les datasets et l'annotation
 (avec des données mockées). Il sert de référence avant d'écrire la première ligne du backend.
 Les **datasets tabulaires** et la **régression** sont traités à part dans [backend-tabular-annotation.md](backend-tabular-annotation.md).
 Le **son**, la **vidéo** et les **séries temporelles** le sont dans [backend-timed-media.md](backend-timed-media.md), et les **images** dans [image-annotation-ideas.md](image-annotation-ideas.md).
+La **pré-annotation par des modèles**, validée par un humain, est dans [backend-preannotation.md](backend-preannotation.md).
 
 - Les décisions déjà prises sont dans **1**.
 - Le modèle de données est dans **3**, l'API dans **5**.
