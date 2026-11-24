@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/mitchou10/MyHug/compare/v0.10.0...v0.11.0) (2026-11-24)
+
+
+### Features
+
+* **infra:** add MLflow to the docker compose ([517b39f](https://github.com/mitchou10/MyHug/commit/517b39f2191b741a684ef6b6438b1b72f4937137))
+
 ## [0.10.0](https://github.com/mitchou10/MyHug/compare/v0.9.0...v0.10.0) (2026-11-24)
 
 

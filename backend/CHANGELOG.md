@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/mitchou10/MyHug/compare/backend-v0.6.0...backend-v0.7.0) (2026-11-24)
+
+
+### Features
+
+* **infra:** add MLflow to the docker compose ([517b39f](https://github.com/mitchou10/MyHug/commit/517b39f2191b741a684ef6b6438b1b72f4937137))
+
 ## [0.6.0](https://github.com/mitchou10/MyHug/compare/backend-v0.5.0...backend-v0.6.0) (2026-11-24)
 
 
