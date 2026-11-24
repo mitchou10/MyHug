@@ -72,6 +72,9 @@ The defaults suit local development; **change the ones marked \*** before any re
 | `SIGNED_ADDRESS_SECONDS` | `3600` | How long a signed address of the storage works |
 | `REDIS_URL` | `redis://localhost:6379/0` | Where the API queues the jobs of the worker (it only sends the name of the task) |
 | `WORKER_API_KEY` | empty | The key the worker calls `/api/internal` with, 16 characters at least (empty: the worker is refused) |
+| `MLFLOW_TRACKING_URI` | empty | The MLflow server of the models' versions and artifacts, reached only from inside the compose (empty: models are not available) |
+| `MLFLOW_PUBLIC_URL` | empty | Where people who can edit a model open it in MLflow (a link on the model page). MLflow has no login: behind a signing-in proxy in production. Empty: no link |
+| `MLFLOW_API_KEY` | empty | Sent as a bearer token if a proxy in front of MLflow asks for one |
 | `PROCESSING_STALE_MINUTES` | `30` | A version read for longer than this is taken to have lost its worker, and is read again |
 | `PROCESSING_MAX_ATTEMPTS` | `3` | How many times a version is taken in hand before it is given up as `failed` |
 | `DERIVATIVE_MIN_BYTES` | 8 MiB | A csv, tsv or jsonl file at least this big gets a Parquet copy, made by the worker (below it the copy gains nothing) |
@@ -398,3 +401,23 @@ uv run celery -A worker.celery_app beat         # one only
 ```
 
 `docker compose up` starts `redis`, `worker` and `beat`. The image has no HTTP health check: the worker listens to nothing.
+
+## MLflow
+
+The versions and the artifacts of the models are kept by [MLflow](https://mlflow.org). `docker compose up` starts it
+(`mlflow`, after a one-shot `mlflow-init`): its state is in its own PostgreSQL database (`mlflow`) and in the bucket of
+RustFS under `mlflow/`, so there is no volume to keep and a restart keeps everything.
+
+**It has no login of its own, so it is never published to the network**: only the services of the compose reach it
+(`http://mlflow:5000`), and only the backend calls it. For you, its UI is on **http://localhost:5000** (the port is bound to
+127.0.0.1, this machine only), and the model pages link to it for the people who can edit the model
+(`MLFLOW_PUBLIC_URL`). Never bind that port to another address.
+
+To check that it works as the backend will use it (a registered model and its version, an artifact sent and read back
+through the server, and found in the bucket):
+
+```bash
+docker compose exec -T -e PYTHONPATH=/app backend python - < backend/scripts/check_mlflow.py
+```
+
+See [docs/mlflow.md](docs/mlflow.md).

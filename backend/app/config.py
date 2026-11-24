@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # How many times a version is taken in hand before it is given up as failed.
     PROCESSING_MAX_ATTEMPTS: int = 3
 
+    # MLflow keeps the versions and the artifacts of the models. It has no login of its own and is never published: only
+    # the backend calls it, from inside the compose. Empty address: the models are not available. The key, if a proxy in
+    # front of MLflow asks for one, is sent as a bearer token.
+    MLFLOW_TRACKING_URI: str = ""
+    MLFLOW_API_KEY: str = ""
+    # Where a person opens MLflow to see the detail of a model (its runs, metrics, artifacts). The platform links there,
+    # **only for the people who can edit the model**: MLflow has no rights of its own, whoever reaches it can change
+    # everything. In production it must be behind a proxy that signs people in. Empty: no link.
+    MLFLOW_PUBLIC_URL: str = ""
+
     # A tabular file (csv, tsv, jsonl) at least this big gets a copy in Parquet, made by the worker: below it the copy
     # would gain nothing. A source over the maximum is left as it is.
     DERIVATIVE_MIN_BYTES: int = 8 * 1024**2

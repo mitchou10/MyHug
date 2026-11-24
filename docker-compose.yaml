@@ -27,6 +27,9 @@ services:
       NOTIFICATION_API_KEYS: demo=dev-only-key-not-for-prod
       REDIS_URL: redis://redis:6379/0
       WORKER_API_KEY: dev-only-worker-key-not-for-prod
+      # The server of the models' versions and artifacts, reached only from inside this compose.
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_PUBLIC_URL: http://localhost:5000 # where the people who edit a model open it in MLflow
     depends_on:
       redis:
         condition: service_healthy
@@ -136,6 +139,55 @@ services:
       timeout: 5s
       retries: 15
       start_period: 20s
+
+  # MLflow keeps the versions and the artifacts of the models (see docs/mlflow.md). Its state is in PostgreSQL (its own
+  # database) and in the bucket of RustFS (under `mlflow/`): nothing to keep in a volume. It has no login of its own, so
+  # it is **never published to the network**: the services of this compose reach it, and the backend is the only one
+  # that calls it. For you it is on this machine only (127.0.0.1:5000), to read its UI; the platform links to it for the
+  # people who can edit a model.
+  mlflow-init:
+    build:
+      context: docker/mlflow
+    command: ["python", "/opt/init.py"]
+    environment: &mlflow-env
+      MLFLOW_BACKEND_STORE_URI: postgresql+psycopg2://app:app@postgres:5432/mlflow
+      MLFLOW_ARTIFACTS_DESTINATION: s3://app/mlflow
+      MLFLOW_S3_ENDPOINT_URL: http://rustfs:9000
+      AWS_ACCESS_KEY_ID: rustfsadmin # dev only
+      AWS_SECRET_ACCESS_KEY: rustfsadmin # dev only
+      AWS_DEFAULT_REGION: us-east-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    restart: "no"
+
+  mlflow:
+    build:
+      context: docker/mlflow
+    # The artifacts go through the server (`--serve-artifacts`): clients need no storage keys.
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=postgresql+psycopg2://app:app@postgres:5432/mlflow
+      - --artifacts-destination=s3://app/mlflow
+      - --serve-artifacts
+      - --allowed-hosts=mlflow:5000,localhost:5000
+    environment: *mlflow-env
+    expose: ["5000"]
+    ports: ["127.0.0.1:5000:5000"] # loopback only: not reachable from another machine
+    depends_on:
+      mlflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
 
   # Any OIDC provider fits: only the OIDC_* variables above know about it.
   keycloak:
