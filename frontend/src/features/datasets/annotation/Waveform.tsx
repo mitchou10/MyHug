@@ -14,7 +14,7 @@ type Drag = { kind: 'create'; t0: number; lane: number } | { kind: 'start' | 'en
  * region to adjust it, or its body to move it (also to another lane). `zoom` stretches the time axis (the box scrolls).
  */
 export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, selectedId, tool, hueOf, tagOf, onSeek, onSelect, onCreate, onChange, onActiveTrack }: {
-  clip: { duration: number; peaks: number[] }; time: number; zoom: number; segments: AudioSegment[]; tracks: string[]; activeTrack: number; selectedId: string | null; tool: AudioTool
+  clip: { duration: number; peaks: number[]; line?: boolean; format?: (t: number) => string }; time: number; zoom: number; segments: AudioSegment[]; tracks: string[]; activeTrack: number; selectedId: string | null; tool: AudioTool
   hueOf: (s: AudioSegment) => number | null; tagOf: (s: AudioSegment) => string
   onSeek: (t: number) => void; onSelect: (id: string | null) => void; onCreate: (start: number, end: number, track: number) => void
   onChange: (s: AudioSegment[]) => void; onActiveTrack: (i: number) => void
@@ -82,9 +82,12 @@ export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, sele
     if (x < sc.scrollLeft + 24 || x > sc.scrollLeft + sc.clientWidth - 24) sc.scrollLeft = x - sc.clientWidth / 2
   }, [time, zoom, D])
 
-  const step = D > 60 ? 10 : D > 20 ? 5 : 2
+  const fmt = clip.format ?? fmtTime
+  // Sounds and videos: a tick every few seconds. Series: about eight ticks.
+  const step = clip.line ? Math.max(1, Math.round(D / 8)) : D > 60 ? 10 : D > 20 ? 5 : 2
   const ticks = Array.from({ length: Math.floor(D / step) + 1 }, (_, i) => i * step)
-  const path = clip.peaks.map((p, i) => `M${i},${50 - p * 46}V${50 + p * 46}`).join('')
+  const n = clip.peaks.length
+  const path = clip.line ? clip.peaks.map((p, i) => `${i ? 'L' : 'M'}${(i / Math.max(1, n - 1)) * n},${92 - p * 84}`).join('') : clip.peaks.map((p, i) => `M${i},${50 - p * 46}V${50 + p * 46}`).join('')
   const laneOf = (s: AudioSegment) => clamp(s.track ?? 0, 0, tracks.length - 1)
 
   return (
@@ -92,9 +95,9 @@ export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, sele
       <div ref={box} className="relative touch-none select-none" style={{ width: `${zoom * 100}%`, cursor: tool === 'region' ? 'crosshair' : 'pointer' }} onPointerDown={down} onPointerMove={move} onPointerUp={up}>
         <div className={`relative ${clip.peaks.length ? 'h-28' : 'h-9'}`}>
           {clip.peaks.length > 0 && <svg viewBox={`0 0 ${clip.peaks.length} 100`} preserveAspectRatio="none" className="absolute inset-0 top-5 h-[calc(100%-1.25rem)] w-full text-muted-foreground" aria-hidden>
-            <path d={path} stroke="currentColor" strokeWidth={1} vectorEffect="non-scaling-stroke" fill="none" />
+            <path d={path} stroke="currentColor" strokeWidth={clip.line ? 2 : 1} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
           </svg>}
-          {ticks.map((t) => <span key={t} className="pointer-events-none absolute top-0 h-full border-l border-dashed border-border pl-1 text-[10px] text-muted-foreground" style={{ left: pct(t) }}>{t}s</span>)}
+          {ticks.map((t) => <span key={t} className="pointer-events-none absolute top-0 h-full border-l border-dashed border-border pl-1 text-[10px] text-muted-foreground" style={{ left: pct(t) }}>{clip.format ? clip.format(t).slice(2) : `${t}s`}</span>)}
         </div>
 
         {tracks.map((name, i) => (
@@ -120,7 +123,7 @@ export function Waveform({ clip, time, zoom, segments, tracks, activeTrack, sele
         ))}
 
         <div className="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-primary" style={{ left: pct(time) }}>
-          <span className="absolute top-0 left-1 rounded bg-primary px-1 text-[10px] whitespace-nowrap text-primary-foreground">{fmtTime(time)}</span>
+          <span className="absolute top-0 left-1 rounded bg-primary px-1 text-[10px] whitespace-nowrap text-primary-foreground">{fmt(time)}</span>
         </div>
       </div>
     </div>

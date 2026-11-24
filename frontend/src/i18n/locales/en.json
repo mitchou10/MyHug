@@ -385,6 +385,18 @@
         "video_caption": {
           "title": "Video to text",
           "hint": "Describe each video, or each of its parts."
+        },
+        "timeseries_classification": {
+          "title": "Series classification",
+          "hint": "Give one or several labels to each series: trend, seasonality, shift…"
+        },
+        "timeseries_segments": {
+          "title": "Labelled segments",
+          "hint": "Mark stretches of the series: promotions, outages, anomalies."
+        },
+        "timeseries_caption": {
+          "title": "Series to text",
+          "hint": "Describe each series, or parts of it."
         }
       },
       "labelName": "Label name",
@@ -606,6 +618,11 @@
         "nextKey": "Next key",
         "outside": "Left the frame",
         "removeKey": "Delete key"
+      },
+      "series": {
+        "hintSegments": "Drag on the chart to mark a stretch, drag its edges to adjust. Click to place the cursor, M marks the start and the end.",
+        "hintPlain": "Click the chart to place the cursor, ← and → move it by one point.",
+        "empty": "Generated placeholder series: the real data will come from the backend."
       }
     }
   }

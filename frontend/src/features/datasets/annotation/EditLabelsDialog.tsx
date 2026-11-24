@@ -15,8 +15,8 @@ export function EditLabelsDialog({ project, open, onOpenChange }: { project: Ann
   const { answers } = useAnnotations()
   const [owner, name] = project.datasetKey.split('/')
   const modality = getDataset(owner, name)?.modality
-  const isAudio = (modality === 'audio' || modality === 'video') && project.task !== 'video_tracking' // timed, with regions
-  const kind = project.task.replace(/^(audio|video)_/, '')
+  const isAudio = (modality === 'audio' || modality === 'video' || modality === 'timeseries') && project.task !== 'video_tracking' // timed, with regions
+  const kind = project.task.replace(/^(audio|video|timeseries)_/, '')
   const canChoose = isAudio && (kind === 'classification' || kind === 'caption' || project.task === 'regression')
   const optionalLabels = project.task === 'audio_transcription'
 
