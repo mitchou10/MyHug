@@ -48,7 +48,8 @@ class Dataset(Base):
     likes_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # What the latest version holds, copied here so a list does not look into the versions for every line.
     version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    rows: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # None until the latest version has been read by the worker.
+    rows: Mapped[int | None] = mapped_column(BigInteger)
     size_bytes: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     # The `sub` claim of the identity provider, and the name the author had then (there is no users table).
     created_by: Mapped[str] = mapped_column(String(255), index=True)

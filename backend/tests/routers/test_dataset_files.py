@@ -1,4 +1,5 @@
 import io
+from collections.abc import Awaitable, Callable
 
 import httpx2
 import pyarrow as pa
@@ -8,7 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import Dataset, DatasetMember
+from app.models import Dataset, DatasetMember, DatasetVersion
+from app.repositories.dataset_versions import DatasetVersionRepository
+from app.repositories.datasets import DatasetRepository
+from app.services.dataset_processing import DatasetProcessor
 from tests.conftest import MemoryStore
 from tests.routers.test_datasets import create, share
 
@@ -16,6 +20,29 @@ DATASETS = "/api/datasets"
 ADDRESS = f"{DATASETS}/ada/movie-reviews"
 TRAIN = b"text,label\ngreat,pos\nawful,neg\nfine,pos\nbad,neg\nok,pos\n"
 TEST = b"text,label\nnice,pos\nhorrible,neg\n"
+
+
+@pytest.fixture
+def work(db: AsyncSession, store: MemoryStore) -> Callable[[], Awaitable[None]]:
+    """What the worker does: reads the files of the versions that wait. The API does not do it."""
+
+    async def run() -> None:
+        waiting = (
+            (
+                await db.execute(
+                    select(DatasetVersion.id)
+                    .where(DatasetVersion.status == "pending")
+                    .order_by(DatasetVersion.created_at)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        processor = DatasetProcessor(DatasetRepository(db), DatasetVersionRepository(db), store)
+        for version_id in waiting:
+            await processor.process(version_id)
+
+    return run
 
 
 def part(path: str, data: bytes, content_type: str = "text/csv") -> tuple:
@@ -41,10 +68,10 @@ async def start(client: httpx2.AsyncClient, login) -> None:
     await create(client)
 
 
-# ---- a first version
+# ---- a first version: the API records the files, the worker reads them
 
 
-async def test_the_files_of_a_first_version_describe_the_dataset(client, login) -> None:
+async def test_sending_files_records_them_without_reading_them(client, login) -> None:
     await start(client, login)
     response = await push(
         client,
@@ -55,53 +82,65 @@ async def test_the_files_of_a_first_version_describe_the_dataset(client, login) 
     )
     assert response.status_code == 201, response.text
     version = response.json()
-    assert (version["number"], version["rows"], version["message"], version["created_by_username"]) == (
+    assert (
+        version["number"],
+        version["status"],
+        version["error"],
+        version["message"],
+        version["created_by_username"],
+    ) == (1, "pending", None, "first", "ada")
+    assert version["size_bytes"] == len(TRAIN) + len(TEST) + len(b"# Reviews")  # known without reading anything
+    assert (version["rows"], version["columns"]) == (None, [])  # not yet
+
+    dataset = (await client.get(ADDRESS)).json()
+    assert (dataset["version"], dataset["rows"], dataset["size_bytes"], dataset["processing"]) == (
         1,
-        7,
-        "first",
-        "ada",
+        None,
+        version["size_bytes"],
+        "pending",
     )
-    assert version["size_bytes"] == len(TRAIN) + len(TEST) + len(b"# Reviews")
+    assert (dataset["splits"], dataset["columns"]) == ([], [])
+    assert dataset["card"] == "# Reviews"  # the README is the card at once
+    files = {f["path"]: f for f in (await client.get(f"{ADDRESS}/files")).json()}
+    assert set(files) == {"data/train.csv", "data/test.csv", "README.md"}
+    assert (files["data/train.csv"]["split"], files["data/train.csv"]["rows"]) == (None, None)  # not read yet
+    assert files["data/train.csv"]["size_bytes"] == len(TRAIN) and len(files["data/train.csv"]["sha256"]) == 64
+
+
+async def test_once_the_worker_has_read_the_files_the_dataset_describes_them(client, login, work) -> None:
+    await start(client, login)
+    await push(
+        client,
+        part("data/train.csv", TRAIN),
+        part("data/test.csv", TEST),
+        part("README.md", b"# Reviews", "text/markdown"),
+    )
+    await work()
+    version = (await client.get(f"{ADDRESS}/versions")).json()[0]
+    assert (version["status"], version["rows"]) == ("ready", 7)
     assert version["columns"] == [{"name": "text", "dtype": "string"}, {"name": "label", "dtype": "string"}]
 
     dataset = (await client.get(ADDRESS)).json()
-    assert (dataset["version"], dataset["rows"], dataset["size_bytes"]) == (1, 7, version["size_bytes"])
+    assert (dataset["rows"], dataset["processing"]) == (7, "ready")
     assert dataset["splits"] == [{"name": "train", "rows": 5, "files": 1}, {"name": "test", "rows": 2, "files": 1}]
     assert dataset["columns"] == version["columns"]
-    assert dataset["card"] == "# Reviews"  # the README becomes the card
-    assert (await client.get(f"{DATASETS}")).json()["items"][0]["rows"] == 7  # the list shows it too
+    assert (await client.get(DATASETS)).json()["items"][0]["rows"] == 7  # the list shows it too
+    files = {f["path"]: f for f in (await client.get(f"{ADDRESS}/files")).json()}
+    assert (files["data/train.csv"]["split"], files["data/train.csv"]["rows"]) == ("train", 5)
+    assert (files["README.md"]["split"], files["README.md"]["rows"]) == (None, None)  # not a file of rows
 
 
 async def test_a_dataset_without_files_has_nothing_to_show(client, login) -> None:
     await start(client, login)
     dataset = (await client.get(ADDRESS)).json()
-    assert (dataset["version"], dataset["rows"], dataset["size_bytes"], dataset["splits"], dataset["columns"]) == (
-        0,
-        0,
-        0,
-        [],
-        [],
-    )
+    assert (dataset["version"], dataset["rows"], dataset["size_bytes"], dataset["processing"]) == (0, None, 0, None)
+    assert (dataset["splits"], dataset["columns"]) == ([], [])
     assert (await client.get(f"{ADDRESS}/versions")).json() == []
     assert (await client.get(f"{ADDRESS}/files")).status_code == 404  # no version yet
     assert (await client.get(f"{ADDRESS}/rows")).status_code == 404
 
 
-async def test_the_files_are_listed_with_what_was_read_in_them(client, login) -> None:
-    await start(client, login)
-    await push(client, part("train.csv", TRAIN), part("pictures/a.png", b"\x89PNG", "image/png"))
-    files = {f["path"]: f for f in (await client.get(f"{ADDRESS}/files")).json()}
-    assert set(files) == {"train.csv", "pictures/a.png"}
-    assert (files["train.csv"]["split"], files["train.csv"]["rows"], files["train.csv"]["content_type"]) == (
-        "train",
-        5,
-        "text/csv",
-    )
-    assert len(files["train.csv"]["sha256"]) == 64
-    assert (files["pictures/a.png"]["split"], files["pictures/a.png"]["rows"]) == (None, None)  # not a file of rows
-
-
-async def test_a_dataset_of_pictures_counts_its_pictures(client, login) -> None:
+async def test_a_dataset_of_pictures_counts_its_pictures(client, login, work) -> None:
     await start(client, login)
     await push(
         client,
@@ -109,6 +148,7 @@ async def test_a_dataset_of_pictures_counts_its_pictures(client, login) -> None:
         part("b.png", b"\x89PNG2", "image/png"),
         part("README.md", b"x", "text/markdown"),
     )
+    await work()
     assert (await client.get(ADDRESS)).json()["rows"] == 2  # the README is not one of them
 
 
@@ -127,12 +167,16 @@ async def test_the_paths_can_be_sent_apart_from_the_names(client, login) -> None
 # ---- the next versions
 
 
-async def test_a_new_version_keeps_the_files_it_does_not_touch(client, login, store: MemoryStore) -> None:
+async def test_a_new_version_keeps_the_files_it_does_not_touch(client, login, work, store: MemoryStore) -> None:
     await start(client, login)
     await push(client, part("train.csv", TRAIN), part("test.csv", TEST))
+    await work()
     stored = len(store.objects)
-    response = await push(client, part("test.csv", b"text,label\nonly,one\n"), remove=[])
+    response = await push(client, part("test.csv", b"text,label\nonly,one\n"))
     assert response.status_code == 201 and response.json()["number"] == 2
+    before = {f["path"]: f["rows"] for f in (await client.get(f"{ADDRESS}/files")).json()}
+    assert before == {"train.csv": 5, "test.csv": None}  # what was read stays, the new file waits
+    await work()
     latest = {f["path"]: f["rows"] for f in (await client.get(f"{ADDRESS}/files")).json()}
     assert latest == {"train.csv": 5, "test.csv": 1}  # replaced, and the other one stays
     old = {f["path"]: f["rows"] for f in (await client.get(f"{ADDRESS}/files", params={"version": 1})).json()}
@@ -140,6 +184,20 @@ async def test_a_new_version_keeps_the_files_it_does_not_touch(client, login, st
     assert len(store.objects) == stored + 1  # the train file is not stored again
     assert [v["number"] for v in (await client.get(f"{ADDRESS}/versions")).json()] == [2, 1]  # the newest first
     assert (await client.get(ADDRESS)).json()["rows"] == 6
+
+
+async def test_a_new_version_is_pending_whatever_the_one_before_was(client, login, work) -> None:
+    await start(client, login)
+    await push(client, part("train.csv", TRAIN))
+    await work()
+    assert (await client.get(ADDRESS)).json()["processing"] == "ready"
+    await push(client, part("test.csv", TEST))
+    dataset = (await client.get(ADDRESS)).json()
+    assert (dataset["processing"], dataset["rows"], dataset["version"]) == (
+        "pending",
+        None,
+        2,
+    )  # unknown again until read
 
 
 async def test_files_are_taken_out_by_their_path(client, login) -> None:
@@ -161,7 +219,7 @@ async def test_the_same_content_twice_in_a_dataset_is_stored_once(client, login,
     assert len(store.objects) == 1
 
 
-# ---- what is refused
+# ---- what is refused at once
 
 
 @pytest.mark.parametrize("path", ["../secret.csv", "a/../../b.csv", "a//b.csv", "./a.csv", "x" * 513 + ".csv"])
@@ -177,22 +235,13 @@ async def test_a_path_that_is_sent_twice_is_refused(client, login) -> None:
     assert (await push(client, part("a.csv", TRAIN), part("a.csv", TEST))).status_code == 422
 
 
-async def test_a_file_that_is_not_what_its_name_says_is_refused_and_nothing_is_stored(
-    client, login, store: MemoryStore
+async def test_a_file_that_is_too_large_is_refused(
+    client, login, monkeypatch: pytest.MonkeyPatch, store: MemoryStore
 ) -> None:
-    await start(client, login)
-    response = await push(
-        client, part("good.csv", TRAIN), part("bad.parquet", b"not parquet", "application/octet-stream")
-    )
-    assert response.status_code == 422 and "bad.parquet" in response.json()["detail"]
-    assert store.objects == {}
-    assert (await client.get(ADDRESS)).json()["version"] == 0
-
-
-async def test_a_file_that_is_too_large_is_refused(client, login, monkeypatch: pytest.MonkeyPatch) -> None:
     await start(client, login)
     monkeypatch.setattr(settings, "DATASET_FILE_MAX_BYTES", 10)
     assert (await push(client, part("train.csv", TRAIN))).status_code == 413
+    assert store.objects == {}
 
 
 async def test_too_many_files_are_refused(client, login, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -220,12 +269,30 @@ async def test_nothing_is_added_without_a_login(client) -> None:
     assert (await client.post(f"{ADDRESS}/versions", files=[part("a.csv", TRAIN)])).status_code == 401
 
 
+# ---- a file that cannot be read is found out by the worker
+
+
+async def test_a_file_that_is_not_what_its_name_says_fails_the_version_when_it_is_read(client, login, work) -> None:
+    await start(client, login)
+    response = await push(
+        client, part("good.csv", TRAIN), part("bad.parquet", b"not parquet", "application/octet-stream")
+    )
+    assert response.status_code == 201  # sending is not the moment to find out
+    await work()
+    version = (await client.get(f"{ADDRESS}/versions")).json()[0]
+    assert version["status"] == "failed" and "bad.parquet" in version["error"]
+    dataset = (await client.get(ADDRESS)).json()
+    assert (dataset["processing"], dataset["rows"]) == ("failed", None)
+    page = await client.get(f"{ADDRESS}/rows")
+    assert page.status_code == 409  # there is nothing to preview
+
+
 # ---- reading
 
 
 async def test_a_file_is_downloaded_as_it_was_sent_and_counts_a_download(client, login) -> None:
     await start(client, login)
-    await push(client, part("data/train.csv", TRAIN))
+    await push(client, part("data/train.csv", TRAIN))  # no need for the worker to download
     response = await client.get(f"{ADDRESS}/files/data/train.csv")
     assert response.status_code == 200 and response.content == TRAIN
     assert response.headers["content-type"].startswith("text/csv")
@@ -245,9 +312,19 @@ async def test_a_private_dataset_cannot_be_read_by_those_who_have_no_access(clie
         assert (await client.get(f"{ADDRESS}/{path}")).status_code == 404, path
 
 
-async def test_the_preview_is_a_page_of_the_rows_of_a_split(client, login) -> None:
+async def test_the_preview_waits_for_the_worker(client, login, work) -> None:
+    await start(client, login)
+    await push(client, part("train.csv", TRAIN))
+    response = await client.get(f"{ADDRESS}/rows")
+    assert response.status_code == 409 and "processed" in response.json()["detail"]
+    await work()
+    assert (await client.get(f"{ADDRESS}/rows")).status_code == 200
+
+
+async def test_the_preview_is_a_page_of_the_rows_of_a_split(client, login, work) -> None:
     await start(client, login)
     await push(client, part("train.csv", TRAIN), part("test.csv", TEST))
+    await work()
     page = (await client.get(f"{ADDRESS}/rows", params={"limit": 2})).json()
     assert (page["split"], page["splits"], page["total"], page["limit"], page["offset"]) == (
         "train",
@@ -265,22 +342,24 @@ async def test_the_preview_is_a_page_of_the_rows_of_a_split(client, login) -> No
     assert (await client.get(f"{ADDRESS}/rows", params={"split": "dev"})).status_code == 404
 
 
-async def test_the_preview_can_be_searched(client, login) -> None:
+async def test_the_preview_can_be_searched(client, login, work) -> None:
     await start(client, login)
     await push(client, part("train.csv", TRAIN))
+    await work()
     page = (await client.get(f"{ADDRESS}/rows", params={"q": "POS", "limit": 2})).json()
     assert page["total"] == 3 and len(page["rows"]) == 2  # three match, the page has two
     assert (await client.get(f"{ADDRESS}/rows", params={"q": "zzz"})).json()["total"] == 0
 
 
-async def test_the_preview_goes_through_all_the_files_of_a_split(client, login) -> None:
+async def test_the_preview_goes_through_all_the_files_of_a_split(client, login, work) -> None:
     await start(client, login)
     await push(client, part("train-0.csv", b"n\n1\n2\n3\n"), part("train-1.csv", b"n\n4\n5\n"))
+    await work()
     page = (await client.get(f"{ADDRESS}/rows", params={"offset": 2, "limit": 3})).json()
     assert page["rows"] == [[3], [4], [5]] and page["total"] == 5  # a page can start in one file and end in the next
 
 
-async def test_the_preview_reads_parquet_and_jsonl(client, login) -> None:
+async def test_the_preview_reads_parquet_and_jsonl(client, login, work) -> None:
     await start(client, login)
     buffer = io.BytesIO()
     pq.write_table(pa.table({"id": [1, 2], "score": [0.5, None]}), buffer)
@@ -289,23 +368,27 @@ async def test_the_preview_reads_parquet_and_jsonl(client, login) -> None:
         part("train.parquet", buffer.getvalue(), "application/octet-stream"),
         part("test.jsonl", b'{"id": 9, "score": 1}\n', "application/x-ndjson"),
     )
+    await work()
     train = (await client.get(f"{ADDRESS}/rows")).json()
     assert train["rows"] == [[1, 0.5], [2, None]]
     assert train["columns"] == [{"name": "id", "dtype": "int"}, {"name": "score", "dtype": "float"}]
     assert (await client.get(f"{ADDRESS}/rows", params={"split": "test"})).json()["rows"] == [[9, 1]]
 
 
-async def test_an_old_version_can_be_previewed(client, login) -> None:
+async def test_an_old_version_can_be_previewed(client, login, work) -> None:
     await start(client, login)
     await push(client, part("train.csv", TRAIN))
+    await work()
     await push(client, part("train.csv", b"text,label\nonly,one\n"))
+    await work()
     assert (await client.get(f"{ADDRESS}/rows")).json()["total"] == 1
     assert (await client.get(f"{ADDRESS}/rows", params={"version": 1})).json()["total"] == 5
 
 
-async def test_a_dataset_with_no_file_of_rows_has_nothing_to_preview(client, login) -> None:
+async def test_a_dataset_with_no_file_of_rows_has_nothing_to_preview(client, login, work) -> None:
     await start(client, login)
     await push(client, part("a.png", b"\x89PNG", "image/png"))
+    await work()
     assert (await client.get(f"{ADDRESS}/rows")).json() == {
         "split": "",
         "splits": [],

@@ -37,6 +37,9 @@ class DatasetRepository(Repository):
     def add(self, dataset: Dataset) -> None:
         self._db.add(dataset)
 
+    async def get(self, dataset_id: uuid.UUID) -> Dataset | None:
+        return await self._db.get(Dataset, dataset_id)
+
     async def get_by_name(self, owner: str, name: str) -> Dataset | None:
         result = await self._db.execute(select(Dataset).where(Dataset.owner == owner, Dataset.name == name))
         return result.scalar_one_or_none()
