@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Dataset, DatasetLike, DatasetMember
+from app.models import Dataset, DatasetLike, DatasetMember, DatasetVersion
 
 
 def make(name: str = "movie-reviews", owner: str = "ada", **fields) -> Dataset:
@@ -86,3 +86,32 @@ async def test_deleting_a_dataset_takes_its_members_and_likes_with_it(db: AsyncS
     await db.commit()
     assert (await db.execute(select(DatasetMember))).first() is None
     assert (await db.execute(select(DatasetLike))).first() is None
+
+
+async def test_a_version_waits_to_be_read_and_its_rows_are_not_known(db: AsyncSession) -> None:
+    dataset = make()
+    db.add(dataset)
+    await db.commit()
+    version = DatasetVersion(dataset_id=dataset.id, number=1, created_by="u1", created_by_username="ada")
+    db.add(version)
+    await db.commit()
+    await db.refresh(version)
+    assert (version.status, version.rows, version.error, version.columns, version.size_bytes) == (
+        "pending",
+        None,
+        None,
+        [],
+        0,
+    )
+    assert (await db.execute(select(Dataset.rows))).scalar_one() is None
+
+
+async def test_a_version_has_one_of_the_known_statuses(db: AsyncSession) -> None:
+    dataset = make()
+    db.add(dataset)
+    await db.commit()
+    db.add(
+        DatasetVersion(dataset_id=dataset.id, number=1, status="halfway", created_by="u1", created_by_username="ada")
+    )
+    with pytest.raises(IntegrityError):
+        await db.commit()

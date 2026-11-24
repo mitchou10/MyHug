@@ -248,6 +248,46 @@ Il vérifie que `0 ≤ start < end ≤ len(texte)`.
   nécessaires (`pyarrow`); pour CSV et JSONL, on lit les premiers Mo. Le résultat des premières lignes est mis en
   cache en base (`dataset_versions.preview` en JSON) à la création de la version.
 
+## 6 bis. Lecture des fichiers par un worker
+
+**L'API n'ouvre jamais le contenu des fichiers pour répondre à un envoi.** Elle enregistre les fichiers (chemin, taille,
+empreinte, type) et crée la version à l'état `pending`. Compter les lignes, trouver les colonnes et les parties (train,
+test…) est le travail d'un **worker**, qui n'existe pas encore: seul le code qu'il appellera est écrit et testé
+(`DatasetProcessor.process(version_id)`, dans `app/services/dataset_processing.py`).
+
+**Les états d'une version**: `pending` (en attente) → `processing` (lue par un worker) → `ready`, ou `failed` avec la raison
+dans `error` (un fichier illisible, un fichier absent du stockage). Une version `failed` peut être relue.
+
+**Ce qui est connu tout de suite et ce qui attend**
+
+| Tout de suite (envoi) | Après la lecture (`ready`) |
+|---|---|
+| fichiers, chemins, tailles, empreintes, types, taille de la version, README (devient la fiche) | lignes de la version et de chaque fichier, colonnes, parties (`splits`), `rows` du dataset |
+
+Tant que la dernière version n'est pas `ready`: `rows` vaut `null`, `splits` et `columns` sont vides, et `GET …/rows`
+(l'aperçu) répond **409**. `processing` dans le détail d'un dataset donne l'état de la dernière version (`null` s'il n'a
+pas de fichier), pour que le frontend écrive « calcul en cours » plutôt que « 0 ligne ».
+
+**Contrat du worker** (ce que `process` garantit):
+- **Idempotent**: une version `ready` est laissée telle quelle; rejouer après un plantage est sans risque.
+- **Il ne relit pas ce qui a déjà été lu**: un fichier gardé d'une version à la suivante garde ses lignes et ses colonnes
+  (même contenu, même résultat); seuls les nouveaux fichiers sont ouverts.
+- **Il ne plante pas sur un fichier illisible**: la version passe `failed` avec le message.
+- **Il met à jour la liste**: `datasets.rows` n'est recopié que si la version lue est la dernière du dataset.
+
+**Comment déclencher le worker** (à choisir quand on le fera):
+1. **La base fait office de file d'attente** (recommandé pour commencer). Les versions `pending` sont déjà indexées
+   (`ix_dataset_versions_pending`, partiel). Le worker prend les plus anciennes avec
+   `SELECT … WHERE status = 'pending' ORDER BY created_at FOR UPDATE SKIP LOCKED`, sans courtier de messages à ajouter.
+2. **Un courtier de messages** (Celery, Redis…): l'API publie `version_id` après la validation de l'envoi. Plus réactif,
+   mais deux systèmes à faire tenir (et un message perdu laisse une version `pending`: il faudra un balayage).
+
+Dans les deux cas, une version `pending` ou `processing` depuis trop longtemps est reprise (un worker a pu mourir).
+
+**Pas encore décidé**: l'aperçu (`GET …/rows`) relit aujourd'hui les fichiers à chaque requête, ce qui convient aux petits
+fichiers. À terme, le worker peut aussi préparer l'aperçu (les premières lignes de chaque partie, stockées avec la
+version) ou convertir les données en Parquet pour une lecture par groupes de lignes.
+
 ## 7. Export des annotations
 
 Un projet d'annotation validé produit une **nouvelle configuration** du dataset (comme les `configs` de

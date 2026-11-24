@@ -120,6 +120,12 @@ class VersionNotFound(ServiceError):
     message = "This version does not exist"
 
 
+class VersionNotReady(ServiceError):
+    """The files of the version have not been read yet (or could not be): there is nothing to show of their rows."""
+
+    message = "This version is still being processed"
+
+
 class DatasetFileNotFound(ServiceError):
     message = "This file does not exist"
 

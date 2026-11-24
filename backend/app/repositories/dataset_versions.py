@@ -13,6 +13,9 @@ class DatasetVersionRepository(Repository):
     def add_file(self, file: DatasetFile) -> None:
         self._db.add(file)
 
+    async def get_by_id(self, version_id: uuid.UUID) -> DatasetVersion | None:
+        return await self._db.get(DatasetVersion, version_id)
+
     async def latest(self, dataset_id: uuid.UUID) -> DatasetVersion | None:
         result = await self._db.execute(
             select(DatasetVersion)

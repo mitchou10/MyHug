@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.models import Dataset, DatasetFile, DatasetVersion
+from app.models.dataset_version import READY
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services import tables
@@ -23,6 +24,7 @@ from app.services.errors import (
     SplitNotFound,
     TooManyFiles,
     VersionNotFound,
+    VersionNotReady,
 )
 from app.storage import ObjectStore, StoredObject
 
@@ -106,8 +108,8 @@ class DatasetVersionService:
         self, actor: Actor, owner: str, name: str, *, uploads: list[NamedUpload], remove: list[str], message: str
     ) -> DatasetVersion:
         """A new version: the files of the previous one, with `uploads` added (or replacing the same path) and the
-        `remove` paths taken out. Raises the errors of the paths, the sizes and the files that cannot be read; nothing
-        is stored if one of them fails."""
+        `remove` paths taken out. The version is `pending`: a worker reads the files afterwards. Raises the errors of
+        the paths and the sizes; nothing is stored if one of them fails."""
         dataset = await self._access.get_editable(actor, owner, name)
         if not uploads and not remove:
             raise NothingToCommit
@@ -163,10 +165,7 @@ class DatasetVersionService:
             columns=[],
             content_type=mimetypes.guess_type(path)[0] or "application/octet-stream",
         )
-        if tables.is_data_file(path):
-            info = tables.inspect(path, data)
-            file.split, file.rows = tables.split_of(path), info.rows
-            file.columns = [{"name": column.name, "dtype": column.dtype} for column in info.columns]
+        # What is inside is not read here: a worker does it (see DatasetProcessor), so that sending files stays fast.
         return file, data
 
     async def _write(
@@ -203,15 +202,10 @@ class DatasetVersionService:
                 storage_key=file.storage_key,
             )
             self._versions.add_file(copy)
-        data_files = sorted((f for f in files if f.split is not None), key=lambda f: (splits_index(f.split), f.path))
-        version.rows = (
-            sum(f.rows or 0 for f in data_files)
-            if data_files
-            else sum(1 for f in files if f.content_type.startswith(MEDIA))
-        )
+        # Only what is known without reading the files: how big they are. The rows, the columns and the parts come when
+        # the version is ready; a file that did not change keeps what was found in it, so the worker skips it.
         version.size_bytes = sum(f.size_bytes for f in files)
-        version.columns = data_files[0].columns if data_files else []
-        dataset.version, dataset.rows, dataset.size_bytes = version.number, version.rows, version.size_bytes
+        dataset.version, dataset.rows, dataset.size_bytes = version.number, None, version.size_bytes
         dataset.updated_at = datetime.now(UTC)
         return version
 
@@ -265,6 +259,8 @@ class DatasetVersionService:
         """A page of the rows of one split (the preview of a dataset). `query` keeps the rows that contain it."""
         dataset, _ = await self._access.get_readable(actor, owner, name)
         version = await self._version_of(dataset, number)
+        if version.status != READY:  # the parts and the columns are found by the worker
+            raise VersionNotReady
         files = await self._versions.files(version.id)
         splits = [info.name for info in splits_of(files)]
         if not splits:

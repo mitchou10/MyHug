@@ -74,9 +74,9 @@ class DatasetSummaryOut(BaseModel):
     downloads: int
     likes: int = Field(validation_alias="likes_count")
     liked: bool = False
-    # What the latest version holds: 0 for a dataset that has no file yet.
+    # What the latest version holds: 0 for a dataset with no file. `rows` is None until a worker has read the files.
     version: int
-    rows: int
+    rows: int | None
     size_bytes: int
     created_by: str
     created_by_username: str
@@ -92,6 +92,8 @@ class DatasetOut(DatasetSummaryOut):
     card: str
     # Whether the person who asks may change or delete it.
     can_edit: bool = False
+    # Where the latest version is: `pending`, `processing`, `ready` or `failed`; None for a dataset without files.
+    processing: str | None = None
     splits: list["SplitOut"] = Field(default_factory=list)
     columns: list["ColumnOut"] = Field(default_factory=list)
 
@@ -103,6 +105,7 @@ class DatasetOut(DatasetSummaryOut):
                 "can_edit": view.can_edit,
                 "splits": [SplitOut.from_info(info) for info in view.splits],
                 "columns": [ColumnOut(**column) for column in view.columns],
+                "processing": view.processing,
             }
         )
 
@@ -138,7 +141,10 @@ class VersionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     number: int
-    rows: int
+    # `pending` until a worker has read the files, then `ready` (or `failed`, and `error` says why).
+    status: str
+    error: str | None
+    rows: int | None
     size_bytes: int
     message: str
     created_by: str

@@ -15,6 +15,7 @@ STATUS_CODES: dict[type[errors.ServiceError], int] = {
     errors.DatasetNameTaken: status.HTTP_409_CONFLICT,
     errors.VersionNotFound: status.HTTP_404_NOT_FOUND,
     errors.DatasetFileNotFound: status.HTTP_404_NOT_FOUND,
+    errors.VersionNotReady: status.HTTP_409_CONFLICT,
     errors.SplitNotFound: status.HTTP_404_NOT_FOUND,
     errors.FileTooLarge: status.HTTP_413_CONTENT_TOO_LARGE,
     errors.InvalidFilePath: status.HTTP_422_UNPROCESSABLE_CONTENT,

@@ -26,6 +26,8 @@ class DatasetView:
     # The parts of the latest version and the columns of its rows: nothing for a dataset without files.
     splits: list[SplitInfo] = field(default_factory=list)
     columns: list[dict[str, Any]] = field(default_factory=list)
+    # Where the latest version is (pending, processing, ready, failed), None without files.
+    processing: str | None = None
 
 
 def namespace_of(actor: Actor) -> str:
@@ -50,7 +52,14 @@ class DatasetService:
         liked = await self._datasets.is_liked(dataset.id, actor.user_id)
         latest = await self._versions.latest(dataset.id)
         files = await self._versions.files(latest.id) if latest else []
-        return DatasetView(dataset, liked, role in EDITORS, splits_of(files), latest.columns if latest else [])
+        return DatasetView(
+            dataset,
+            liked,
+            role in EDITORS,
+            splits_of(files),
+            latest.columns if latest else [],
+            latest.status if latest else None,
+        )
 
     async def create(self, actor: Actor, *, name: str, **fields: Any) -> DatasetView:
         """Raises DatasetNameTaken if the person already has a dataset with this name."""
