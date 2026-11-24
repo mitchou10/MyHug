@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/mitchou10/MyHug/compare/v0.8.0...v0.8.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **ci:** scan the images by their lowercase name ([bdda22e](https://github.com/mitchou10/MyHug/commit/bdda22eb9e5752a4501ef02da4a06828d6b53211))
+
 ## [0.8.0](https://github.com/mitchou10/MyHug/compare/v0.7.0...v0.8.0) (2026-11-24)
 
 
