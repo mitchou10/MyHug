@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { AnnotationTab } from '../annotation/AnnotationTab'
 import { DatasetViewer } from '../components/DatasetViewer'
 import { formatCount, formatSize } from '../format'
 import { getDataset } from '../mockData'
@@ -47,6 +48,7 @@ export function DatasetDetailPage() {
           <TabsList>
             <TabsTrigger value="card">{t('datasets.tabs.card')}</TabsTrigger>
             <TabsTrigger value="preview">{t('datasets.tabs.preview')}</TabsTrigger>
+            {d.modality === 'text' && <TabsTrigger value="annotation">{t('datasets.tabs.annotation')}</TabsTrigger>}
             <TabsTrigger value="files">{t('datasets.tabs.files')}</TabsTrigger>
           </TabsList>
 
@@ -58,6 +60,8 @@ export function DatasetDetailPage() {
           <TabsContent value="preview" className="mt-4">
             <DatasetViewer dataset={d} />
           </TabsContent>
+
+          <TabsContent value="annotation" className="mt-4"><AnnotationTab dataset={d} /></TabsContent>
 
           <TabsContent value="files" className="mt-4 divide-y rounded-lg border">
             {d.files.map((f) => (
