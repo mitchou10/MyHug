@@ -22,8 +22,17 @@ const SPEEDS = [0.5, 0.75, 1, 1.5, 2]
 const regionLabels = (s: AudioSegment) => s.labels ?? (s.label ? [s.label] : [])
 
 /** What a kind of media provides to the workspace: the player, what to draw on top of the timeline, and its extra controls. */
-export interface Media { clip: { duration: number; peaks: number[] }; player: Player; view?: ReactNode; extra?: ReactNode; video?: boolean }
-export type UseMedia = (file: string, duration: number) => Media
+export interface Media {
+  clip: { duration: number; peaks: number[]; line?: boolean; format?: (t: number) => string }; player: Player
+  view?: ReactNode; extra?: ReactNode; video?: boolean
+  /** Nothing to play (a series): no play button or speed, the cursor is moved by clicking. */
+  still?: boolean
+  /** How to write a moment (a date, for a series); seconds by default. */
+  format?: (t: number) => string
+  /** The step of the time fields: 0.1 s by default, one point for a series. */
+  step?: number
+}
+export type UseMedia = (file: string, duration: number, dataset: Dataset) => Media
 
 /**
  * Where one annotates a sound or a video, one clip at a time. Either the whole clip gets the answer (a label, a score, a
@@ -36,7 +45,8 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
   const task = project.task
   const regionsMode = usesRegions(project)
   const tracks = project.tracks?.length ? project.tracks : DEFAULT_TRACKS
-  const rows = d.sample
+  // Sounds and videos: the rows of the table. Series: the list of series of the dataset.
+  const rows = d.modality === 'timeseries' ? (d.collection ?? []).map((c) => ({ id: c.id, duration: c.points - 1 })) : d.sample.map((r) => ({ id: String(r[0]), duration: Number(r[2]) }))
 
   const [idx, setIdx] = useState(0)
   const [draft, setDraft] = useState<Answer>(() => saved?.[0] ?? {})
@@ -47,9 +57,10 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
   const [markStart, setMarkStart] = useState<number | null>(null)
   const [zoom, setZoom] = useState(1)
 
-  const [file, duration] = [String(rows[idx][0]), Number(rows[idx][2])]
-  const { clip, player, view, extra, video } = useMedia(file, duration)
-  const kind = task.replace(/^(audio|video)_/, '')
+  const [file, duration] = [rows[idx].id, rows[idx].duration]
+  const { clip, player, view, extra, video, still, format, step } = useMedia(file, duration, d)
+  const fmt = format ?? fmtTime
+  const kind = task.replace(/^(audio|video|timeseries)_/, '')
   const segments = [...(draft.segments ?? [])].sort((a, b) => a.start - b.start)
   const current = segments.find((s) => s.id === selected)
   const chosenLabel = project.labels.some((l) => l.id === chosen) ? chosen : null
@@ -133,8 +144,8 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
 
   const captions = draft.captions?.length ? draft.captions : ['']
   const num = (v: string, fallback: number) => (Number.isFinite(Number(v)) && v !== '' ? Number(v) : fallback)
-  const hint = markStart !== null ? t('datasets.annotation.audio.markStart', { t: fmtTime(markStart) })
-    : regionsMode ? t(textRegions ? 'datasets.annotation.audio.hintTranscribe' : video ? 'datasets.annotation.video.hintSegments' : 'datasets.annotation.audio.hintSegments') : t(video ? 'datasets.annotation.video.hintPlain' : 'datasets.annotation.audio.hintPlain')
+  const hint = markStart !== null ? t('datasets.annotation.audio.markStart', { t: fmt(markStart) })
+    : regionsMode ? t(textRegions ? 'datasets.annotation.audio.hintTranscribe' : still ? 'datasets.annotation.series.hintSegments' : video ? 'datasets.annotation.video.hintSegments' : 'datasets.annotation.audio.hintSegments') : t(still ? 'datasets.annotation.series.hintPlain' : video ? 'datasets.annotation.video.hintPlain' : 'datasets.annotation.audio.hintPlain')
   const highlighted = regionsMode ? (current ? regionLabels(current) : chosenLabel ? [chosenLabel] : []) : labelsOf(draft)
 
   return (
@@ -153,11 +164,15 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
+            {!still && (
             <Button size="icon" onClick={player.toggle} aria-label={t(player.playing ? 'datasets.annotation.audio.pause' : 'datasets.annotation.audio.play')}>{player.playing ? <Pause /> : <Play />}</Button>
-            <span className="font-mono text-sm">{fmtTime(player.time)} / {fmtTime(duration)}</span>
+            )}
+            <span className="font-mono text-sm">{fmt(player.time)} / {fmt(duration)}</span>
+            {!still && (
             <select aria-label={t('datasets.annotation.audio.speed')} value={player.speed} onChange={(e) => player.setSpeed(Number(e.target.value))} className="h-9 rounded-md border bg-background px-2 text-sm">
               {SPEEDS.map((s) => <option key={s} value={s}>×{s}</option>)}
             </select>
+            )}
             <label className="flex items-center gap-2 text-sm text-muted-foreground">{t('datasets.annotation.audio.zoom')}
               <input type="range" min={1} max={8} step={1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="accent-primary" />
             </label>
@@ -179,7 +194,7 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
             onSeek={player.seek} onSelect={setSelected} onCreate={create} onChange={setSegments} onActiveTrack={setActiveTrack} />
 
           <p className="text-xs text-muted-foreground">{hint}</p>
-          <p className="text-xs text-muted-foreground">{file} · {t('datasets.annotation.audio.duration', { s: duration })} · {t(video ? 'datasets.annotation.video.empty' : 'datasets.annotation.audio.empty')}</p>
+          <p className="text-xs text-muted-foreground">{file} · {t('datasets.annotation.audio.duration', { s: duration })} · {t(still ? 'datasets.annotation.series.empty' : video ? 'datasets.annotation.video.empty' : 'datasets.annotation.audio.empty')}</p>
         </div>
 
         <aside className="space-y-4 rounded-lg border p-4 lg:sticky lg:top-4">
@@ -232,15 +247,16 @@ export function TimedWorkspace({ dataset: d, project, useMedia }: { dataset: Dat
                           {s.value !== undefined && <span className="rounded-full border px-2 py-0.5 font-mono text-xs">{s.value}{project.scale?.unit && ` ${project.scale.unit}`}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Input type="number" step={0.1} min={0} max={duration} aria-label={t('datasets.annotation.audio.start')} className="h-7 w-20 px-1.5 font-mono text-xs" value={Number(s.start.toFixed(2))} onChange={(e) => patchSeg(s.id, { start: Math.min(num(e.target.value, s.start), s.end - 0.05) })} />
+                          <Input type="number" step={step ?? 0.1} min={0} max={duration} aria-label={t('datasets.annotation.audio.start')} className="h-7 w-20 px-1.5 font-mono text-xs" value={Number(s.start.toFixed(2))} onChange={(e) => patchSeg(s.id, { start: Math.min(num(e.target.value, s.start), s.end - 0.05) })} />
                           <span className="text-muted-foreground">→</span>
-                          <Input type="number" step={0.1} min={0} max={duration} aria-label={t('datasets.annotation.audio.end')} className="h-7 w-20 px-1.5 font-mono text-xs" value={Number(s.end.toFixed(2))} onChange={(e) => patchSeg(s.id, { end: Math.min(duration, Math.max(num(e.target.value, s.end), s.start + 0.05)) })} />
+                          <Input type="number" step={step ?? 0.1} min={0} max={duration} aria-label={t('datasets.annotation.audio.end')} className="h-7 w-20 px-1.5 font-mono text-xs" value={Number(s.end.toFixed(2))} onChange={(e) => patchSeg(s.id, { end: Math.min(duration, Math.max(num(e.target.value, s.end), s.start + 0.05)) })} />
                           {tracks.length > 1 && (
                             <select aria-label={t('datasets.annotation.audio.track')} value={Math.min(s.track ?? 0, tracks.length - 1)} onChange={(e) => patchSeg(s.id, { track: Number(e.target.value) })} onClick={(e) => e.stopPropagation()} className="h-7 min-w-0 flex-1 rounded-md border bg-background px-1 text-xs">
                               {tracks.map((name, i) => <option key={i} value={i}>{name}</option>)}
                             </select>
                           )}
-                          <button className="ml-auto" aria-label={t('datasets.annotation.audio.playSegment')} title={t('datasets.annotation.audio.playSegment')} onClick={(e) => { e.stopPropagation(); player.playRange(s.start, s.end) }}><Play className="size-4" /></button>
+                          <span className="ml-auto" />
+                          {!still && <button aria-label={t('datasets.annotation.audio.playSegment')} title={t('datasets.annotation.audio.playSegment')} onClick={(e) => { e.stopPropagation(); player.playRange(s.start, s.end) }}><Play className="size-4" /></button>}
                           <button aria-label="remove" onClick={(e) => { e.stopPropagation(); setSegments(segments.filter((x) => x.id !== s.id)); if (selected === s.id) setSelected(null) }}><Trash2 className="size-4" /></button>
                         </div>
                         {(textRegions || (sel && kind === 'segments')) && (

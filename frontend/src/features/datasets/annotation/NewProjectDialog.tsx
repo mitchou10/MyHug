@@ -9,15 +9,15 @@ import { LabelsEditor, labelsValid } from './LabelsEditor'
 import { AudioRegionOptions } from './AudioRegionOptions'
 import { MultiLabelToggle } from './MultiLabelToggle'
 import { emptyScale, ScaleForm, scaleValid as isScaleValid, toScale } from './ScaleForm'
-import { addProject, CURRENT_USER, AUDIO_TASKS, DEFAULT_TRACKS, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, VIDEO_TASKS, type LabelDef, type TaskType } from './store'
+import { addProject, CURRENT_USER, AUDIO_TASKS, DEFAULT_TRACKS, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, TIMESERIES_TASKS, VIDEO_TASKS, type LabelDef, type TaskType } from './store'
 
 /** Tasks that need a list of labels; `regression` needs a scale; `qa` needs nothing more. */
-const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa' && t !== 'audio_transcription' && t !== 'audio_caption' && t !== 'video_caption'
+const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa' && t !== 'audio_transcription' && t !== 'audio_caption' && t !== 'video_caption' && t !== 'timeseries_caption'
 
 /** Creates an annotation task in two steps (what, then how): everyone who can see the dataset will be able to annotate it. */
 export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: { datasetKey: string; modality: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
-  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : modality === 'audio' ? AUDIO_TASKS : modality === 'video' ? VIDEO_TASKS : TEXT_TASKS
+  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : modality === 'audio' ? AUDIO_TASKS : modality === 'video' ? VIDEO_TASKS : modality === 'timeseries' ? TIMESERIES_TASKS : TEXT_TASKS
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [task, setTask] = useState<TaskType>(TASKS[0])
@@ -30,8 +30,8 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
   const scale = toScale(sc)
   const scaleValid = isScaleValid(scale)
   // Sounds and videos are both timed: they share the regions and the tracks.
-  const isTimed = modality === 'audio' || modality === 'video'
-  const kind = task.replace(/^(audio|video)_/, '')
+  const isTimed = modality === 'audio' || modality === 'video' || modality === 'timeseries'
+  const kind = task.replace(/^(audio|video|timeseries)_/, '')
   /** Tracking has its own tool: no regions, no tracks to name. */
   const timedRegions = isTimed && task !== 'video_tracking'
   /** For audio, classification, description and regression can apply to the whole clip or to stretches of it. */

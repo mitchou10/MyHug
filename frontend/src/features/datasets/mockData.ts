@@ -21,6 +21,8 @@ export interface Dataset {
   card: string
   /** Tabular only: what each column is supposed to contain. */
   schema?: { name: string; valueType: 'text' | 'date' | 'number' | 'identifier' | 'amount'; formats?: string[]; unit?: string }[]
+  /** Time series only: the series to annotate (the sample above is a table, not a list of series). */
+  collection?: { id: string; points: number; start: string }[]
   /** Time series only: points drawn by the viewer. */
   series?: { date: string; value: number }[]
 }
@@ -73,6 +75,10 @@ export const DATASETS: Dataset[] = [
     sample: [['2023-01-01', 1, 'A12', 14], ['2023-01-02', 1, 'A12', 11], ['2023-01-03', 1, 'A12', 19]],
     card: 'Données synthétiques inspirées de cas réels de la grande distribution.',
     series: makeSeries(120, 40, 14),
+    collection: [
+      { id: 'store-01 · A12', points: 104, start: '2023-01-01' }, { id: 'store-01 · B07', points: 104, start: '2023-01-01' }, { id: 'store-02 · A12', points: 104, start: '2023-01-01' },
+      { id: 'store-03 · C31', points: 104, start: '2023-01-01' }, { id: 'store-04 · A12', points: 104, start: '2023-01-01' },
+    ],
   },
   {
     id: '4', owner: 'lab', name: 'qa-instructions',

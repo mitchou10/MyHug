@@ -6,16 +6,18 @@ import type { ValueType } from './format'
  * Text: classification, ner, qa. Tabular: label a row, review cells, describe the columns. Image: detection and
  * segmentation (polygons), classification, image to text. Audio: classification, labelled segments, transcription,
  * description. Video: classification, labelled segments, object tracking, description. Regression works for text,
- * tabular, audio and video.
+ * tabular, audio and video. Time series: classification, labelled segments, description.
  */
 export type TaskType = 'classification' | 'ner' | 'qa' | 'regression' | 'row_label' | 'cell_review' | 'column_schema'
   | 'image_detection' | 'image_segmentation' | 'image_polyline' | 'image_keypoints' | 'image_classification' | 'image_caption' | 'image_vqa'
   | 'audio_classification' | 'audio_segments' | 'audio_transcription' | 'audio_caption'
   | 'video_classification' | 'video_segments' | 'video_tracking' | 'video_caption'
+  | 'timeseries_classification' | 'timeseries_segments' | 'timeseries_caption'
 export const TEXT_TASKS: TaskType[] = ['classification', 'ner', 'qa', 'regression']
 export const IMAGE_TASKS: TaskType[] = ['image_detection', 'image_segmentation', 'image_polyline', 'image_keypoints', 'image_classification', 'image_caption', 'image_vqa']
 export const AUDIO_TASKS: TaskType[] = ['audio_classification', 'audio_segments', 'audio_transcription', 'audio_caption', 'regression']
 export const VIDEO_TASKS: TaskType[] = ['video_classification', 'video_segments', 'video_tracking', 'video_caption', 'regression']
+export const TIMESERIES_TASKS: TaskType[] = ['timeseries_classification', 'timeseries_segments', 'timeseries_caption', 'regression']
 export const TABULAR_TASKS: TaskType[] = ['row_label', 'cell_review', 'column_schema', 'regression']
 
 /** NER only. `entity`: a small unit (a name, a date…). `semantic`: a business meaning, often a longer passage (an offence, a sentence…). */
@@ -98,7 +100,7 @@ export interface ColumnNote { role?: string; valueType?: ValueType; formats?: st
 
 /** `label` is the id of a LabelDef; `reason` is the optional "why" of the annotator. */
 /** Tasks where an item gets one or several labels from a list. */
-export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'audio_classification' || t === 'video_classification' || t === 'row_label'
+export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'audio_classification' || t === 'video_classification' || t === 'timeseries_classification' || t === 'row_label'
 
 export interface Answer { label?: string; labels?: string[]; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
   /** Regression: the value given on the scale of the task. */
@@ -289,6 +291,26 @@ let state: State = {
     },
     { id: 'p28', datasetKey: 'lab/kitchen-actions', name: 'Description de la recette', task: 'video_caption', granularity: 'regions', tracks: ['Étapes'], labels: [], createdBy: 'mitchou', annotators: 2, done: 75, total: 4200 },
     { id: 'p29', datasetKey: 'lab/kitchen-actions', name: 'Qualité de l’image', task: 'regression', labels: [], scale: { min: 1, max: 5, step: 1, minLabel: 'Inutilisable', maxLabel: 'Excellente' }, createdBy: 'mitchou', annotators: 2, done: 540, total: 4200 },
+    {
+      id: 'p30', datasetKey: 'lab/sales-timeseries', name: 'Profil de la série', task: 'timeseries_classification', multiLabel: true, createdBy: 'mitchou', annotators: 3, done: 180, total: 2500,
+      labels: [
+        { id: 'up', name: 'tendance haussière', description: 'Le niveau moyen monte sur l’ensemble de la période.' },
+        { id: 'down', name: 'tendance baissière', description: 'Le niveau moyen baisse sur l’ensemble de la période.' },
+        { id: 'season', name: 'saisonnalité', description: 'Un motif qui se répète à intervalle régulier.' },
+        { id: 'shift', name: 'rupture de niveau', description: 'Le niveau change brutalement et ne revient pas.' },
+      ],
+    },
+    {
+      id: 'p31', datasetKey: 'lab/sales-timeseries', name: 'Événements', task: 'timeseries_segments', tracks: ['Piste 1'], createdBy: 'mitchou', annotators: 2, done: 95, total: 2500,
+      labels: [
+        { id: 'promo', name: 'promotion', description: 'Pic de ventes lié à une opération commerciale.' },
+        { id: 'stockout', name: 'rupture de stock', description: 'Les ventes tombent presque à zéro sur quelques points.' },
+        { id: 'holiday', name: 'jour férié', description: 'Creux ou pic expliqué par un jour férié.' },
+        { id: 'anomaly', name: 'anomalie', description: 'Valeur inexpliquée : à vérifier.' },
+      ],
+    },
+    { id: 'p32', datasetKey: 'lab/sales-timeseries', name: 'Résumé de la série', task: 'timeseries_caption', labels: [], createdBy: 'mitchou', annotators: 1, done: 30, total: 2500 },
+    { id: 'p33', datasetKey: 'lab/sales-timeseries', name: 'Prévisibilité', task: 'regression', labels: [], scale: { min: 1, max: 5, step: 1, minLabel: 'Imprévisible', maxLabel: 'Très régulière' }, createdBy: 'mitchou', annotators: 2, done: 260, total: 2500 },
   ],
   answers: {},
 }
@@ -305,7 +327,7 @@ export function patchProject(projectId: string, patch: Partial<AnnotationProject
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, ...patch } : p)) })
 }
 /** Whether the annotator marks stretches of a clip (with tracks) rather than the whole clip. */
-export const usesRegions = (p: AnnotationProject) => p.task === 'audio_segments' || p.task === 'audio_transcription' || p.task === 'video_segments' || p.granularity === 'regions'
+export const usesRegions = (p: AnnotationProject) => p.task === 'audio_segments' || p.task === 'audio_transcription' || p.task === 'video_segments' || p.task === 'timeseries_segments' || p.granularity === 'regions'
 export const DEFAULT_TRACKS = ['Piste 1']
 export function updateLabels(projectId: string, labels: LabelDef[]) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, labels } : p)) })

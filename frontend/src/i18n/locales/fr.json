@@ -385,6 +385,18 @@
         "video_caption": {
           "title": "Vidéo vers texte",
           "hint": "Décrire chaque vidéo, ou chacune de ses parties."
+        },
+        "timeseries_classification": {
+          "title": "Classification de séries",
+          "hint": "Donner un ou plusieurs labels à chaque série : tendance, saisonnalité, rupture…"
+        },
+        "timeseries_segments": {
+          "title": "Segments étiquetés",
+          "hint": "Marquer des passages de la série : promotions, ruptures, anomalies."
+        },
+        "timeseries_caption": {
+          "title": "Série vers texte",
+          "hint": "Décrire chaque série, ou certaines de ses parties."
         }
       },
       "labelName": "Nom du label",
@@ -606,6 +618,11 @@
         "nextKey": "Clé suiv.",
         "outside": "Sorti du champ",
         "removeKey": "Suppr. la clé"
+      },
+      "series": {
+        "hintSegments": "Glissez sur le graphique pour marquer un passage, glissez ses bords pour l'ajuster. Cliquez pour placer le curseur, M marque le début puis la fin.",
+        "hintPlain": "Cliquez le graphique pour placer le curseur, ← et → le déplacent d'un point.",
+        "empty": "Série de substitution générée : les vraies données viendront du backend."
       }
     }
   }
