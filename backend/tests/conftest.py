@@ -24,7 +24,7 @@ from app.config import settings  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.jobs import NoJobs  # noqa: E402
 from app.main import app  # noqa: E402
-from app.registry import RegistryArtifact, RegistryRun, RegistryVersion  # noqa: E402
+from app.registry import RegistryArtifact, RegistryRun, RegistryVersion, get_registry  # noqa: E402
 from app.routers.deps import get_jobs  # noqa: E402
 from app.services.errors import RegistryConflict, RegistryNotFound, RegistryRejected, RegistryUnavailable  # noqa: E402
 from app.storage import (  # noqa: E402
@@ -298,8 +298,12 @@ class MemoryRegistry:
 
 
 @pytest.fixture
-def registry() -> MemoryRegistry:
-    return MemoryRegistry()
+def registry() -> Iterator[MemoryRegistry]:
+    """MLflow, in memory, for the routes too: it is what `get_registry` answers while the test runs."""
+    memory = MemoryRegistry()
+    app.dependency_overrides[get_registry] = lambda: memory
+    yield memory
+    app.dependency_overrides.pop(get_registry, None)
 
 
 @pytest.fixture

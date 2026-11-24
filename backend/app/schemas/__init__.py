@@ -19,6 +19,7 @@ from app.schemas.dataset import (
 from app.schemas.feedback import FeedbackChange, FeedbackOut, FeedbackSummaryOut
 from app.schemas.health import HealthOut
 from app.schemas.message import MessageOut, MessagesPageOut
+from app.schemas.model import MemberIn, MemberOut, ModelChange, ModelIn, ModelOut, ModelSummaryOut
 from app.schemas.notification import (
     EmittedOut,
     MarkedReadOut,
@@ -62,8 +63,14 @@ __all__ = [
     "PartsOut",
     "LogoutOut",
     "MarkedReadOut",
+    "MemberIn",
+    "MemberOut",
     "MessageOut",
     "MessagesPageOut",
+    "ModelChange",
+    "ModelIn",
+    "ModelOut",
+    "ModelSummaryOut",
     "NotificationIn",
     "NotificationOut",
     "NotificationRead",
