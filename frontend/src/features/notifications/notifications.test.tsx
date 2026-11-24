@@ -88,7 +88,7 @@ it('marks one as read, and back to unread, and the counts follow', async () => {
   await userEvent.click(within(item).getByRole('button', { name: 'Mark as read' }))
   await screen.findByRole('tab', { name: 'Unread (1)' })
   expect(within(item).queryByText('Unread:')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /Open the user menu, 1 unread notification$/ })).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: /Open the user menu, 1 unread notification$/ })).toBeInTheDocument()
 
   await userEvent.click(within(item).getByRole('button', { name: 'Mark as unread' }))
   await screen.findByRole('tab', { name: 'Unread (2)' })
@@ -163,7 +163,7 @@ it('shows the list by pages of ten, with how many there are', async () => {
 
 it('puts a dot on the avatar and a count in the menu when there is something unread', async () => {
   await open('/app', many(3))
-  const trigger = screen.getByRole('button', { name: 'Open the user menu, 3 unread notifications' })
+  const trigger = await screen.findByRole('button', { name: 'Open the user menu, 3 unread notifications' })
   expect(within(trigger).getByText('3 unread notifications')).toBeInTheDocument() // the dot, for screen readers
   expect(trigger.querySelector('[data-slot="avatar-badge"]')).toBeInTheDocument()
 
@@ -175,7 +175,7 @@ it('puts a dot on the avatar and a count in the menu when there is something unr
 
 it('says "1 notification" in the singular', async () => {
   await open('/app', many(1))
-  expect(screen.getByRole('button', { name: 'Open the user menu, 1 unread notification' })).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Open the user menu, 1 unread notification' })).toBeInTheDocument()
 })
 
 it('shows no dot and no count when everything is read, but still offers the page', async () => {
@@ -202,7 +202,7 @@ it('is in French too, with its plurals', async () => {
 
 it('is on every page of the app, not only on the notifications page', async () => {
   await open('/settings', many(2))
-  expect(screen.getByRole('button', { name: 'Open the user menu, 2 unread notifications' })).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Open the user menu, 2 unread notifications' })).toBeInTheDocument()
 })
 
 it('shows a new notification without a reload: the count is asked again every 30 seconds', async () => {
