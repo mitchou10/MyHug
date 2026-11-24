@@ -1,6 +1,5 @@
 """How the services are built for a request. The only place that wires a database session and a store together."""
 
-from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -9,9 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
-from app.repositories.dataset_uploads import DatasetUploadRepository
-from app.repositories.dataset_versions import DatasetVersionRepository
-from app.repositories.datasets import DatasetRepository
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -22,10 +18,10 @@ from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
-from app.services.dataset_access import DatasetAccess
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
+from app.services.factory import build_dataset_uploads, build_dataset_versions, build_datasets
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
@@ -34,6 +30,7 @@ from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
 from app.services.workflow import FeedbackWorkflow
 from app.storage import ObjectStore, get_store
+from app.worker.jobs import CeleryJobs, Jobs
 
 
 def get_profile_service(
@@ -119,54 +116,25 @@ def get_notification_service(db: DB) -> NotificationService:
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
 
 
+def get_jobs() -> Jobs:
+    return CeleryJobs()
+
+
+JobsDep = Annotated[Jobs, Depends(get_jobs)]
+
+
 def get_dataset_service(db: DB, store: Store) -> DatasetService:
-    datasets = DatasetRepository(db)
-    return DatasetService(
-        datasets, DatasetAccess(datasets), DatasetVersionRepository(db), DatasetUploadRepository(db), store
-    )
+    return build_datasets(db, store)
 
 
-def get_dataset_version_service(db: DB, store: Store) -> DatasetVersionService:
-    datasets = DatasetRepository(db)
-    return DatasetVersionService(
-        datasets,
-        DatasetVersionRepository(db),
-        DatasetAccess(datasets),
-        store,
-        max_bytes=settings.DATASET_FILE_MAX_BYTES,
-        max_files=settings.DATASET_VERSION_MAX_FILES,
-        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
-    )
+def get_dataset_version_service(db: DB, store: Store, jobs: JobsDep) -> DatasetVersionService:
+    return build_dataset_versions(db, store, jobs)
+
+
+def get_dataset_upload_service(db: DB, store: Store, jobs: JobsDep) -> DatasetUploadService:
+    return build_dataset_uploads(db, store, jobs)
 
 
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 DatasetVersionServiceDep = Annotated[DatasetVersionService, Depends(get_dataset_version_service)]
-
-
-def get_dataset_upload_service(db: DB, store: Store) -> DatasetUploadService:
-    datasets = DatasetRepository(db)
-    access = DatasetAccess(datasets)
-    versions = DatasetVersionService(
-        datasets,
-        DatasetVersionRepository(db),
-        access,
-        store,
-        max_bytes=settings.DATASET_FILE_MAX_BYTES,
-        max_files=settings.DATASET_VERSION_MAX_FILES,
-        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
-    )
-    return DatasetUploadService(
-        datasets,
-        DatasetUploadRepository(db),
-        versions,
-        access,
-        store,
-        max_bytes=settings.DATASET_UPLOAD_MAX_BYTES,
-        max_files=settings.DATASET_VERSION_MAX_FILES,
-        part_bytes=settings.UPLOAD_PART_BYTES,
-        session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
-        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
-    )
-
-
 DatasetUploadServiceDep = Annotated[DatasetUploadService, Depends(get_dataset_upload_service)]

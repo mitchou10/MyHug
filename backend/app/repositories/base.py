@@ -14,3 +14,6 @@ class Repository:
 
     async def commit(self) -> None:
         await self._db.commit()
+
+    async def rollback(self) -> None:
+        await self._db.rollback()

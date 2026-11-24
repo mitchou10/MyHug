@@ -12,9 +12,10 @@ from app.models import DatasetMember, DatasetUpload, DatasetVersion
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
-from app.routers.deps import get_dataset_upload_service
 from app.services.dataset_processing import DatasetProcessor
 from app.services.dataset_uploads import part_size_for
+from app.services.factory import build_dataset_uploads
+from app.worker.jobs import NoJobs
 from tests.conftest import MemoryStore
 from tests.routers.test_datasets import create, share
 
@@ -197,7 +198,9 @@ async def test_the_worker_can_read_a_file_that_came_in_parts(
     upload = await upload_files(client, store, **{"train.csv": TRAIN})
     await client.post(f"/api/uploads/{upload['id']}/complete")
     version_id = (await db.execute(select(DatasetVersion.id))).scalar_one()
-    done = await DatasetProcessor(DatasetRepository(db), DatasetVersionRepository(db), store).process(version_id)
+    done = await DatasetProcessor(
+        DatasetRepository(db), DatasetVersionRepository(db), DatasetUploadRepository(db), store
+    ).process(version_id)
     assert done is not None and (done.status, done.rows) == ("ready", 3)
     assert (await client.get(f"{ADDRESS}/rows")).json()["rows"][0] == ["great", "pos"]
     assert (await client.get(f"{ADDRESS}/files/train.csv")).status_code == 302  # and it downloads
@@ -360,7 +363,7 @@ async def test_the_uploads_that_were_abandoned_are_given_up_by_a_job(
         .values(expires_at=datetime.now(UTC) - timedelta(hours=1))
     )
     await db.commit()
-    service = get_dataset_upload_service(db, store)
+    service = build_dataset_uploads(db, store, NoJobs())
     assert await service.expire_stale() == 1  # only the one whose time is over
     assert len(store.uploads) == 1
     assert await service.expire_stale() == 0

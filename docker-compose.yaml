@@ -25,13 +25,54 @@ services:
       AWS_BUCKET: app
       # Other applications emit notifications with these keys, as name=key (16 characters at least). Dev only.
       NOTIFICATION_API_KEYS: demo=dev-only-key-not-for-prod
+      REDIS_URL: redis://redis:6379/0
     depends_on:
+      redis:
+        condition: service_healthy
       keycloak:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
       rustfs:
         condition: service_healthy
+
+  # The worker reads the files of the datasets (fingerprint, rows, columns) so that no request has to. Same image and
+  # same settings as the backend; `beat` is the clock that wakes up the periodic jobs (one only, never several).
+  worker: &worker
+    build:
+      context: backend
+      target: dev
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "datasets", "--loglevel=info"]
+    volumes: ["./backend/app:/app/app"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app
+      AWS_ENDPOINT_URL: http://rustfs:9000
+      AWS_ACCESS_KEY_ID: rustfsadmin # dev only
+      AWS_SECRET_ACCESS_KEY: rustfsadmin # dev only
+      AWS_REGION: us-east-1
+      AWS_BUCKET: app
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      rustfs:
+        condition: service_healthy
+
+  beat:
+    <<: *worker
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+
+  # Where the jobs wait for a worker. Nothing is lost if it restarts: the database knows what is left to read.
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # One-shot: brings the database to the latest migration, then exits. The backend waits for it, so a fresh
   # `docker compose down -v && up` never starts the app on an empty database.

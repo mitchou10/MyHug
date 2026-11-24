@@ -120,6 +120,12 @@ class VersionNotFound(ServiceError):
     message = "This version does not exist"
 
 
+class FingerprintMismatch(ServiceError):
+    """The content of a file is not the one its sender announced."""
+
+    message = "A file is not the one that was announced"
+
+
 class VersionNotReady(ServiceError):
     """The files of the version have not been read yet (or could not be): there is nothing to show of their rows."""
 

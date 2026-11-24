@@ -46,6 +46,9 @@ class DatasetVersion(Base):
     status: Mapped[str] = mapped_column(String(12), default=PENDING, server_default=PENDING)
     # Why it failed, when it did: the file that could not be read.
     error: Mapped[str | None] = mapped_column(Text)
+    # How many times a worker took it in hand, and since when it is read: a dead worker leaves it `processing`.
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # How many items: the rows of its data files, or else its images, sounds and videos. Not known until it is ready.
     rows: Mapped[int | None] = mapped_column(BigInteger)
     size_bytes: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")

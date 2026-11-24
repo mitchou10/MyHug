@@ -24,6 +24,7 @@ from app.services.errors import (
     UploadNotFound,
 )
 from app.storage import ObjectStore, PartInfo
+from app.worker.jobs import Jobs, NoJobs
 
 MIB = 1024 * 1024
 S3_MIN_PART = 5 * MIB  # smaller than this, a part is refused unless it is the last
@@ -76,6 +77,7 @@ class DatasetUploadService:
         part_bytes: int,
         session: timedelta,
         signed_seconds: int,
+        jobs: Jobs | None = None,
     ) -> None:
         self._datasets = datasets
         self._uploads = uploads
@@ -87,6 +89,7 @@ class DatasetUploadService:
         self._part_bytes = part_bytes
         self._session = session
         self._signed_seconds = signed_seconds
+        self._jobs: Jobs = jobs or NoJobs()
 
     # ---- starting
 
@@ -280,6 +283,7 @@ class DatasetUploadService:
             upload.status = ABORTED
             await self._uploads.commit()
             raise
+        await self._jobs.process_version(version.id)  # the files are read by the worker
         return version
 
     async def _checked_parts(self, file: DatasetUploadFile) -> list[PartInfo]:

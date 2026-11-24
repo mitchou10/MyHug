@@ -27,6 +27,7 @@ from app.services.errors import (
     VersionNotReady,
 )
 from app.storage import ObjectStore
+from app.worker.jobs import Jobs, NoJobs
 
 README = "README.md"
 SPLIT_ORDER = ("train", "validation", "test")
@@ -95,6 +96,7 @@ class DatasetVersionService:
         max_bytes: int,
         max_files: int,
         signed_seconds: int,
+        jobs: Jobs | None = None,
     ) -> None:
         self._datasets = datasets
         self._versions = versions
@@ -103,6 +105,7 @@ class DatasetVersionService:
         self._max_bytes = max_bytes
         self._max_files = max_files
         self._signed_seconds = signed_seconds
+        self._jobs: Jobs = jobs or NoJobs()
 
     # ---- writing
 
@@ -138,6 +141,7 @@ class DatasetVersionService:
             for key in new_keys:  # nothing points to them
                 await self._store.delete(key)
             raise
+        await self._jobs.process_version(version.id)  # the files are read by the worker
         return version
 
     async def plan(
