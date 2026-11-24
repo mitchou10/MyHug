@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/mitchou10/MyHug/compare/v0.11.0...v0.12.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** add the tables of the models ([ebc79d0](https://github.com/mitchou10/MyHug/commit/ebc79d0a7d50911c3964c3e4be99f5a485f10701))
+
 ## [0.11.0](https://github.com/mitchou10/MyHug/compare/v0.10.0...v0.11.0) (2026-11-24)
 
 
