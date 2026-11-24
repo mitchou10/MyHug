@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     # **only for the people who can edit the model**: MLflow has no rights of its own, whoever reaches it can change
     # everything. In production it must be behind a proxy that signs people in. Empty: no link.
     MLFLOW_PUBLIC_URL: str = ""
+    # The hosts the code of a model may be linked at. The platform never clones or runs that code: it keeps the link.
+    MODEL_CODE_HOSTS: list[str] = ["github.com", "gitlab.com"]
 
     # A tabular file (csv, tsv, jsonl) at least this big gets a copy in Parquet, made by the worker: below it the copy
     # would gain nothing. A source over the maximum is left as it is.

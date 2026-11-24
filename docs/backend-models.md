@@ -52,3 +52,52 @@ de 1.
   fichiers de modèles: il faudra les ajouter à ses références avant de les stocker (#17).
 - Supprimer un modèle supprime en cascade ses membres, ses « j'aime », ses versions et leurs fichiers.
 - Les index partiels pour le worker: versions en attente, et versions dont le code reste à résoudre.
+
+## Les routes (issue #16)
+
+Même découpage que les datasets: `routers/models.py` → `ModelService` / `ModelMemberService` → `ModelRepository`, les droits
+dans `ModelAccess` (comme `DatasetAccess`). Les erreurs sont traduites dans `routers/errors.py`.
+
+| Route | Rôle |
+|---|---|
+| `GET /api/models` | la liste (`Page`): filtres `q`, `owner`, `task`, `modality` (un des `inputs`), `library`, `language`, `license`, `tags` (tous), tri `downloads`, `likes` ou `updated` |
+| `POST /api/models` | créer, dans son propre espace de noms |
+| `GET / PATCH / DELETE /api/models/{owner}/{name}` | lire, modifier, supprimer |
+| `PUT / DELETE …/like` | « j'aime » (le refaire ne change rien) |
+| `GET …/members`, `PUT / DELETE …/members/{user_id}` | qui a accès en plus du créateur (`reader` ou `maintainer`) |
+
+`tasks` et `inputs` se choisissent à la création et ne changent plus (`PATCH` refuse tout champ inconnu: `name`, `owner`,
+`tasks`, `inputs` donnent 422). `code_url` et `parameters` peuvent être remis à `null`; les autres champs envoyés ne le
+peuvent pas.
+
+### Permissions
+
+| Action | Qui |
+|---|---|
+| Lire un modèle public, l'aimer | tout utilisateur connecté |
+| Lire un modèle privé, l'aimer | créateur, membres (`reader`, `maintainer`), admin |
+| Créer un modèle | tout utilisateur connecté (dans son espace de noms) |
+| Modifier, supprimer, gérer les membres, voir le lien MLflow | créateur, `maintainer`, admin |
+
+Un modèle privé qu'on ne peut pas voir répond **404** à toutes les routes (jamais 403): impossible de savoir s'il existe. Un
+lecteur d'un modèle qu'il voit reçoit **403** pour ce qu'il n'a pas le droit de faire. Les membres ne sont visibles que de
+ceux qui peuvent éditer; ils sont désignés par leur `sub` (il n'y a pas de table des utilisateurs). Le créateur n'est jamais
+membre (422).
+
+### Le lien vers MLflow
+
+`mlflow_url` est dans la réponse **uniquement** pour ceux qui peuvent éditer le modèle, **si** `MLFLOW_PUBLIC_URL` est
+renseigné **et** que MLflow connaît déjà quelque chose du modèle (une version qui y pointe). Pour tous les autres la clé est
+**absente** (pas `null`). L'adresse interne (`MLFLOW_TRACKING_URI`) n'apparaît jamais. Le lien de chaque version viendra avec
+les routes des versions (#17), construit par le même `MlflowLinks`.
+
+### MLflow et la base
+
+- **Créer** un modèle n'appelle pas MLflow: il y apparaît avec sa première version (#17). On peut donc créer, lister et
+  lire pendant une panne de MLflow.
+- **Supprimer**: MLflow d'abord, la base ensuite (règle de [mlflow.md](mlflow.md)). Si MLflow ne répond pas, rien n'est
+  supprimé (503) et on peut recommencer: supprimer dans MLflow ne fait rien pour ce qui n'existe plus. Un modèle que MLflow ne
+  connaît pas ne l'appelle pas. Les fichiers du stockage partent une fois le modèle vraiment supprimé. Les artefacts que MLflow
+  laisse dans le seau sous `mlflow/` restent (limite connue, voir [mlflow.md](mlflow.md)).
+- `code_url` doit être en `https` sur un hôte de `MODEL_CODE_HOSTS` (`github.com`, `gitlab.com` par défaut), sans identifiants
+  dans l'adresse. Elle n'est jamais lue.

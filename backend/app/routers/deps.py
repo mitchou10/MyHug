@@ -9,6 +9,7 @@ from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
 from app.jobs import CeleryJobs, Jobs, NoJobs
+from app.registry import MlflowLinks, ModelRegistry, get_links, get_registry
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -30,12 +31,16 @@ from app.services.factory import (
     build_dataset_uploads,
     build_dataset_versions,
     build_datasets,
+    build_model_members,
+    build_models,
     build_storage_garbage,
 )
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
 from app.services.messages import MessageService
+from app.services.model_members import ModelMemberService
+from app.services.models import ModelService
 from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
 from app.services.storage_garbage import StorageGarbage
@@ -172,3 +177,19 @@ def get_storage_garbage(db: DB, store: Store) -> StorageGarbage:
 
 
 StorageGarbageDep = Annotated[StorageGarbage, Depends(get_storage_garbage)]
+
+
+RegistryDep = Annotated[ModelRegistry, Depends(get_registry)]
+LinksDep = Annotated[MlflowLinks, Depends(get_links)]
+
+
+def get_model_service(db: DB, store: Store, registry: RegistryDep, links: LinksDep) -> ModelService:
+    return build_models(db, store, registry, links)
+
+
+def get_model_member_service(db: DB) -> ModelMemberService:
+    return build_model_members(db)
+
+
+ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
+ModelMemberServiceDep = Annotated[ModelMemberService, Depends(get_model_member_service)]

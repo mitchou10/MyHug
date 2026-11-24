@@ -181,6 +181,29 @@ class DerivativeNotFound(ServiceError):
     message = "This copy does not exist"
 
 
+# ---- models
+class ModelNotFound(ServiceError):
+    """Also used for a private model the user may not see: it must look like it does not exist."""
+
+    message = "This model does not exist"
+
+
+class ModelNameTaken(ServiceError):
+    message = "You already have a model with this name"
+
+
+class InvalidCodeUrl(ServiceError):
+    message = "The code must be at an https address of an allowed host (GitHub, GitLab)"
+
+
+class InvalidMember(ServiceError):
+    message = "The owner of a model and the admins already have every right: they are not members"
+
+
+class MemberNotFound(ServiceError):
+    message = "This person is not a member of the model"
+
+
 # ---- the registry of the models (MLflow)
 class RegistryUnavailable(ServiceError):
     """MLflow does not answer, or does not take what the backend sends it (a key it refuses, an error of its own)."""

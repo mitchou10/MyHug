@@ -6,10 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.jobs import Jobs
+from app.registry import MlflowLinks, ModelRegistry
 from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
+from app.repositories.models import ModelRepository
 from app.repositories.storage_references import StorageReferenceRepository
 from app.services.dataset_access import DatasetAccess
 from app.services.dataset_derivatives import DatasetDerivatives
@@ -17,6 +19,9 @@ from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
+from app.services.model_access import ModelAccess
+from app.services.model_members import ModelMemberService
+from app.services.models import ModelService
 from app.services.storage_garbage import StorageGarbage
 from app.storage import ObjectStore
 
@@ -101,3 +106,13 @@ def build_storage_garbage(db: AsyncSession, store: ObjectStore) -> StorageGarbag
         max_deletions=settings.STORAGE_GC_MAX_DELETIONS,
         check_rows=settings.STORAGE_GC_CHECK_ROWS,
     )
+
+
+def build_models(db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks) -> ModelService:
+    models = ModelRepository(db)
+    return ModelService(models, ModelAccess(models), registry, links, store, code_hosts=settings.MODEL_CODE_HOSTS)
+
+
+def build_model_members(db: AsyncSession) -> ModelMemberService:
+    models = ModelRepository(db)
+    return ModelMemberService(models, ModelAccess(models))
