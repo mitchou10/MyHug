@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/mitchou10/MyHug/compare/v0.15.0...v0.16.0) (2026-11-24)
+
+
+### Features
+
+* **worker:** fingerprint the files of a model version ([e6675d2](https://github.com/mitchou10/MyHug/commit/e6675d2ec0875ece5820dbe4229377ac1020cb9c))
+
 ## [0.15.0](https://github.com/mitchou10/MyHug/compare/v0.14.0...v0.15.0) (2026-11-24)
 
 

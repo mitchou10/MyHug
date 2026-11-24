@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/mitchou10/MyHug/compare/backend-v0.11.0...backend-v0.12.0) (2026-11-24)
+
+
+### Features
+
+* **worker:** fingerprint the files of a model version ([e6675d2](https://github.com/mitchou10/MyHug/commit/e6675d2ec0875ece5820dbe4229377ac1020cb9c))
+
 ## [0.11.0](https://github.com/mitchou10/MyHug/compare/backend-v0.10.0...backend-v0.11.0) (2026-11-24)
 
 
