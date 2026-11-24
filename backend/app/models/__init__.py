@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.dataset import Dataset
 from app.models.dataset_member import DatasetLike, DatasetMember
+from app.models.dataset_upload import DatasetUpload, DatasetUploadFile
 from app.models.dataset_version import DatasetFile, DatasetVersion
 from app.models.feedback import Feedback
 from app.models.feedback_attachment import FeedbackAttachment
@@ -16,6 +17,8 @@ __all__ = [
     "DatasetFile",
     "DatasetLike",
     "DatasetMember",
+    "DatasetUpload",
+    "DatasetUploadFile",
     "DatasetVersion",
     "Feedback",
     "FeedbackAttachment",

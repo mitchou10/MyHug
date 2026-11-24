@@ -14,4 +14,5 @@ def get_store() -> ObjectStore:
         access_key_id=settings.AWS_ACCESS_KEY_ID,
         secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region=settings.AWS_REGION,
+        public_endpoint_url=settings.AWS_PUBLIC_ENDPOINT_URL,
     )

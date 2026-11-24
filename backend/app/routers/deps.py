@@ -1,5 +1,6 @@
 """How the services are built for a request. The only place that wires a database session and a store together."""
 
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
+from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.repositories.feedback import FeedbackRepository
@@ -21,6 +23,7 @@ from app.services.access import FeedbackAccess
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
 from app.services.dataset_access import DatasetAccess
+from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.feedback import FeedbackService
@@ -118,7 +121,9 @@ NotificationServiceDep = Annotated[NotificationService, Depends(get_notification
 
 def get_dataset_service(db: DB, store: Store) -> DatasetService:
     datasets = DatasetRepository(db)
-    return DatasetService(datasets, DatasetAccess(datasets), DatasetVersionRepository(db), store)
+    return DatasetService(
+        datasets, DatasetAccess(datasets), DatasetVersionRepository(db), DatasetUploadRepository(db), store
+    )
 
 
 def get_dataset_version_service(db: DB, store: Store) -> DatasetVersionService:
@@ -130,8 +135,38 @@ def get_dataset_version_service(db: DB, store: Store) -> DatasetVersionService:
         store,
         max_bytes=settings.DATASET_FILE_MAX_BYTES,
         max_files=settings.DATASET_VERSION_MAX_FILES,
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
     )
 
 
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 DatasetVersionServiceDep = Annotated[DatasetVersionService, Depends(get_dataset_version_service)]
+
+
+def get_dataset_upload_service(db: DB, store: Store) -> DatasetUploadService:
+    datasets = DatasetRepository(db)
+    access = DatasetAccess(datasets)
+    versions = DatasetVersionService(
+        datasets,
+        DatasetVersionRepository(db),
+        access,
+        store,
+        max_bytes=settings.DATASET_FILE_MAX_BYTES,
+        max_files=settings.DATASET_VERSION_MAX_FILES,
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+    )
+    return DatasetUploadService(
+        datasets,
+        DatasetUploadRepository(db),
+        versions,
+        access,
+        store,
+        max_bytes=settings.DATASET_UPLOAD_MAX_BYTES,
+        max_files=settings.DATASET_VERSION_MAX_FILES,
+        part_bytes=settings.UPLOAD_PART_BYTES,
+        session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+    )
+
+
+DatasetUploadServiceDep = Annotated[DatasetUploadService, Depends(get_dataset_upload_service)]

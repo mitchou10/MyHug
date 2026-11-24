@@ -26,7 +26,7 @@ from app.services.errors import (
     VersionNotFound,
     VersionNotReady,
 )
-from app.storage import ObjectStore, StoredObject
+from app.storage import ObjectStore
 
 README = "README.md"
 SPLIT_ORDER = ("train", "validation", "test")
@@ -94,6 +94,7 @@ class DatasetVersionService:
         *,
         max_bytes: int,
         max_files: int,
+        signed_seconds: int,
     ) -> None:
         self._datasets = datasets
         self._versions = versions
@@ -101,6 +102,7 @@ class DatasetVersionService:
         self._store = store
         self._max_bytes = max_bytes
         self._max_files = max_files
+        self._signed_seconds = signed_seconds
 
     # ---- writing
 
@@ -119,16 +121,7 @@ class DatasetVersionService:
         if any(len(upload.data) > self._max_bytes for upload in uploads):
             raise FileTooLarge
 
-        previous = await self._versions.latest(dataset.id)
-        before = await self._versions.files(previous.id) if previous else []
-        known = {file.path for file in before}
-        removed = {clean_path(path) for path in remove}
-        if missing := sorted(removed - known):
-            raise DatasetFileNotFound(f"Cannot remove {missing[0]}: it is not in the dataset")
-        replaced = set(paths)
-        kept = [file for file in before if file.path not in removed and file.path not in replaced]
-        if len(kept) + len(paths) > self._max_files:
-            raise TooManyFiles
+        await self.plan(dataset, paths, remove)  # everything that can be refused, before anything is stored
 
         added = [
             self._describe(dataset.id, path, upload.data) for path, upload in zip(paths, uploads, strict=True)
@@ -139,15 +132,48 @@ class DatasetVersionService:
             for file, data in added:
                 if file.storage_key in new_keys:
                     await self._store.put(file.storage_key, data, file.content_type)
-            version = await self._write(actor, dataset, previous, message, kept, [file for file, _ in added])
             readme = next((data for file, data in added if file.path == README), None)
-            if readme is not None:
-                dataset.card = readme.decode("utf-8", errors="replace")
-            await self._versions.commit()
+            version = await self.record(actor, dataset, [file for file, _ in added], remove, message, readme)
         except Exception:
             for key in new_keys:  # nothing points to them
                 await self._store.delete(key)
             raise
+        return version
+
+    async def plan(
+        self, dataset: Dataset, paths: list[str], remove: list[str]
+    ) -> tuple[DatasetVersion | None, list[DatasetFile]]:
+        """The latest version, and the files of it that the next one keeps: not the ones taken out, not the ones that
+        are replaced. Raises DatasetFileNotFound for a path to remove that is not there, and TooManyFiles."""
+        previous = await self._versions.latest(dataset.id)
+        before = await self._versions.files(previous.id) if previous else []
+        removed = {clean_path(path) for path in remove}
+        if missing := sorted(removed - {file.path for file in before}):
+            raise DatasetFileNotFound(f"Cannot remove {missing[0]}: it is not in the dataset")
+        kept = [file for file in before if file.path not in removed and file.path not in set(paths)]
+        if len(kept) + len(paths) > self._max_files:
+            raise TooManyFiles
+        return previous, kept
+
+    async def get_version_by_id(self, version_id: uuid.UUID) -> DatasetVersion | None:
+        return await self._versions.get_by_id(version_id)
+
+    async def record(
+        self,
+        actor: Actor,
+        dataset: Dataset,
+        added: list[DatasetFile],
+        remove: list[str],
+        message: str,
+        readme: bytes | None,
+    ) -> DatasetVersion:
+        """Makes the version from files that are already in the storage: the ones of the previous version that are
+        kept, and `added`. Commits. The caller takes the new objects back if this raises."""
+        previous, kept = await self.plan(dataset, [file.path for file in added], remove)
+        version = await self._write(actor, dataset, previous, message, kept, added)
+        if readme is not None:
+            dataset.card = readme.decode("utf-8", errors="replace")
+        await self._versions.commit()
         return version
 
     @staticmethod
@@ -230,19 +256,17 @@ class DatasetVersionService:
         version = await self._version_of(dataset, number)
         return version, await self._versions.files(version.id)
 
-    async def download(
-        self, actor: Actor, owner: str, name: str, path: str, number: int | None
-    ) -> tuple[DatasetFile, StoredObject]:
-        """A file and its content. Counts a download."""
+    async def download(self, actor: Actor, owner: str, name: str, path: str, number: int | None) -> str:
+        """The signed address from which to download a file: a large file goes from the storage to the browser, not
+        through the API. Counts a download."""
         dataset, _ = await self._access.get_readable(actor, owner, name)
         version = await self._version_of(dataset, number)
         file = await self._versions.file(version.id, clean_path(path))
-        stored = await self._store.get(file.storage_key) if file else None
-        if file is None or stored is None:
+        if file is None or await self._store.head(file.storage_key) is None:
             raise DatasetFileNotFound
         await self._versions.count_downloads(dataset.id)
         await self._versions.commit()
-        return file, stored
+        return await self._store.presign_get(file.storage_key, self._signed_seconds, file.path.rsplit("/", 1)[-1])
 
     async def rows(
         self,

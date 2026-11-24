@@ -235,18 +235,49 @@ Les trois formes correspondent à `Answer` dans [`frontend/src/features/datasets
 Le serveur remplit `text` (copie du passage) à partir du texte de la ligne, il ne fait pas confiance au client.
 Il vérifie que `0 ≤ start < end ≤ len(texte)`.
 
-## 6. Stockage des fichiers
+## 6. Envoi et stockage des fichiers
 
-- Un seul bucket (`AWS_BUCKET`), clés de la forme `datasets/{dataset_id}/{version_number}/{path}`.
-- **Dépôt**: le client envoie directement vers S3 avec des URLs présignées (multipart au-delà de ~100 Mo), pour ne pas
-  faire transiter les gros fichiers par l'API. À la fin, `complete` vérifie la taille et le `sha256`, puis crée la
-  version.
-- **Téléchargement**: URLs présignées de courte durée, jamais de fichier relayé par l'API.
-- Les tailles réelles vont de quelques ko à plusieurs dizaines de Go (audio, vidéo): prévoir des limites
-  configurables dans `config.py`.
-- **Aperçu**: le viewer ne lit jamais tout un fichier. Pour Parquet, on lit seulement les groupes de lignes
-  nécessaires (`pyarrow`); pour CSV et JSONL, on lit les premiers Mo. Le résultat des premières lignes est mis en
-  cache en base (`dataset_versions.preview` en JSON) à la création de la version.
+**Les fichiers ne passent pas par l'API: le navigateur les envoie par morceaux directement au stockage** (envoi
+« multipart » de S3), avec des adresses signées. L'API coordonne: elle autorise, suit où en est l'envoi, vérifie à la
+fin, et crée la version.
+
+**Le déroulé** (`app/services/dataset_uploads.py`)
+1. `POST /api/datasets/{owner}/{name}/uploads` annonce les fichiers (chemin, taille) et ce qu'il faut retirer. L'API
+   vérifie les droits, les chemins, les tailles et le nombre, ouvre un envoi par fichier chez S3 et répond avec, pour
+   chacun, la **taille d'un morceau** et le **nombre de morceaux**. Le navigateur découpe le fichier avec `Blob.slice`.
+2. `POST /api/uploads/{id}/parts` donne l'adresse signée de chaque morceau demandé (100 au plus par appel). Le
+   navigateur envoie chaque morceau à son adresse avec `PUT`; il peut en envoyer plusieurs à la fois et rejouer un morceau
+   raté.
+3. `GET /api/uploads/{id}?parts=true` dit quels morceaux sont arrivés: de quoi **reprendre** après une coupure.
+4. `POST /api/uploads/{id}/complete` assemble les morceaux. L'API vérifie que chacun est là avec la bonne taille (elle
+   nomme le fichier et le morceau qui manque), assemble, contrôle la taille finale, puis crée la version `pending`. Rejouer
+   cet appel après un succès donne la même version. En cas d'échec, ce qui avait été assemblé est supprimé.
+5. `DELETE /api/uploads/{id}` abandonne. Un envoi trop long (`UPLOAD_SESSION_HOURS`) est refermé et ses morceaux sont
+   libérés: `DatasetUploadService.expire_stale()` est le travail d'un **job périodique** (le worker), car personne ne
+   revient sur un envoi abandonné. Supprimer un dataset abandonne aussi ses envois en cours.
+
+**La taille des morceaux.** S3 impose au moins 5 Mio par morceau (sauf le dernier) et au plus 10 000 morceaux. Le morceau
+par défaut est de 64 Mio (`UPLOAD_PART_BYTES`) et grossit tout seul pour un très gros fichier (1 Tio: morceaux de 105 Mio).
+Un petit fichier est un seul morceau: il n'y a **qu'un seul déroulé** pour tous les fichiers. La taille maximale d'un
+fichier est `DATASET_UPLOAD_MAX_BYTES` (50 Gio par défaut).
+
+**Où est le fichier.** `datasets/{dataset_id}/files/{file_id}`. Les versions suivantes qui gardent le fichier pointent
+vers le même objet. **L'empreinte (sha256) n'est plus calculée à l'envoi**: elle est `null` pour un fichier envoyé par
+morceaux, jusqu'à ce qu'un worker le lise (voir 6 bis). L'envoi par l'API (`POST …/versions`, 100 Mio au plus par
+fichier) existe toujours pour les petits fichiers et les scripts; il range les fichiers par empreinte.
+
+**Le téléchargement** aussi va directement du stockage au navigateur: `GET …/files/{chemin}` compte un téléchargement
+et répond par une **redirection** vers une adresse signée de courte durée (`SIGNED_ADDRESS_SECONDS`).
+
+**Ce qu'il faut côté infrastructure**
+- Le backend parle au stockage à `AWS_ENDPOINT_URL` (dans Docker, `http://rustfs:9000`), adresse que le navigateur ne voit
+  pas. `AWS_PUBLIC_ENDPOINT_URL` est l'adresse du même stockage **telle que le navigateur y accède**, utilisée pour signer
+  (`http://localhost:9000` en développement, déjà réglée dans `docker-compose.yaml`).
+- **CORS sur le bucket**: autoriser l'origine du frontend, les méthodes `PUT` et `GET`, les en-têtes de la requête, et
+  **exposer l'en-tête `ETag`** (le navigateur n'a pas besoin de le lire, mais c'est la pratique usuelle pour reprendre).
+  Le réglage dépend du stockage: **à vérifier sur RustFS** (les tests couvrent le comportement S3 avec `moto`).
+- En production: TLS, et une règle de cycle de vie du bucket qui abandonne les envois incomplets après quelques jours,
+  en plus du job `expire_stale`.
 
 ## 6 bis. Lecture des fichiers par un worker
 

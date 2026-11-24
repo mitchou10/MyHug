@@ -126,6 +126,26 @@ class VersionNotReady(ServiceError):
     message = "This version is still being processed"
 
 
+class UploadNotFound(ServiceError):
+    """Also used for somebody else's upload: it must look like it does not exist."""
+
+    message = "This upload does not exist"
+
+
+class UploadClosed(ServiceError):
+    """An upload that was completed, given up, or that took too long: nothing more can be sent to it."""
+
+    message = "This upload is closed"
+
+
+class UploadIncomplete(ServiceError):
+    message = "The upload is not complete"
+
+
+class EmptyFile(ServiceError):
+    message = "A file cannot be empty"
+
+
 class DatasetFileNotFound(ServiceError):
     message = "This file does not exist"
 

@@ -290,17 +290,28 @@ async def test_a_file_that_is_not_what_its_name_says_fails_the_version_when_it_i
 # ---- reading
 
 
-async def test_a_file_is_downloaded_as_it_was_sent_and_counts_a_download(client, login) -> None:
+async def test_a_file_is_downloaded_from_a_signed_address_of_the_storage_and_counts_a_download(
+    client, login, store: MemoryStore
+) -> None:
     await start(client, login)
     await push(client, part("data/train.csv", TRAIN))  # no need for the worker to download
     response = await client.get(f"{ADDRESS}/files/data/train.csv")
-    assert response.status_code == 200 and response.content == TRAIN
-    assert response.headers["content-type"].startswith("text/csv")
-    assert "train.csv" in response.headers["content-disposition"]
+    assert response.status_code == 302  # the file does not go through the API
+    location = response.headers["location"]
+    assert location.startswith("memory://get/datasets/")
+    assert store.objects[location.removeprefix("memory://get/")].data == TRAIN
     await client.get(f"{ADDRESS}/files/data/train.csv")
     assert (await client.get(ADDRESS)).json()["downloads"] == 2
     assert (await client.get(f"{ADDRESS}/files/data/nothing.csv")).status_code == 404
     assert (await client.get(f"{ADDRESS}/files/data/train.csv", params={"version": 2})).status_code == 404
+    assert (await client.get(ADDRESS)).json()["downloads"] == 2  # a download that failed is not counted
+
+
+async def test_a_file_missing_from_the_storage_cannot_be_downloaded(client, login, store: MemoryStore) -> None:
+    await start(client, login)
+    await push(client, part("train.csv", TRAIN))
+    store.objects.clear()
+    assert (await client.get(f"{ADDRESS}/files/train.csv")).status_code == 404
 
 
 async def test_a_private_dataset_cannot_be_read_by_those_who_have_no_access(client, login) -> None:

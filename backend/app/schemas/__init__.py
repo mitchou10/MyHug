@@ -8,8 +8,12 @@ from app.schemas.dataset import (
     DatasetSummaryOut,
     FileOut,
     LikeOut,
+    PartsIn,
+    PartsOut,
     RowsOut,
     SplitOut,
+    UploadIn,
+    UploadOut,
     VersionOut,
 )
 from app.schemas.feedback import FeedbackChange, FeedbackOut, FeedbackSummaryOut
@@ -54,6 +58,8 @@ __all__ = [
     "FeedbackTypeUpdate",
     "HealthOut",
     "LikeOut",
+    "PartsIn",
+    "PartsOut",
     "LogoutOut",
     "MarkedReadOut",
     "MessageOut",
@@ -66,6 +72,8 @@ __all__ = [
     "RowsOut",
     "SplitOut",
     "UnreadCountOut",
+    "UploadIn",
+    "UploadOut",
     "UserOut",
     "VersionOut",
 ]

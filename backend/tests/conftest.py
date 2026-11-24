@@ -1,5 +1,7 @@
 import asyncio
+import hashlib
 import os
+import uuid
 
 # The database the tests run against (docker compose -f docker-compose.test.yaml up -d --wait). Set before the app
 # is imported: its settings are read once.
@@ -20,12 +22,13 @@ from app.auth.deps import get_current_user  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.storage import StoredObject, get_store  # noqa: E402
+from app.storage import ObjectInfo, PartInfo, StoredObject, get_store  # noqa: E402
 
 SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
     "TRUNCATE feedback_attachments, feedback_messages, feedbacks, feedback_types, feedback_statuses, "
-    "user_profiles, notifications, dataset_likes, dataset_members, dataset_files, dataset_versions, datasets"
+    "user_profiles, notifications, dataset_likes, dataset_members, dataset_upload_files, dataset_uploads, "
+    "dataset_files, dataset_versions, datasets"
 )
 
 
@@ -72,6 +75,8 @@ class MemoryStore:
 
     def __init__(self) -> None:
         self.objects: dict[str, StoredObject] = {}
+        # Files being uploaded in parts: upload id -> where it goes, and the parts that arrived.
+        self.uploads: dict[str, dict] = {}
 
     async def put(self, key: str, data: bytes, content_type: str) -> None:
         self.objects[key] = StoredObject(data=data, content_type=content_type)
@@ -81,6 +86,40 @@ class MemoryStore:
 
     async def delete(self, key: str) -> None:
         self.objects.pop(key, None)
+
+    async def head(self, key: str) -> ObjectInfo | None:
+        stored = self.objects.get(key)
+        return ObjectInfo(size=len(stored.data), content_type=stored.content_type) if stored else None
+
+    async def create_multipart(self, key: str, content_type: str) -> str:
+        upload_id = uuid.uuid4().hex
+        self.uploads[upload_id] = {"key": key, "content_type": content_type, "parts": {}}
+        return upload_id
+
+    async def presign_part(self, key: str, upload_id: str, number: int, expires_in: int) -> str:
+        return f"memory://{upload_id}/{number}"
+
+    def receive(self, url: str, data: bytes) -> str:
+        """What the browser does with a signed address: it sends the part there. Returns the fingerprint of the part."""
+        upload_id, number = url.removeprefix("memory://").split("/")
+        etag = hashlib.md5(data).hexdigest()  # noqa: S324
+        self.uploads[upload_id]["parts"][int(number)] = (data, etag)
+        return etag
+
+    async def list_parts(self, key: str, upload_id: str) -> list[PartInfo]:
+        parts = self.uploads[upload_id]["parts"]
+        return [PartInfo(number=n, size=len(data), etag=etag) for n, (data, etag) in sorted(parts.items())]
+
+    async def complete_multipart(self, key: str, upload_id: str, parts: list[PartInfo]) -> None:
+        upload = self.uploads.pop(upload_id)
+        data = b"".join(upload["parts"][part.number][0] for part in sorted(parts, key=lambda p: p.number))
+        self.objects[key] = StoredObject(data=data, content_type=upload["content_type"])
+
+    async def abort_multipart(self, key: str, upload_id: str) -> None:
+        self.uploads.pop(upload_id, None)
+
+    async def presign_get(self, key: str, expires_in: int, filename: str | None = None) -> str:
+        return f"memory://get/{key}"
 
 
 @pytest.fixture
