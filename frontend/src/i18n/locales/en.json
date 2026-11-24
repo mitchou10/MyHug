@@ -58,7 +58,8 @@
     "home": "Home",
     "toggle": "Toggle the sidebar",
     "adminFeedback": "Manage feedback",
-    "datasets": "Datasets"
+    "datasets": "Datasets",
+    "models": "Models"
   },
   "userMenu": {
     "open": "Open the user menu",
@@ -662,7 +663,8 @@
           "validate": "Validate the proposals",
           "deleteHint": "Deleting removes the proposals nobody has validated yet. What was validated stays, and so do the statistics.",
           "noModel": "No model is available for this kind of task.",
-          "compatible": "Models offered for: {{task}}."
+          "compatible": "Models offered for: {{task}}.",
+          "seeModel": "See the model page"
         },
         "compare": {
           "title": "Which model to choose?",
@@ -709,5 +711,91 @@
         }
       }
     }
+  },
+  "models": {
+    "title": "Models",
+    "count_one": "{{count}} model",
+    "count_other": "{{count}} models",
+    "new": "New model",
+    "newHint": "Declare a model: what it reads, what it does, its licence. The files will come with the backend.",
+    "search": "Search models…",
+    "none": "No model matches.",
+    "reads": "Reads:",
+    "back": "All models",
+    "private": "private",
+    "noTask": "No task declared",
+    "noDescription": "No description.",
+    "fields": {
+      "name": "Name",
+      "nameHint": "Lowercase letters, digits, dot, dash or underscore.",
+      "nameTaken": "You already have a model with this name.",
+      "input": "Kind of data it reads",
+      "task": "What the model does",
+      "description": "Description",
+      "license": "Licence",
+      "languages": "Languages (comma separated)",
+      "private": "Private model",
+      "privateHint": "Visible only to you and the people you invite."
+    },
+    "tabs": {
+      "card": "Card",
+      "try": "Try it",
+      "eval": "Evaluation",
+      "versions": "Versions",
+      "files": "Files"
+    },
+    "meta": {
+      "reads": "Reads",
+      "languages": "Languages",
+      "license": "Licence",
+      "params": "Parameters",
+      "size": "Size",
+      "version": "Version",
+      "updated": "Updated"
+    },
+    "card": {
+      "does": "What it does",
+      "trainedOn": "Training data",
+      "unknownData": "Not stated.",
+      "limits": "Limits and uses",
+      "limitsText": "A model's proposals are aids, not truths: read them again before relying on them, especially on data unlike the training data.",
+      "usage": "Usage"
+    },
+    "widget": {
+      "hint": "Give the model an input and see its answer.",
+      "input": "Text to analyse",
+      "example": "Example {{n}}",
+      "noSample": "No example available for this kind of data.",
+      "run": "Run",
+      "result": "Result",
+      "simulated": "Simulated answer: a real model will answer once the backend is connected."
+    },
+    "eval": {
+      "benchmarks": "Evaluations",
+      "dataset": "Dataset",
+      "split": "Split",
+      "metric": "Metric",
+      "value": "Value",
+      "none": "Not evaluated yet.",
+      "byHumans": "Judged by annotators",
+      "decisions": "{{n}} decisions",
+      "score": "score {{score}}",
+      "byHumansHint": "What humans did with this model's proposals in pre-annotations: validated as they were, corrected or rejected.",
+      "noDecisions": "No proposal of this model has been validated or rejected yet.",
+      "usedOn": "Used to pre-annotate:",
+      "compatible": "Tasks it could pre-annotate",
+      "noCompatible": "No existing task matches this model."
+    },
+    "versions": {
+      "current": "current",
+      "changelog": {
+        "first": "First published version.",
+        "better": "Better accuracy on short texts and rare cases.",
+        "faster": "Faster, same accuracy.",
+        "latest": "Fixes and retraining on new data."
+      }
+    },
+    "does": "Does:",
+    "allTasks": "All tasks"
   }
 }

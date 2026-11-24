@@ -4,6 +4,8 @@ import { RequireAuth } from '@/auth/RequireAuth'
 import { AnnotationRoute } from '@/features/datasets/annotation/AnnotationRoute'
 import { DatasetDetailPage } from '@/features/datasets/pages/DatasetDetailPage'
 import { DatasetsPage } from '@/features/datasets/pages/DatasetsPage'
+import { ModelDetailPage } from '@/features/models/pages/ModelDetailPage'
+import { ModelsPage } from '@/features/models/pages/ModelsPage'
 import { AdminFeedbackPage } from '@/features/feedback/pages/AdminFeedbackPage'
 import { MyFeedbackPage } from '@/features/feedback/pages/MyFeedbackPage'
 import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage'
@@ -38,6 +40,8 @@ export const routes: RouteObject[] = [
         children: [
           { path: 'app', element: <AppHomePage /> },
           { path: 'datasets', element: <DatasetsPage /> },
+          { path: 'models', element: <ModelsPage /> },
+          { path: 'models/:owner/:name', element: <ModelDetailPage /> },
           { path: 'datasets/:owner/:name', element: <DatasetDetailPage /> },
           { path: 'datasets/:owner/:name/annotate/:projectId', element: <AnnotationRoute /> },
           { path: 'settings', element: <SettingsPage /> },

@@ -58,7 +58,8 @@
     "home": "Accueil",
     "toggle": "Afficher ou masquer la barre latérale",
     "adminFeedback": "Gérer les retours",
-    "datasets": "Datasets"
+    "datasets": "Datasets",
+    "models": "Modèles"
   },
   "userMenu": {
     "open": "Ouvrir le menu utilisateur",
@@ -662,7 +663,8 @@
           "validate": "Valider les propositions",
           "deleteHint": "Supprimer retire les propositions pas encore validées. Ce qui a été validé reste, ainsi que les statistiques.",
           "noModel": "Aucun modèle n'est disponible pour ce type de tâche.",
-          "compatible": "Modèles proposés pour : {{task}}."
+          "compatible": "Modèles proposés pour : {{task}}.",
+          "seeModel": "Voir la fiche du modèle"
         },
         "compare": {
           "title": "Quel modèle choisir ?",
@@ -709,5 +711,91 @@
         }
       }
     }
+  },
+  "models": {
+    "title": "Modèles",
+    "count_one": "{{count}} modèle",
+    "count_other": "{{count}} modèles",
+    "new": "Nouveau modèle",
+    "newHint": "Déclarez un modèle : ce qu'il lit, ce qu'il fait, sa licence. Les fichiers viendront avec le backend.",
+    "search": "Rechercher un modèle…",
+    "none": "Aucun modèle ne correspond.",
+    "reads": "Lit :",
+    "back": "Tous les modèles",
+    "private": "privé",
+    "noTask": "Aucune tâche déclarée",
+    "noDescription": "Pas de description.",
+    "fields": {
+      "name": "Nom",
+      "nameHint": "Lettres minuscules, chiffres, point, tiret ou tiret bas.",
+      "nameTaken": "Vous avez déjà un modèle de ce nom.",
+      "input": "Type de données lues",
+      "task": "Ce que fait le modèle",
+      "description": "Description",
+      "license": "Licence",
+      "languages": "Langues (séparées par des virgules)",
+      "private": "Modèle privé",
+      "privateHint": "Visible seulement par vous et les personnes que vous invitez."
+    },
+    "tabs": {
+      "card": "Fiche",
+      "try": "Essayer",
+      "eval": "Évaluation",
+      "versions": "Versions",
+      "files": "Fichiers"
+    },
+    "meta": {
+      "reads": "Lit",
+      "languages": "Langues",
+      "license": "Licence",
+      "params": "Paramètres",
+      "size": "Taille",
+      "version": "Version",
+      "updated": "Mis à jour"
+    },
+    "card": {
+      "does": "Ce qu'il fait",
+      "trainedOn": "Données d'entraînement",
+      "unknownData": "Non renseignées.",
+      "limits": "Limites et usages",
+      "limitsText": "Les propositions d'un modèle sont des aides, pas des vérités : relisez-les avant de vous y fier, surtout sur des données différentes de celles de l'entraînement.",
+      "usage": "Utilisation"
+    },
+    "widget": {
+      "hint": "Donnez une entrée au modèle et regardez sa réponse.",
+      "input": "Texte à analyser",
+      "example": "Exemple {{n}}",
+      "noSample": "Aucun exemple disponible pour ce type de données.",
+      "run": "Lancer",
+      "result": "Résultat",
+      "simulated": "Réponse simulée : un vrai modèle répondra quand le backend sera branché."
+    },
+    "eval": {
+      "benchmarks": "Évaluations",
+      "dataset": "Dataset",
+      "split": "Partie",
+      "metric": "Mesure",
+      "value": "Valeur",
+      "none": "Pas encore évalué.",
+      "byHumans": "Jugé par les annotateurs",
+      "decisions": "{{n}} décisions",
+      "score": "score {{score}}",
+      "byHumansHint": "Ce que des humains ont fait des propositions de ce modèle dans les pré-annotations : validées telles quelles, corrigées ou rejetées.",
+      "noDecisions": "Aucune proposition de ce modèle n'a encore été validée ou rejetée.",
+      "usedOn": "Utilisé pour pré-annoter :",
+      "compatible": "Tâches qu'il pourrait pré-annoter",
+      "noCompatible": "Aucune tâche existante ne correspond à ce modèle."
+    },
+    "versions": {
+      "current": "actuelle",
+      "changelog": {
+        "first": "Première version publiée.",
+        "better": "Meilleure précision sur les textes courts et les cas rares.",
+        "faster": "Plus rapide, même précision.",
+        "latest": "Corrections et réentraînement sur de nouvelles données."
+      }
+    },
+    "does": "Fait :",
+    "allTasks": "Toutes les tâches"
   }
 }

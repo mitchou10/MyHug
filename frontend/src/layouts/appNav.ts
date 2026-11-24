@@ -1,4 +1,4 @@
-import { Database, Home, Inbox, type LucideIcon } from 'lucide-react'
+import { Box, Database, Home, Inbox, type LucideIcon } from 'lucide-react'
 
 interface NavEntry {
   /** The translation `appNav.<key>`. */
@@ -11,6 +11,7 @@ interface NavEntry {
 export const APP_NAV: NavEntry[] = [
   { key: 'home', to: '/app', icon: Home },
   { key: 'datasets', to: '/datasets', icon: Database },
+  { key: 'models', to: '/models', icon: Box },
 ]
 
 /** Entries of the "Administration" group of the profile menu (not of the sidebar, which stays light): admins only. */
