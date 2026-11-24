@@ -57,7 +57,7 @@ class DatasetUploadFile(Base):
     __tablename__ = "dataset_upload_files"
     __table_args__ = (
         UniqueConstraint("upload_id", "path", name="uq_dataset_upload_files_path"),
-        CheckConstraint("size_bytes > 0 AND part_size > 0 AND parts_count > 0", name="sizes"),
+        CheckConstraint("size_bytes > 0 AND part_size >= 0 AND parts_count >= 0", name="sizes"),
     )
 
     # Also its name in the storage, and the id of the file it becomes.
@@ -67,8 +67,15 @@ class DatasetUploadFile(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     content_type: Mapped[str] = mapped_column(String(100))
     storage_key: Mapped[str] = mapped_column(String(512))
-    # The identifier the storage gave to the upload in parts.
-    multipart_id: Mapped[str] = mapped_column(String(512))
-    # Every part but the last has this size: the browser cuts the file by it.
+    # The fingerprint the browser announced. It is not believed until a worker has read the file.
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    # The identifier the storage gave to the upload in parts. None for a file that is already stored in the dataset:
+    # its `storage_key` is the one of the object it is, and nothing is sent.
+    multipart_id: Mapped[str | None] = mapped_column(String(512))
+    # Every part but the last has this size: the browser cuts the file by it. 0 for a file that is already stored.
     part_size: Mapped[int] = mapped_column(BigInteger)
     parts_count: Mapped[int] = mapped_column(Integer)
+
+    @property
+    def already_stored(self) -> bool:
+        return self.multipart_id is None

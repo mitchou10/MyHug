@@ -50,6 +50,19 @@ class DatasetVersionRepository(Repository):
         )
         return result.scalar_one_or_none()
 
+    async def find_stored(self, dataset_id: uuid.UUID, sha256: str, size: int) -> DatasetFile | None:
+        """A file of this dataset, in any version, that has this fingerprint and this size. Only a fingerprint a worker
+        computed counts (a file sent in parts has none until it is read), not one that somebody announced."""
+        result = await self._db.execute(
+            select(DatasetFile)
+            .join(DatasetVersion)
+            .where(
+                DatasetVersion.dataset_id == dataset_id, DatasetFile.sha256 == sha256, DatasetFile.size_bytes == size
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def storage_keys(self, dataset_id: uuid.UUID) -> set[str]:
         """Where the content of every file of every version is: what is to be removed with the dataset."""
         result = await self._db.execute(

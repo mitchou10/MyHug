@@ -155,6 +155,10 @@ class DatasetVersionService:
             raise TooManyFiles
         return previous, kept
 
+    async def find_stored(self, dataset: Dataset, sha256: str, size: int) -> DatasetFile | None:
+        """The file of this dataset that is exactly this one, if there is one: no need to send it again."""
+        return await self._versions.find_stored(dataset.id, sha256, size)
+
     async def get_version_by_id(self, version_id: uuid.UUID) -> DatasetVersion | None:
         return await self._versions.get_by_id(version_id)
 

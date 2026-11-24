@@ -124,7 +124,8 @@ class DatasetService:
         for key in keys:  # the files go once the dataset is really gone
             await self._store.delete(key)
         for file in going_on:  # and what was being uploaded is given up
-            await self._store.abort_multipart(file.storage_key, file.multipart_id)
+            if file.multipart_id is not None:
+                await self._store.abort_multipart(file.storage_key, file.multipart_id)
 
     async def like(self, actor: Actor, owner: str, name: str) -> tuple[bool, int]:
         """Likes a dataset the person can see; liking it again changes nothing. Returns (liked, how many)."""

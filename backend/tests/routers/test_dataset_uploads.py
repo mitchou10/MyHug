@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -38,6 +39,8 @@ async def send_parts(
 ) -> None:
     """What the browser does: asks for the addresses of the parts, cuts each file, sends each part to its address."""
     for file in upload["files"]:
+        if file.get("already_stored"):  # the dataset has it: there is nothing to send
+            continue
         data = contents[file["path"]]
         numbers = [n for n in range(1, file["parts_count"] + 1) if only is None or n in only]
         response = await client.post(
@@ -418,3 +421,143 @@ async def test_the_uploads_of_a_deleted_dataset_go_with_it(client, login, store:
     assert store.uploads == {}  # what was being sent is given up in the storage
     assert (await db.execute(select(DatasetUpload))).first() is None
     assert await DatasetUploadRepository(db).open_until(datetime.now(UTC) + timedelta(days=9)) == []
+
+
+# ---- a file the dataset already holds is not sent again
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+async def known_file(client: httpx2.AsyncClient, path: str = "train.csv", data: bytes = TRAIN) -> None:
+    """A file sent through the API, which fingerprints what it receives: the dataset knows it for sure."""
+    response = await client.post(f"{ADDRESS}/versions", files=[("files", (path, data, "text/csv"))])
+    assert response.status_code == 201, response.text
+
+
+async def announce_with_sha(client: httpx2.AsyncClient, path: str, data: bytes, fingerprint: str | None = None):
+    file = {"path": path, "size": len(data), "sha256": sha(data) if fingerprint is None else fingerprint}
+    return await client.post(f"{ADDRESS}/uploads", json={"files": [file]})
+
+
+async def test_a_file_the_dataset_already_holds_is_not_sent_again(client, login, store: MemoryStore) -> None:
+    await start(client, login)
+    await known_file(client)
+    before = dict(store.objects)
+    response = await announce_with_sha(client, "copy.csv", TRAIN)
+    assert response.status_code == 201, response.text
+    upload = response.json()
+    file = upload["files"][0]
+    assert (file["already_stored"], file["parts_count"], file["part_size"]) == (True, 0, 0)
+    assert store.uploads == {}  # nothing was prepared in the storage
+
+    version = (await client.post(f"/api/uploads/{upload['id']}/complete")).json()
+    assert (version["number"], version["status"]) == (2, "pending")
+    files = {f["path"]: f for f in (await client.get(f"{ADDRESS}/files")).json()}
+    assert set(files) == {"train.csv", "copy.csv"}
+    assert files["copy.csv"]["sha256"] == files["train.csv"]["sha256"] == sha(TRAIN)  # known, not announced
+    assert store.objects == before  # one object, two paths
+    location = (await client.get(f"{ADDRESS}/files/copy.csv")).headers["location"]
+    assert store.objects[location.removeprefix("memory://get/")].data == TRAIN
+
+
+async def test_a_file_already_held_and_a_new_one_go_in_the_same_upload(client, login, store: MemoryStore) -> None:
+    await start(client, login)
+    await known_file(client)
+    body = {"files": [{"path": "copy.csv", "size": len(TRAIN), "sha256": sha(TRAIN)}, {"path": "new.csv", "size": 4}]}
+    upload = (await client.post(f"{ADDRESS}/uploads", json=body)).json()
+    assert {f["path"]: f["already_stored"] for f in upload["files"]} == {"copy.csv": True, "new.csv": False}
+    assert len(store.uploads) == 1  # only the new one is prepared
+    await send_parts(client, store, upload, {"new.csv": b"n\n1\n"})
+    assert (await client.post(f"/api/uploads/{upload['id']}/complete")).status_code == 200
+    assert sorted(f["path"] for f in (await client.get(f"{ADDRESS}/files")).json()) == [
+        "copy.csv",
+        "new.csv",
+        "train.csv",
+    ]
+
+
+async def test_the_uppercase_fingerprint_is_accepted_and_a_bad_one_is_refused(client, login) -> None:
+    await start(client, login)
+    await known_file(client)
+    assert (await announce_with_sha(client, "a.csv", TRAIN, sha(TRAIN).upper())).json()["files"][0][
+        "already_stored"
+    ] is True
+    for bad in ("abc", "g" * 64, sha(TRAIN) + "0"):
+        assert (await announce_with_sha(client, "b.csv", TRAIN, bad)).status_code == 422
+
+
+async def test_a_file_the_dataset_does_not_know_is_sent_as_usual(client, login, store: MemoryStore) -> None:
+    await start(client, login)
+    await known_file(client)
+    other = b"text,label\nother,pos\n"
+    file = (await announce_with_sha(client, "other.csv", other)).json()["files"][0]
+    assert (file["already_stored"], file["parts_count"]) == (False, 1)
+    assert len(store.uploads) == 1
+
+
+async def test_the_same_fingerprint_with_another_size_is_not_the_same_file(client, login) -> None:
+    await start(client, login)
+    await known_file(client)
+    response = await client.post(
+        f"{ADDRESS}/uploads", json={"files": [{"path": "x.csv", "size": len(TRAIN) + 1, "sha256": sha(TRAIN)}]}
+    )
+    assert response.json()["files"][0]["already_stored"] is False
+
+
+async def test_a_fingerprint_that_somebody_announced_is_not_believed(client, login, store: MemoryStore) -> None:
+    """A file sent in parts has no fingerprint until a worker reads it: a wrong claim must not stand for it."""
+    await start(client, login)
+    upload = await upload_files(client, store, **{"parts.csv": TRAIN})
+    await client.post(f"/api/uploads/{upload['id']}/complete")
+    again = (await announce_with_sha(client, "again.csv", TRAIN)).json()["files"][0]
+    assert again["already_stored"] is False  # it has to be sent, even if the content is the same
+
+
+async def test_a_file_is_only_looked_for_in_the_dataset_it_is_sent_to(client, login, store: MemoryStore) -> None:
+    await start(client, login)
+    await create(client, "other")
+    other = "/api/datasets/ada/other"
+    assert (
+        await client.post(f"{other}/versions", files=[("files", ("train.csv", TRAIN, "text/csv"))])
+    ).status_code == 201
+    assert (await announce_with_sha(client, "train.csv", TRAIN)).json()["files"][0]["already_stored"] is False
+
+
+async def test_nothing_can_be_sent_for_a_file_that_is_already_stored(client, login) -> None:
+    await start(client, login)
+    await known_file(client)
+    upload = (await announce_with_sha(client, "copy.csv", TRAIN)).json()
+    file_id = upload["files"][0]["id"]
+    assert (
+        await client.post(f"/api/uploads/{upload['id']}/parts", json={"file_id": file_id, "numbers": [1]})
+    ).status_code == 422
+    state = (await client.get(f"/api/uploads/{upload['id']}", params={"parts": True})).json()
+    assert state["files"][0]["received"] == []
+
+
+async def test_a_file_that_left_the_storage_before_the_end_is_said_to_be_sent_again(
+    client, login, store: MemoryStore
+) -> None:
+    await start(client, login)
+    await known_file(client)
+    upload = (await announce_with_sha(client, "copy.csv", TRAIN)).json()
+    store.objects.clear()  # what it pointed to is gone
+    response = await client.post(f"/api/uploads/{upload['id']}/complete")
+    assert response.status_code == 422 and "copy.csv" in response.json()["detail"]
+    assert (await client.get(f"{ADDRESS}/versions")).json()[0]["number"] == 1  # no new version
+
+
+async def test_giving_up_or_failing_never_takes_back_an_object_that_other_files_use(
+    client, login, store: MemoryStore
+) -> None:
+    await start(client, login)
+    await known_file(client)
+    kept = dict(store.objects)
+    upload = (await announce_with_sha(client, "copy.csv", TRAIN)).json()
+    assert (await client.delete(f"/api/uploads/{upload['id']}")).status_code == 204
+    assert store.objects == kept
+    second = (await announce_with_sha(client, "copy.csv", TRAIN)).json()
+    assert (await client.delete(ADDRESS)).status_code == 204  # the dataset goes with an upload open
+    assert store.objects == {} and store.uploads == {} and second["status"] == "open"
