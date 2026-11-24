@@ -2,9 +2,14 @@ import { useSyncExternalStore } from 'react'
 import type { ValueType } from './format'
 
 /** Temporary in-memory store: replaced by the API once the backend handles annotations. */
-/** Text: classification, ner, qa. Tabular: label a row, review cells, describe the columns. */
+/**
+ * Text: classification, ner, qa. Tabular: label a row, review cells, describe the columns. Image: detection and
+ * segmentation (polygons), classification, image to text. Regression works for text and tabular.
+ */
 export type TaskType = 'classification' | 'ner' | 'qa' | 'regression' | 'row_label' | 'cell_review' | 'column_schema'
+  | 'image_detection' | 'image_segmentation' | 'image_polyline' | 'image_keypoints' | 'image_classification' | 'image_caption' | 'image_vqa'
 export const TEXT_TASKS: TaskType[] = ['classification', 'ner', 'qa', 'regression']
+export const IMAGE_TASKS: TaskType[] = ['image_detection', 'image_segmentation', 'image_polyline', 'image_keypoints', 'image_classification', 'image_caption', 'image_vqa']
 export const TABULAR_TASKS: TaskType[] = ['row_label', 'cell_review', 'column_schema', 'regression']
 
 /** NER only. `entity`: a small unit (a name, a date…). `semantic`: a business meaning, often a longer passage (an offence, a sentence…). */
@@ -31,6 +36,8 @@ export interface AnnotationProject {
   labels: LabelDef[]
   /** Regression only. */
   scale?: Scale
+  /** Classification, image classification and row labelling: an item may get several labels. */
+  multiLabel?: boolean
   createdBy: string
   annotators: number
   /** Mocked progress of everybody else, on the whole dataset. */
@@ -50,15 +57,32 @@ export interface QAPair {
 }
 export const newPair = (): QAPair => ({ id: Math.random().toString(36).slice(2, 8), question: '', answer: '', sources: [] })
 
+/** A point of a polygon, as a fraction of the width and of the height of the image (0 to 1): independent of the resolution. */
+export type Pt = [number, number]
+/** Detection and segmentation: one polygon with its label. */
+export interface ImageObject { id: string; label: string; points: Pt[]; reason?: string }
+
+/** Keypoints: one point of the skeleton (`label` = id of a label), and whether it is hidden behind something. */
+export interface Keypoint { label: string; point: Pt; occluded?: boolean }
+/** Keypoints: one instance (one person, one sign…) with the points placed so far. */
+export interface KeypointInstance { id: string; points: Keypoint[] }
+
 /** Cell review: what is wrong with a cell (`issue` = id of a label), and what it should be. */
 export interface CellNote { issue: string; corrected?: string; reason?: string }
 /** Column schema: what a column is (`role` = id of a label), its type, formats, unit and description. */
 export interface ColumnNote { role?: string; valueType?: ValueType; formats?: string[]; unit?: string; description?: string }
 
 /** `label` is the id of a LabelDef; `reason` is the optional "why" of the annotator. */
-export interface Answer { label?: string; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
+/** Tasks where an item gets one or several labels from a list. */
+export const supportsMultiLabel = (t: TaskType) => t === 'classification' || t === 'image_classification' || t === 'row_label'
+
+export interface Answer { label?: string; labels?: string[]; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
   /** Regression: the value given on the scale of the task. */
   value?: number
+  /** Image: the polygons, and the sentences of an image to text task. */
+  objects?: ImageObject[]
+  captions?: string[]
+  instances?: KeypointInstance[]
   /** Tabular: notes by column index. A column schema is stored at row 0. */
   cells?: Record<number, CellNote>
   columns?: Record<number, ColumnNote>
@@ -126,6 +150,54 @@ let state: State = {
     },
     { id: 'p9', datasetKey: 'mitchou/movie-reviews-fr', name: 'Note du film', task: 'regression', labels: [], scale: { min: 0, max: 10, step: 0.5, minLabel: 'Détestable', maxLabel: 'Chef-d’œuvre' }, createdBy: 'mitchou', annotators: 3, done: 5200, total: 120000 },
     { id: 'p10', datasetKey: 'mitchou/house-prices', name: 'Prix au m² estimé', task: 'regression', labels: [], scale: { min: 500, max: 15000, step: 50, unit: '€/m²', minLabel: 'Très bas', maxLabel: 'Très élevé' }, createdBy: 'mitchou', annotators: 2, done: 120, total: 85000 },
+    {
+      id: 'p11', datasetKey: 'mitchou/street-signs', name: 'Panneaux', task: 'image_detection', createdBy: 'mitchou', annotators: 3, done: 2400, total: 18400,
+      labels: [
+        { id: 'stop', name: 'stop', description: 'Panneau octogonal rouge « STOP ».' },
+        { id: 'speed', name: 'limite de vitesse', description: 'Disque à bord rouge avec un nombre : entourer le disque seul, pas le poteau.' },
+        { id: 'danger', name: 'danger', description: 'Triangle à bord rouge.' },
+        { id: 'forbidden', name: 'interdiction', description: 'Autre panneau d’interdiction (sens interdit, stationnement…).' },
+      ],
+    },
+    {
+      id: 'p12', datasetKey: 'mitchou/street-signs', name: 'Route et abords', task: 'image_segmentation', createdBy: 'mitchou', annotators: 2, done: 640, total: 18400,
+      labels: [
+        { id: 'road', name: 'route', description: 'Chaussée et lignes peintes.' },
+        { id: 'sidewalk', name: 'trottoir', description: 'Trottoirs et passages piétons surélevés.' },
+        { id: 'building', name: 'bâtiment', description: 'Façades et murs.' },
+        { id: 'vegetation', name: 'végétation', description: 'Arbres, haies, pelouse.' },
+        { id: 'sky', name: 'ciel', description: 'Tout ce qui est au-dessus de l’horizon et n’est pas un objet.' },
+      ],
+    },
+    {
+      id: 'p13', datasetKey: 'mitchou/street-signs', name: 'Conditions de la scène', task: 'image_classification', multiLabel: true, createdBy: 'mitchou', annotators: 4, done: 9100, total: 18400,
+      labels: [
+        { id: 'sunny', name: 'ensoleillé', description: 'Ombres nettes, ciel dégagé.' },
+        { id: 'rain', name: 'pluie', description: 'Pluie visible ou route mouillée.' },
+        { id: 'night', name: 'nuit', description: 'Éclairage artificiel dominant.' },
+        { id: 'fog', name: 'brouillard', description: 'Visibilité réduite.' },
+      ],
+    },
+    { id: 'p14', datasetKey: 'mitchou/street-signs', name: 'Description de la scène', task: 'image_caption', labels: [], createdBy: 'mitchou', annotators: 2, done: 380, total: 18400 },
+    {
+      id: 'p15', datasetKey: 'mitchou/street-signs', name: 'Marquages au sol', task: 'image_polyline', createdBy: 'mitchou', annotators: 2, done: 210, total: 18400,
+      labels: [
+        { id: 'solid', name: 'ligne continue', description: 'Ligne blanche ou jaune sans interruption.' },
+        { id: 'dashed', name: 'ligne discontinue', description: 'Une seule polyligne pour toute la ligne, pas un tracé par tiret.' },
+        { id: 'edge', name: 'bord de chaussée', description: 'Limite entre la route et l’accotement.' },
+      ],
+    },
+    {
+      id: 'p16', datasetKey: 'mitchou/street-signs', name: 'Coins du panneau', task: 'image_keypoints', createdBy: 'mitchou', annotators: 2, done: 95, total: 18400,
+      labels: [
+        { id: 'tl', name: 'coin haut gauche', description: 'Angle supérieur gauche du panneau, sur le bord extérieur.' },
+        { id: 'tr', name: 'coin haut droit', description: 'Angle supérieur droit du panneau.' },
+        { id: 'br', name: 'coin bas droit', description: 'Angle inférieur droit du panneau.' },
+        { id: 'bl', name: 'coin bas gauche', description: 'Angle inférieur gauche du panneau.' },
+        { id: 'foot', name: 'pied du poteau', description: 'Point où le poteau touche le sol.' },
+      ],
+    },
+    { id: 'p17', datasetKey: 'mitchou/street-signs', name: 'Questions sur la scène', task: 'image_vqa', labels: [], createdBy: 'mitchou', annotators: 3, done: 760, total: 18400 },
   ],
   answers: {},
 }
@@ -142,6 +214,18 @@ export function updateLabels(projectId: string, labels: LabelDef[]) {
 }
 export function updateScale(projectId: string, scale: Scale) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, scale } : p)) })
+}
+/** The labels an item has, whether the task takes one or several. */
+export const labelsOf = (a: Answer): string[] => a.labels ?? (a.label ? [a.label] : [])
+/** Chooses a label: in single mode it replaces the previous one (and a second click clears it); in multi-label mode it is toggled. */
+export function withLabel(a: Answer, id: string, multi?: boolean): Answer {
+  const cur = labelsOf(a)
+  if (!multi) return { ...a, label: cur.length === 1 && cur[0] === id ? undefined : id, labels: undefined }
+  const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+  return { ...a, label: undefined, labels: next.length ? next : undefined }
+}
+export function setMultiLabel(projectId: string, multiLabel: boolean) {
+  set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, multiLabel } : p)) })
 }
 export function saveAnswer(projectId: string, row: number, answer: Answer) {
   set({ ...state, answers: { ...state.answers, [projectId]: { ...state.answers[projectId], [row]: answer } } })

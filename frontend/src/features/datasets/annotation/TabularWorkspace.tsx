@@ -13,7 +13,7 @@ import type { Dataset } from '../mockData'
 import { matchesFormat, VALUE_TYPES, type ValueType } from './format'
 import { ScaleInput } from './ScaleInput'
 import { StringListInput } from './StringListInput'
-import { saveAnswer, useAnnotations, type Answer, type CellNote, type ColumnNote, type LabelDef, type AnnotationProject } from './store'
+import { labelsOf, saveAnswer, useAnnotations, withLabel, type Answer, type CellNote, type ColumnNote, type LabelDef, type AnnotationProject } from './store'
 import { color } from './ui'
 
 const shown = (v: string | number | undefined) => (v === '' || v === undefined ? '∅' : String(v))
@@ -43,7 +43,7 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
 
   const move = (dr: number, dc: number) => setSel((s) => ({ r: task === 'column_schema' ? -1 : Math.min(rows.length - 1, Math.max(0, s.r + dr)), c: rowMode ? -1 : Math.min(d.columns.length - 1, Math.max(0, s.c + dc)) }))
   const pick = (l: LabelDef) => {
-    if (task === 'row_label') setRow(sel.r, { label: ans(sel.r).label === l.id ? undefined : l.id })
+    if (task === 'row_label') { const n = withLabel(ans(sel.r), l.id, project.multiLabel); setRow(sel.r, { label: n.label, labels: n.labels }) }
     else if (task === 'cell_review') { const n = ans(sel.r).cells?.[sel.c]; setNote(sel.r, sel.c, n?.issue === l.id ? null : { ...n, issue: l.id }) }
     else setColumn(sel.c, { role: cols[sel.c]?.role === l.id ? undefined : l.id })
   }
@@ -62,15 +62,15 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
 
   const progress =
     task === 'regression' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => ans(r).value !== undefined).length, total: rows.length })
-    : task === 'row_label' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => ans(r).label).length, total: rows.length })
+    : task === 'row_label' ? t('datasets.annotation.tab.progressRows', { done: rows.filter((_, r) => labelsOf(ans(r)).length).length, total: rows.length })
     : task === 'cell_review' ? t('datasets.annotation.tab.progressCells', { done: rows.reduce((n, _, r) => n + Object.keys(ans(r).cells ?? {}).length, 0), rows: rows.filter((_, r) => Object.keys(ans(r).cells ?? {}).length).length })
     : t('datasets.annotation.tab.progressColumns', { done: d.columns.filter((_, c) => cols[c]?.role).length, total: d.columns.length })
 
-  const labelButtons = (selected?: string) => (
+  const labelButtons = (selected: string[]) => (
     <div className="grid gap-1.5">
       {project.labels.map((l, i) => (
         <Button key={l.id} variant="outline" title={l.description} onClick={() => pick(l)}
-          className={cn('h-auto justify-start gap-2 py-1.5 text-left whitespace-normal', selected === l.id && 'ring-2 ring-primary')} style={selected === l.id ? color(l.id) : undefined}>
+          className={cn('h-auto justify-start gap-2 py-1.5 text-left whitespace-normal', selected.includes(l.id) && 'ring-2 ring-primary')} style={selected.includes(l.id) ? color(l.id) : undefined}>
           <kbd className="rounded bg-background/70 px-1.5 text-xs">{i + 1}</kbd>
           <span className="flex flex-col"><span>{l.name}</span>{l.description && <span className="text-xs font-normal opacity-80">{l.description}</span>}</span>
         </Button>
@@ -114,7 +114,7 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
               {rows.map((r, i) => (
                 <TableRow key={i} onClick={() => rowMode && setSel({ r: i, c: -1 })} className={cn(rowMode && 'cursor-pointer', rowMode && sel.r === i && 'bg-primary/10')}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                  {rowMode && <TableCell>{task === 'regression' ? (ans(i).value !== undefined ? <span className="font-mono font-medium">{ans(i).value}{project.scale?.unit && ` ${project.scale.unit}`}</span> : <span className="text-muted-foreground">—</span>) : ans(i).label ? <span className="rounded-full border px-2 py-0.5 text-xs font-medium" style={color(ans(i).label!)}>{labelName(ans(i).label)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
+                  {rowMode && <TableCell>{task === 'regression' ? (ans(i).value !== undefined ? <span className="font-mono font-medium">{ans(i).value}{project.scale?.unit && ` ${project.scale.unit}`}</span> : <span className="text-muted-foreground">—</span>) : labelsOf(ans(i)).length ? <span className="flex flex-wrap gap-1">{labelsOf(ans(i)).map((id) => <span key={id} className="rounded-full border px-2 py-0.5 text-xs font-medium" style={color(id)}>{labelName(id)}</span>)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>}
                   {r.map((cell, j) => {
                     const n = ans(i).cells?.[j]
                     return (
@@ -145,7 +145,7 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
                 {d.columns.map((c, j) => <div key={c} className="contents"><dt className="text-muted-foreground">{c}</dt><dd className="font-medium">{shown(row[j])}</dd></div>)}
               </dl>
-              {task === 'regression' && project.scale ? <ScaleInput scale={project.scale} value={ans(sel.r).value} onChange={(value) => setRow(sel.r, { value })} /> : labelButtons(ans(sel.r).label)}
+              {task === 'regression' && project.scale ? <ScaleInput scale={project.scale} value={ans(sel.r).value} onChange={(value) => setRow(sel.r, { value })} /> : labelButtons(labelsOf(ans(sel.r)))}
               {section(`${t('datasets.annotation.reason')} (${t('datasets.annotation.optional')})`,
                 <Textarea rows={2} placeholder={t('datasets.annotation.reasonPlaceholder')} value={ans(sel.r).reason ?? ''} onChange={(e) => setRow(sel.r, { reason: e.target.value })} />)}
             </>
@@ -158,7 +158,7 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
                 <p className="mt-1 text-sm">{t('datasets.annotation.tab.value')}: <span className="font-mono font-medium">{shown(row?.[sel.c])}</span></p>
                 {schema && <p className="text-xs text-muted-foreground">{t(`datasets.annotation.types.${schema.valueType}`)}{schema.unit ? ` · ${schema.unit}` : ''}{schema.formats?.length ? ` · ${t('datasets.annotation.tab.expectedFormat')}: ${schema.formats.join(' | ')}` : ''}</p>}
               </div>
-              {labelButtons(note?.issue)}
+              {labelButtons(note?.issue ? [note.issue] : [])}
               {note && (
                 <>
                   {section(t('datasets.annotation.tab.corrected'), (
@@ -181,7 +181,7 @@ export function TabularWorkspace({ dataset: d, project }: { dataset: Dataset; pr
                 <h2 className="font-semibold">{d.columns[sel.c]}</h2>
                 <p className="mt-1 truncate text-xs text-muted-foreground">{rows.slice(0, 4).map((r) => shown(r[sel.c])).join(' · ')}</p>
               </div>
-              {section(t('datasets.annotation.tab.role'), labelButtons(colNote?.role))}
+              {section(t('datasets.annotation.tab.role'), labelButtons(colNote?.role ? [colNote.role] : []))}
               {section(t('datasets.annotation.valueType'), (
                 <select value={colNote?.valueType ?? ''} onChange={(e) => setColumn(sel.c, { valueType: (e.target.value || undefined) as ValueType | undefined })} className="h-9 w-full rounded-md border bg-background px-2 text-sm">
                   <option value="">—</option>

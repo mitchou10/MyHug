@@ -45,6 +45,7 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
                   <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${Math.min(100, (done / total) * 100)}%` }} /></div>
                   <p className="mt-1 text-xs text-muted-foreground">{formatCount(done)} / {formatCount(total)}</p>
                 </div>
+                {p.multiLabel && <Badge variant="outline">{t('datasets.annotation.multiLabel.badge')}</Badge>}
                 {p.scale && <Badge variant="outline">{p.scale.min} – {p.scale.max}{p.scale.unit ? ` ${p.scale.unit}` : ''}</Badge>}
                 {p.labels.length > 0 && <div className="flex flex-wrap gap-1">{p.labels.map((l) => <Badge key={l.id} variant={l.kind === 'semantic' ? 'secondary' : 'outline'} title={l.description}>{l.name}</Badge>)}</div>}
                 <div className="flex gap-2">
