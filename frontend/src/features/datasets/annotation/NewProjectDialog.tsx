@@ -6,20 +6,22 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { LabelsEditor, labelsValid } from './LabelsEditor'
+import { MultiLabelToggle } from './MultiLabelToggle'
 import { emptyScale, ScaleForm, scaleValid as isScaleValid, toScale } from './ScaleForm'
-import { addProject, CURRENT_USER, TABULAR_TASKS, TEXT_TASKS, type LabelDef, type TaskType } from './store'
+import { addProject, CURRENT_USER, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, type LabelDef, type TaskType } from './store'
 
 /** Tasks that need a list of labels; `regression` needs a scale; `qa` needs nothing more. */
-const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression'
+const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa'
 
 /** Creates an annotation task in two steps (what, then how): everyone who can see the dataset will be able to annotate it. */
 export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: { datasetKey: string; modality: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
-  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : TEXT_TASKS
+  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : TEXT_TASKS
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [task, setTask] = useState<TaskType>(TASKS[0])
   const [labels, setLabels] = useState<LabelDef[]>([])
+  const [multi, setMulti] = useState(false)
   const [sc, setSc] = useState(emptyScale)
 
   const scale = toScale(sc)
@@ -27,12 +29,13 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
   const hasStep2 = needsLabels(task) || task === 'regression'
   const valid = !!name.trim() && (!needsLabels(task) || labelsValid(labels)) && (task !== 'regression' || scaleValid)
 
-  const reset = () => { setStep(0); setName(''); setLabels([]); setTask(TASKS[0]); setSc(emptyScale) }
+  const reset = () => { setStep(0); setName(''); setLabels([]); setMulti(false); setTask(TASKS[0]); setSc(emptyScale) }
   const submit = () => {
     addProject({
       datasetKey, name: name.trim(), task, createdBy: CURRENT_USER, total: 0,
       labels: needsLabels(task) ? labels.map((l) => ({ ...l, name: l.name.trim(), description: l.description.trim() })) : [],
       scale: task === 'regression' ? scale : undefined,
+      multiLabel: supportsMultiLabel(task) && multi ? true : undefined,
     })
     reset(); onOpenChange(false)
   }
@@ -63,7 +66,11 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
             </div>
           </div>
         ) : needsLabels(task) ? (
-          <div className="max-h-[55vh] overflow-y-auto pr-1"><LabelsEditor labels={labels} onChange={setLabels} showKind={task === 'ner'} /></div>
+          <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
+            {task === 'image_keypoints' && <p className="text-sm text-muted-foreground">{t('datasets.annotation.image.keypointsHint')}</p>}
+            {supportsMultiLabel(task) && <MultiLabelToggle value={multi} onChange={setMulti} />}
+            <LabelsEditor labels={labels} onChange={setLabels} showKind={task === 'ner'} />
+          </div>
         ) : (
           <ScaleForm value={sc} onChange={setSc} />
         )}

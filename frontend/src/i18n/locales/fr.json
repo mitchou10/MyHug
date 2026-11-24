@@ -325,6 +325,34 @@
         "regression": {
           "title": "Régression",
           "hint": "Donner un nombre à chaque texte ou ligne : un score, une note, un prix…"
+        },
+        "image_detection": {
+          "title": "Détection d'objets",
+          "hint": "Tracer un polygone autour de chaque objet et lui donner un label."
+        },
+        "image_segmentation": {
+          "title": "Segmentation",
+          "hint": "Détourer les régions de l'image (route, ciel…) avec des polygones."
+        },
+        "image_classification": {
+          "title": "Classification d'images",
+          "hint": "Donner un label à chaque image."
+        },
+        "image_caption": {
+          "title": "Image vers texte",
+          "hint": "Décrire chaque image avec une ou plusieurs phrases."
+        },
+        "image_polyline": {
+          "title": "Lignes",
+          "hint": "Tracer des lignes ouvertes : marquages au sol, routes, câbles, fissures."
+        },
+        "image_keypoints": {
+          "title": "Points clés",
+          "hint": "Placer des points nommés sur chaque objet : articulations, coins, repères."
+        },
+        "image_vqa": {
+          "title": "Question-réponse sur image",
+          "hint": "Écrire des questions sur l'image et leurs réponses."
         }
       },
       "labelName": "Nom du label",
@@ -440,7 +468,58 @@
       "back": "Retour",
       "edit": "Modifier",
       "editScale": "Modifier l'échelle",
-      "editScaleHint": "Changer l'échelle ne modifie pas les valeurs déjà données."
+      "editScaleHint": "Changer l'échelle ne modifie pas les valeurs déjà données.",
+      "image": {
+        "tools": {
+          "select": "Sélection",
+          "polygon": "Polygone",
+          "rect": "Rectangle",
+          "line": "Ligne"
+        },
+        "pickLabel": "Choisissez d'abord un label, puis dessinez.",
+        "hintDetect": "Cliquez pour poser les points d'un polygone, cliquez le premier point (ou Entrée) pour le fermer. Le rectangle sert à tracer une boîte rapidement.",
+        "hintSegment": "Détourez chaque région avec un polygone. Cliquez le premier point (ou Entrée) pour le fermer.",
+        "hintSelect": "Glissez un point pour le déplacer. Suppr retire la forme sélectionnée.",
+        "objects": "Objets",
+        "regions": "Régions",
+        "points": "{{n}} points",
+        "none": "Rien de tracé pour l'instant.",
+        "finish": "Fermer la forme",
+        "drawing": "Tracé : {{n}} points (3 minimum)",
+        "caption": "Description",
+        "captionPlaceholder": "Décrivez ce que vous voyez…",
+        "addCaption": "Ajouter une autre description",
+        "removeCaption": "Retirer",
+        "captionHint": "Une ou plusieurs phrases. Plusieurs descriptions d'une même image sont possibles.",
+        "shapesCount": "{{n}} formes",
+        "emptyScene": "Image de substitution générée : les vrais fichiers viendront du backend.",
+        "hintPolyline": "Cliquez pour poser les points d'une ligne. Entrée, double-clic ou le bouton la termine.",
+        "lines": "Lignes",
+        "keypointsHint": "Chaque label est un point que les annotateurs placent sur chaque objet (par exemple « nez », « épaule gauche »). Ordonnez-les dans l'ordre de placement.",
+        "kp": {
+          "hint": "Choisissez un point, puis cliquez sur l'image pour le placer. Glissez un point placé pour l'ajuster.",
+          "instance": "Instance {{n}}",
+          "newInstance": "Nouvelle instance",
+          "deleteInstance": "Supprimer l'instance",
+          "placed": "{{done}} / {{total}} points",
+          "occluded": "masqué",
+          "next": "Point suivant : {{label}}",
+          "full": "Tous les points de cette instance sont placés. Le prochain clic démarre une nouvelle instance.",
+          "remove": "Retirer le point",
+          "none": "Aucune instance : cliquez sur l'image pour en démarrer une."
+        },
+        "vqa": {
+          "question": "Question",
+          "answer": "Réponse",
+          "add": "Ajouter une question",
+          "hint": "Écrivez autant de questions que nécessaire sur l'image."
+        }
+      },
+      "multiLabel": {
+        "title": "Plusieurs labels par élément",
+        "hint": "Un élément peut recevoir plusieurs labels (ex. une image à la fois « pluie » et « nuit »).",
+        "badge": "multi-label"
+      }
     }
   }
 }

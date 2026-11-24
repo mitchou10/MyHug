@@ -14,7 +14,7 @@ import { getDataset } from '../mockData'
 import { matchesFormat, needsValue } from './format'
 import { ScaleInput } from './ScaleInput'
 import { color } from './ui'
-import { newPair, saveAnswer, useAnnotations, type Answer, type LabelDef, type QAPair, type Span } from './store'
+import { labelsOf, newPair, saveAnswer, useAnnotations, withLabel, type Answer, type LabelDef, type QAPair, type Span } from './store'
 
 /** Where one annotates: one row at a time, labels on the keyboard (1, 2, 3…), Enter to submit. */
 export function AnnotationWorkspace() {
@@ -77,7 +77,7 @@ export function AnnotationWorkspace() {
     go(Math.min(rows.length - 1, idx + 1))
   }
   const assign = (label: string) => {
-    if (project?.task === 'classification') setDraft({ ...draft, label })
+    if (project?.task === 'classification') setDraft(withLabel(draft, label, project.multiLabel))
     else if (project?.task === 'ner' && sel) {
       const s: Span = { start: Math.min(sel.a, sel.b), end: Math.max(sel.a, sel.b), label }
       // Spans may overlap, and a passage may carry several labels. Choosing a label already given to this passage removes it.
@@ -146,7 +146,7 @@ export function AnnotationWorkspace() {
 
   const labelButton = (l: LabelDef) => (
     <Button key={l.id} variant="outline" disabled={project.task === 'ner' && !sel} onClick={() => assign(l.id)} title={l.description}
-      className={cn('h-auto justify-start gap-2 py-2 text-left whitespace-normal', draft.label === l.id && 'ring-2 ring-primary')} style={project.task === 'ner' || draft.label === l.id ? color(l.id) : undefined}>
+      className={cn('h-auto justify-start gap-2 py-2 text-left whitespace-normal', labelsOf(draft).includes(l.id) && 'ring-2 ring-primary')} style={project.task === 'ner' || labelsOf(draft).includes(l.id) ? color(l.id) : undefined}>
       <kbd className="rounded bg-background/70 px-1.5 text-xs">{ordered.indexOf(l) + 1}</kbd>
       <span className="flex flex-col gap-0.5">
         <span>{l.name}{project.task === 'ner' && (l.valueType ?? 'text') !== 'text' && <span className="ml-2 text-xs font-normal opacity-70">{t(`datasets.annotation.types.${l.valueType}`)}</span>}</span>

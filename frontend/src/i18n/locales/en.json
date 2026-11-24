@@ -325,6 +325,34 @@
         "regression": {
           "title": "Regression",
           "hint": "Give a number to each text or row: a score, a rating, a price…"
+        },
+        "image_detection": {
+          "title": "Object detection",
+          "hint": "Draw a polygon around each object and give it a label."
+        },
+        "image_segmentation": {
+          "title": "Segmentation",
+          "hint": "Outline the regions of the image (road, sky…) with polygons."
+        },
+        "image_classification": {
+          "title": "Image classification",
+          "hint": "Give a label to each image."
+        },
+        "image_caption": {
+          "title": "Image to text",
+          "hint": "Describe each image with one or more sentences."
+        },
+        "image_polyline": {
+          "title": "Lines",
+          "hint": "Trace open lines: lane markings, roads, cables, cracks."
+        },
+        "image_keypoints": {
+          "title": "Keypoints",
+          "hint": "Place named points on each object: joints, corners, landmarks."
+        },
+        "image_vqa": {
+          "title": "Visual question answering",
+          "hint": "Write questions about the image and their answers."
         }
       },
       "labelName": "Label name",
@@ -440,7 +468,58 @@
       "back": "Back",
       "edit": "Edit",
       "editScale": "Edit the scale",
-      "editScaleHint": "Changing the scale does not change the values already given."
+      "editScaleHint": "Changing the scale does not change the values already given.",
+      "image": {
+        "tools": {
+          "select": "Select",
+          "polygon": "Polygon",
+          "rect": "Rectangle",
+          "line": "Line"
+        },
+        "pickLabel": "Choose a label first, then draw.",
+        "hintDetect": "Click to place the points of a polygon, click the first point (or press Enter) to close it. Use the rectangle for a quick box.",
+        "hintSegment": "Outline each region with a polygon. Click the first point (or press Enter) to close it.",
+        "hintSelect": "Drag a point to move it. Delete removes the selected shape.",
+        "objects": "Objects",
+        "regions": "Regions",
+        "points": "{{n}} points",
+        "none": "Nothing drawn yet.",
+        "finish": "Close the shape",
+        "drawing": "Drawing: {{n}} points (min. 3)",
+        "caption": "Description",
+        "captionPlaceholder": "Describe what you see…",
+        "addCaption": "Add another description",
+        "removeCaption": "Remove",
+        "captionHint": "One or more sentences. Several descriptions of the same image are allowed.",
+        "shapesCount": "{{n}} shapes",
+        "emptyScene": "Generated placeholder image: the real files will come from the backend.",
+        "hintPolyline": "Click to place the points of a line. Press Enter, double-click or use the button to finish it.",
+        "lines": "Lines",
+        "keypointsHint": "Each label is a point that annotators place on every object (for example “nose”, “left shoulder”). Order them as they should be placed.",
+        "kp": {
+          "hint": "Choose a point, then click on the image to place it. Drag a placed point to adjust it.",
+          "instance": "Instance {{n}}",
+          "newInstance": "New instance",
+          "deleteInstance": "Delete the instance",
+          "placed": "{{done}} / {{total}} points",
+          "occluded": "hidden",
+          "next": "Next point: {{label}}",
+          "full": "All points of this instance are placed. The next click starts a new instance.",
+          "remove": "Remove the point",
+          "none": "No instance yet: click on the image to start one."
+        },
+        "vqa": {
+          "question": "Question",
+          "answer": "Answer",
+          "add": "Add a question",
+          "hint": "Write as many questions as you need about the image."
+        }
+      },
+      "multiLabel": {
+        "title": "Several labels per item",
+        "hint": "An item can get more than one label (e.g. an image that is both “rain” and “night”).",
+        "badge": "multi-label"
+      }
     }
   }
 }
