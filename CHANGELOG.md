@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/mitchou10/MyHug/compare/v0.5.0...v0.6.0) (2026-11-24)
+
+
+### Features
+
+* **datasets:** add annotation tasks for text datasets ([96cc689](https://github.com/mitchou10/MyHug/commit/96cc689e8e1585a78de66e2e3aa29dc84422ae1a))
+* **datasets:** add mock datasets and a viewer for each modality ([f4f704c](https://github.com/mitchou10/MyHug/commit/f4f704ceee47df148009318c49f7a7a173b6c6b2))
+* **datasets:** add several question-answer pairs per text with highlighted sources ([700319e](https://github.com/mitchou10/MyHug/commit/700319e892efdd0e2ccba6a141f0692195049217))
+* **datasets:** add the dataset list and detail pages ([1b9855a](https://github.com/mitchou10/MyHug/commit/1b9855ad45a991af9926ac1d5b27a0e598b4d095))
+* **datasets:** allow several labels on classification tasks ([7eb0915](https://github.com/mitchou10/MyHug/commit/7eb0915c347054a864756671f681d9acfe559c88))
+* **datasets:** annotate audio ([d72daf2](https://github.com/mitchou10/MyHug/commit/d72daf22dfaca959716a531a43875102b5b16c2e))
+* **datasets:** annotate images ([141bd87](https://github.com/mitchou10/MyHug/commit/141bd87cb568eae1d3d7f2c4c85d7e1847063626))
+* **datasets:** annotate tabular datasets and add regression tasks ([ec123c4](https://github.com/mitchou10/MyHug/commit/ec123c45a2a4ecea3e76f3bb36bbbc3eff5b3b15))
+* **datasets:** annotate time series ([de5ce1b](https://github.com/mitchou10/MyHug/commit/de5ce1bec93d60852c1d6f9f3b2fe1f94f83a334))
+* **datasets:** annotate videos ([bbb0a0e](https://github.com/mitchou10/MyHug/commit/bbb0a0eb8337406ece51db464b30d731577f72b8))
+
+
+### Bug Fixes
+
+* **backend:** satisfy the new type checker ([d195f52](https://github.com/mitchou10/MyHug/commit/d195f5231b5b929f94df910716ed139138ba9b79))
+* **datasets:** keep the buttons of the edit modals in view ([bfc68a8](https://github.com/mitchou10/MyHug/commit/bfc68a8be31d104953057ac7d1be5b27532d0ceb))
+
 ## [0.5.0](https://github.com/mitchou10/app-starter/compare/v0.4.0...v0.5.0) (2026-11-04)
 
 
