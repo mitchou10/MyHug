@@ -51,6 +51,7 @@ Dans `annotation_tasks.config` (JSONB, validé par un modèle Pydantic par type,
 | `granularity` | classification, description, régression | `clip` ou `regions` |
 | `tracks` | toute tâche à régions | liste de noms, au moins 1, au plus ~16 |
 | `multi_label` | classifications | plusieurs labels par élément ou par région |
+| `regions`, `markers` | toute tâche à régions | ce que la tâche accepte: des plages, des instants, ou les deux (au moins un) |
 | `scale` | régression | `{ min, max, step, unit, min_label, max_label }` |
 
 Modifier `tracks` en cours de route est permis. **Supprimer une piste** ne supprime pas ses régions: elles passent sur
@@ -83,6 +84,26 @@ locuteur) ou plusieurs (classification multi-label).
 
 Pourquoi une table de jointure: le frontend a `label` (un seul) et `labels` (plusieurs) sur la même structure; côté
 serveur, un seul modèle suffit. Le serveur reconstruit `label` / `labels` selon la tâche.
+
+**Marqueurs ponctuels (type à part).** Décision: un instant précis (un mot-clé, un clic, un point de rupture) n'est pas une
+région de durée nulle, mais **un type d'annotation distinct**, avec sa propre table:
+
+**`annotation_markers`**: `id`, `annotation_id`, `at` (même unité que `start`), `track`, `text`, `value`, `reason`.
+**`annotation_marker_labels`**: `(marker_id, label_id)`, unique. Un marqueur porte un ou plusieurs labels, comme une région.
+
+- Une tâche choisit ce qu'elle accepte: `config.regions` (bool) et `config.markers` (bool), au moins un des deux. Une
+  détection de mots-clés n'a que des marqueurs; une transcription que des régions; une détection d'événements peut
+  avoir les deux (un « clic » est un marqueur, une « sirène » une région).
+- Un marqueur partage les **pistes** des régions (même liste `config.tracks`).
+- Raison du choix: la durée nulle crée des cas limites (`start < end` partout, durée minimale, export d'intervalles) et
+  les exports ne se ressemblent pas (une annotation d'instants est une liste de temps, pas d'intervalles).
+- **Pas encore faite dans le frontend** (voir **7**).
+
+**Locuteurs.** Décision: les locuteurs sont **propres à chaque tâche**. Ce sont des labels de la tâche
+(`annotation_labels`), comme les événements sonores: pas de table de locuteurs au niveau du dataset. Conséquence: le même
+label désigne la même personne **dans tous les éléments d'une même tâche** (c'est l'annotateur qui le garantit), mais
+rien ne relie les locuteurs de deux tâches différentes, ni ne dit que « conseiller » est la même personne d'un appel à
+l'autre. Pour suivre des personnes précises, la tâche crée un label par personne.
 
 Réponses au niveau de l'élément entier (`granularity = clip`): elles réutilisent les tables du premier document
 (`annotations.label_id` ou `annotation_choices`, `annotations.value`, `annotations.reason`) et une table de textes
@@ -167,6 +188,9 @@ trop grande. Le frontend demande la fenêtre visible à chaque zoom.
     { "start": 3.2, "end": 7.8, "track": 1, "label_ids": ["…"], "text": "…", "value": null, "reason": null }
 ] }
 
+// marqueurs ponctuels (type à part, voir 2.3)
+{ "markers": [ { "at": 12.4, "track": 0, "label_ids": ["…"], "text": null, "reason": null } ] }
+
 // suivi d'objets
 { "tracks": [
     { "label_id": "…", "reason": null,
@@ -179,14 +203,24 @@ trop grande. Le frontend demande la fenêtre visible à chaque zoom.
 Le serveur **remplace** l'ensemble des régions (ou des pistes d'objets) de l'annotation de l'utilisateur. Il valide:
 - `0 ≤ start < end ≤ durée` (pour une série, indices dans `[0, points − 1]`, convertis en horodatages);
 - `track < len(config.tracks)`;
+- pour un marqueur: `0 ≤ at ≤ durée` et `track < len(config.tracks)`;
 - pour les clés: `0 ≤ x1 < x2 ≤ 1`, `0 ≤ y1 < y2 ≤ 1`, `t` dans la durée, au moins une clé visible par piste;
 - une région sans contenu utile (classification sans label, transcription sans texte ni locuteur, régression sans valeur)
   est ignorée, comme le fait le frontend à la validation.
 
-**Enregistrement automatique.** Ces tâches enregistrent « en bloc » à la validation, pas à chaque geste. Mais un clip de
-dix minutes avec des centaines de régions fait un corps de requête volumineux: prévoir une **limite** (par exemple
-2 000 régions, 5 000 images clés) et un `PATCH` de **brouillon** pour les longues sessions (pas de perte si le navigateur
-se ferme).
+**Fichiers de toute longueur.** Décision: **on annote n'importe quelle longueur**, sans découper en fenêtres. Un fichier
+de plusieurs heures est donc une seule annotation, ce qui pèse sur l'API:
+- Le `PUT` qui remplace tout convient aux fichiers courts. Pour les longs, une annotation peut contenir des milliers de
+  régions: le client envoie des **opérations incrémentales** à la place:
+  `POST /tasks/{id}/rows/{ref}/annotation/ops` avec `[ { "op": "upsert", "kind": "region", "id": "…", … }, { "op": "delete", "kind": "marker", "id": "…" } ]`.
+  Le client les **regroupe et les débat (~500 ms)**; le `PUT` complet reste disponible, idempotent.
+- L'annotateur peut quitter et reprendre: l'annotation est un **brouillon** (`status = draft`) qui garde sa dernière
+  **position de lecture** (`annotations.cursor`, en secondes ou en indice).
+- Les limites (régions, marqueurs, images clés) sont **par tâche** et configurables, avec des valeurs hautes par défaut
+  (par exemple 20 000 régions); un dépassement renvoie 422 avec le plafond.
+- Le serveur ne charge jamais une annotation entière pour une écriture: les opérations travaillent sur les lignes
+  concernées. L'index `(annotation_id, start)` sert aussi à lire **seulement les régions de la fenêtre visible**:
+  `GET …/annotation?from=&to=`.
 
 ## 4. Préparer les médias (traitement à la création de la version)
 
@@ -210,6 +244,16 @@ Une tâche de fond (file de travail) qui, à la création d'une version, produit
 Les temps de traitement sont longs: l'état (`pending`, `ready`, `failed`) fait partie de la version, et une tâche n'est
 pas ouverte sur un fichier non prêt.
 
+**Longs fichiers.** Comme on annote n'importe quelle longueur, les traitements sont **par morceaux**:
+- Les pics sont une **pyramide de résolutions** (un niveau par facteur 8, par exemple). `GET …/peaks?from=&to=&max_points=`
+  renvoie la fenêtre visible au niveau adapté au zoom. Aucun appel ne renvoie les pics d'un fichier de deux heures d'un coup.
+- Le média est servi par **requêtes `Range`**. Pour une vidéo longue, le proxy est découpé en segments (HLS ou DASH)
+  si le navigateur ne sait pas chercher dans un seul gros fichier.
+- Les vignettes sont éparses (une toutes les 5 à 10 s au-delà d'une heure) et générées à la demande pour la fenêtre visible.
+- Les séries utilisent déjà `from`/`to`/`max_points` (section 3).
+- Le traitement d'un long fichier peut prendre des minutes: l'état `pending`/`ready` s'applique par fichier, et la
+  tâche reste ouvrable dès que les **premiers niveaux** de pics et le proxy sont prêts.
+
 ## 5. Agrégation, accord et export
 
 Plusieurs annotateurs travaillent sur le même élément. Rien n'est résolu à l'écriture.
@@ -219,7 +263,7 @@ Plusieurs annotateurs travaillent sur le même élément. Rien n'est résolu à 
 | Classification d'élément | vote majoritaire, répartition des votes | κ de Cohen / Fleiss |
 | Régression | moyenne, médiane, écart-type | écart-type par élément, corrélation |
 | Segments, classification par régions | fusion des régions qui se recouvrent (intersection sur union temporelle ≥ seuil) et vote sur le label | IoU temporel, F-mesure à `collar` près |
-| Diarisation | recalage des locuteurs entre annotateurs, puis vote | DER (taux d'erreur de diarisation) |
+| Diarisation | pas de recalage: tous les annotateurs d'une tâche utilisent la même liste de locuteurs, donc vote sur le label | DER (taux d'erreur de diarisation) |
 | Transcription | alignement des textes, choix du meilleur | WER entre annotateurs |
 | Suivi d'objets | appariement des pistes par IoU image par image | IoU moyen, changements d'identité |
 | Séries, segments | comme les segments, en indices | IoU temporel |
@@ -245,11 +289,12 @@ Pour le suivi, l'export **échantillonne** les boîtes interpolées image par im
 
 ### Son
 - **Diarisation dédiée**: modèle de tâche qui crée une piste par locuteur. Le frontend peut déjà le faire avec les
-  segments étiquetés et les pistes, mais sans tâche nommée ni export RTTM. **Les locuteurs ne sont liés à une personne
-  que pour un élément**: une liste de locuteurs au niveau du dataset (« Mme Martin », « conseiller 3 ») demande une table
-  `speakers(dataset_id, name)` et un champ `speaker_id` sur les régions.
-- **Détection d'événements et de mots-clés**: des **marqueurs ponctuels** (un instant plutôt qu'une plage). Aujourd'hui
-  la durée minimale est de 0,05 s. Un type `point` serait une région avec `end = start`, ou une table à part.
+  segments étiquetés et les pistes, mais sans tâche nommée ni export RTTM. Les locuteurs restent **propres à la tâche**
+  (voir **2.3**): le modèle de tâche n'ajoute donc ni table ni champ, seulement des réglages de départ (une piste par
+  locuteur, texte facultatif). Si un jour il faut relier des personnes entre tâches, il faudra ajouter alors une
+  table `speakers(dataset_id, name)` et un champ `speaker_id` sur les régions; rien dans le modèle actuel ne l'empêche.
+- **Détection d'événements et de mots-clés**: les **marqueurs ponctuels** sont décidés comme un type à part (voir **2.3**),
+  mais pas encore construits. Il reste à faire l'outil dans le frontend et la table.
 - **Balises de transcription** (`[rire]`, `[inaudible]`, `[bruit]`), définies par la tâche et insérables d'un clic.
 - **Alignement mot à mot**: une pré-transcription par un modèle, corrigée par l'annotateur. Stocker des `words`
   (`text`, `start`, `end`) sous la région.
@@ -289,6 +334,8 @@ Pour le suivi, l'export **échantillonne** les boîtes interpolées image par im
 | `store.ts` → `AudioSegment`, `ObjectTrack`, `Keyframe` | réponses en mémoire | corps de `PUT …/annotation` (**3**) |
 | `Waveform.tsx` | construit la forme d'onde depuis un tableau complet | pics multi-résolution selon le zoom |
 | `TimedWorkspace.tsx` | `rows = d.sample` ou `d.collection` | `GET /tasks/{id}/rows` paginé |
+| `Waveform.tsx`, `TimedWorkspace.tsx` | zoom de 1 à 8 fois, toutes les régions dessinées | zoom très large (jusqu'à l'échantillon), **seules les régions de la fenêtre visible** (`from`/`to`), marqueurs |
+| (à créer) outil de marqueur | n'existe pas | clic sur une piste pour poser un marqueur, sa pastille sur la timeline, `annotation_markers` |
 
 Conversions au branchement:
 - **Indice de point → horodatage** pour les séries (et l'inverse en lecture).
@@ -306,26 +353,22 @@ Conversions au branchement:
    transcription, détection et les versions « par passages ».
 4. **Suivi d'objets**: `annotation_tracks`, `track_keyframes`, `box_at` et ses tests partagés.
 5. **Agrégation, accord et exports** (RTTM, WebVTT, MOT, CSV d'intervalles).
-6. **Plus tard**: marqueurs ponctuels, locuteurs partagés, alignement mot à mot, suivi par polygones, pré-annotation
-   par un modèle.
+6. **Marqueurs ponctuels** (type à part): table, outil du frontend, exports.
+7. **Plus tard**: alignement mot à mot, suivi par polygones, pré-annotation
+   par un modèle, et des locuteurs partagés entre tâches si le besoin apparaît.
 
 Chaque étape: migration Alembic, tests, mise à jour de `docs/data-model.*`.
 
 ## 9. Questions ouvertes
 
-1. **Locuteurs.** Une liste partagée au niveau du dataset (identifiants stables entre extraits) ou propre à chaque tâche
-   (comme aujourd'hui)? Qui la tient à jour?
-2. **Chevauchements sur une même piste.** On avertit seulement, ou on les interdit pour certaines tâches (transcription,
+1. **Chevauchements sur une même piste.** On avertit seulement, ou on les interdit pour certaines tâches (transcription,
    où deux textes au même instant sur une piste n'ont pas de sens)?
-3. **Marqueurs ponctuels.** Une région de durée nulle, ou un type distinct avec sa propre table?
-4. **Longs fichiers.** Au-delà de quelques minutes (réunions, films), annote-t-on en **fenêtres** de 30 à 60 s avec
-   chevauchement, ou le fichier entier? Cela change le modèle de tâche (une tâche porte-t-elle sur des fenêtres?).
-5. **Fréquence des images.** Un fichier vidéo à fréquence variable: le proxy force-t-il une fréquence constante?
-6. **Suivi.** Quand deux annotateurs ont des pistes différentes pour un même objet, qui décide quelles pistes sont les
+2. **Fréquence des images.** Un fichier vidéo à fréquence variable: le proxy force-t-il une fréquence constante?
+3. **Suivi.** Quand deux annotateurs ont des pistes différentes pour un même objet, qui décide quelles pistes sont les
    mêmes (appariement automatique par IoU, ou revue humaine)?
-7. **Séries à pas irrégulier et fuseaux horaires.** L'horodatage est stocké en UTC; l'affichage suit-il le fuseau de
+4. **Séries à pas irrégulier et fuseaux horaires.** L'horodatage est stocké en UTC; l'affichage suit-il le fuseau de
    l'utilisateur ou celui du dataset?
-8. **Séries multivariées.** Une région s'applique-t-elle à toutes les colonnes ou à une seule?
-9. **Stockage.** Les pics, proxys et vignettes sont-ils regénérés à chaque nouvelle version, ou partagés quand le fichier
+5. **Séries multivariées.** Une région s'applique-t-elle à toutes les colonnes ou à une seule?
+6. **Stockage.** Les pics, proxys et vignettes sont-ils regénérés à chaque nouvelle version, ou partagés quand le fichier
    n'a pas changé (hash identique)?
-10. **Coût.** Qui paie le traitement des médias (transcodage), et quelle est la taille maximale d'un fichier?
+7. **Coût.** Qui paie le traitement des médias (transcodage), et quelle est la taille maximale d'un fichier?
