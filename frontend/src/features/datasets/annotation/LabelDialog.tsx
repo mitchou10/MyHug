@@ -23,13 +23,13 @@ export function LabelDialog({ label, isNew, ner, takenNames, onSave, onClose }: 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t(isNew ? 'datasets.annotation.addLabel' : 'datasets.annotation.editLabel')}</DialogTitle>
           <DialogDescription>{t('datasets.annotation.labelDialogHint')}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto px-0.5 pr-2">
           <div className="space-y-1.5">
             <Label htmlFor="lb-name">{t('datasets.annotation.labelName')}</Label>
             <Input id="lb-name" autoFocus value={l.name} onChange={(e) => patch({ name: e.target.value })} aria-invalid={duplicate} />
