@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Dataset
+from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository, DatasetRow, Sort
 from app.services.actor import Actor
@@ -41,11 +42,17 @@ class DatasetService:
     """Create, read, list, change, delete and like datasets."""
 
     def __init__(
-        self, datasets: DatasetRepository, access: DatasetAccess, versions: DatasetVersionRepository, store: ObjectStore
+        self,
+        datasets: DatasetRepository,
+        access: DatasetAccess,
+        versions: DatasetVersionRepository,
+        uploads: DatasetUploadRepository,
+        store: ObjectStore,
     ) -> None:
         self._datasets = datasets
         self._access = access
         self._versions = versions
+        self._uploads = uploads
         self._store = store
 
     async def _view(self, actor: Actor, dataset: Dataset, role: str | None) -> DatasetView:
@@ -111,10 +118,13 @@ class DatasetService:
     async def delete(self, actor: Actor, owner: str, name: str) -> None:
         dataset = await self._access.get_editable(actor, owner, name)
         keys = await self._versions.storage_keys(dataset.id)
+        going_on = await self._uploads.open_files(dataset.id)
         await self._datasets.delete(dataset)
         await self._datasets.commit()
         for key in keys:  # the files go once the dataset is really gone
             await self._store.delete(key)
+        for file in going_on:  # and what was being uploaded is given up
+            await self._store.abort_multipart(file.storage_key, file.multipart_id)
 
     async def like(self, actor: Actor, owner: str, name: str) -> tuple[bool, int]:
         """Likes a dataset the person can see; liking it again changes nothing. Returns (liked, how many)."""

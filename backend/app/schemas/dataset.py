@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from app.repositories.datasets import DatasetRow
+from app.services.dataset_uploads import UploadView
 from app.services.dataset_versions import RowsPage, SplitInfo
 from app.services.datasets import DatasetView
 
@@ -130,7 +131,8 @@ class FileOut(BaseModel):
 
     path: str
     size_bytes: int
-    sha256: str
+    # None until a worker has read a file that came in parts.
+    sha256: str | None
     content_type: str
     # Only the files that hold rows (csv, tsv, jsonl, parquet) have a split and a number of rows.
     split: str | None
@@ -180,3 +182,81 @@ class RowsOut(BaseModel):
 class LikeOut(BaseModel):
     liked: bool
     likes: int
+
+
+class UploadFileIn(BaseModel):
+    """A file the browser is going to send."""
+
+    path: str = Field(max_length=512)
+    size: int = Field(gt=0, description="Its size in bytes")
+    content_type: str | None = Field(None, max_length=100)
+
+
+class UploadIn(BaseModel):
+    """The files of a version, announced before they are sent. `remove` takes paths out in the same version."""
+
+    files: list[UploadFileIn] = Field(default_factory=list)
+    remove: list[str] = Field(default_factory=list, max_length=1000)
+    message: str = Field("", max_length=500)
+
+
+class PartOut(BaseModel):
+    number: int
+    size: int
+
+
+class UploadFileOut(BaseModel):
+    id: uuid.UUID
+    path: str
+    size_bytes: int
+    # The browser cuts the file in parts of this size (the last one is shorter) and numbers them from 1.
+    part_size: int
+    parts_count: int
+    # The parts that reached the storage: only when asked for, to resume.
+    received: list[PartOut] | None = None
+
+
+class UploadOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    expires_at: datetime
+    version: int | None = Field(None, description="The version it made, once it is complete")
+    files: list[UploadFileOut]
+
+    @classmethod
+    def from_view(cls, view: "UploadView", version: int | None = None) -> "UploadOut":
+        return cls(
+            id=view.upload.id,
+            status=view.upload.status,
+            expires_at=view.upload.expires_at,
+            version=version,
+            files=[
+                UploadFileOut(
+                    id=file.id,
+                    path=file.path,
+                    size_bytes=file.size_bytes,
+                    part_size=file.part_size,
+                    parts_count=file.parts_count,
+                    received=None
+                    if view.received is None
+                    else [PartOut(number=p.number, size=p.size) for p in view.received[file.id]],
+                )
+                for file in view.files
+            ],
+        )
+
+
+class PartsIn(BaseModel):
+    file_id: uuid.UUID
+    numbers: list[int] = Field(min_length=1, max_length=100, description="The numbers of the parts, from 1")
+
+
+class SignedPartOut(BaseModel):
+    number: int
+    # Where to send the part, with PUT and the bytes of the part as the body. Nothing else is needed: it is signed.
+    url: str
+
+
+class PartsOut(BaseModel):
+    parts: list[SignedPartOut]
+    expires_in: int

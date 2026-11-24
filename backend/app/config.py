@@ -13,6 +13,9 @@ class Settings(BaseSettings):
 
     # Object storage: RustFS here, any S3-compatible service works. The usual AWS_* variables, like the SDKs read them.
     AWS_ENDPOINT_URL: str = "http://localhost:9000"
+    # The address of the same storage as the browser reaches it, for the signed addresses of uploads and downloads.
+    # Empty: the same as AWS_ENDPOINT_URL (when the browser and the API see the storage at the same address).
+    AWS_PUBLIC_ENDPOINT_URL: str = ""
     AWS_ACCESS_KEY_ID: str = "rustfsadmin"
     AWS_SECRET_ACCESS_KEY: str = "rustfsadmin"
     AWS_REGION: str = "us-east-1"
@@ -27,6 +30,11 @@ class Settings(BaseSettings):
     # straight to the storage with a signed address.
     DATASET_FILE_MAX_BYTES: int = 100 * 1024 * 1024
     DATASET_VERSION_MAX_FILES: int = 100
+    # An upload goes straight from the browser to the storage, in parts, each one with its own signed address.
+    DATASET_UPLOAD_MAX_BYTES: int = 50 * 1024**3
+    UPLOAD_PART_BYTES: int = 64 * 1024**2  # the size of a part, unless the file is so large that it needs bigger ones
+    UPLOAD_SESSION_HOURS: int = 24  # how long an upload can take before it is given up
+    SIGNED_ADDRESS_SECONDS: int = 3600
 
     # Notifications: the applications allowed to emit them, as `name=key` pairs separated by commas. The name becomes
     # the `source` of what they emit; a key shorter than 16 characters is ignored. Empty: nobody can emit.

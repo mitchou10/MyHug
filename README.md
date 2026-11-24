@@ -59,12 +59,18 @@ The defaults suit local development; **change the ones marked \*** before any re
 | `APP_NAME` | `app` | Title of the API (and of its `/api/docs`) |
 | `DATABASE_URL` | `postgresql+asyncpg://app:app@localhost:5432/app` | PostgreSQL, through asyncpg \* |
 | `AWS_ENDPOINT_URL` | `http://localhost:9000` | The S3-compatible storage (RustFS here) |
+| `AWS_PUBLIC_ENDPOINT_URL` | empty | The storage as the browser reaches it, for the signed addresses of uploads and downloads (empty: same as `AWS_ENDPOINT_URL`) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `rustfsadmin` | Its credentials \* |
 | `AWS_REGION`, `AWS_BUCKET` | `us-east-1`, `app` | Region, and the bucket (created on first use) |
 | `AVATAR_MAX_BYTES` | 2 MiB | Largest profile photo |
 | `FEEDBACK_MAX_ATTACHMENTS` | `5` | Screenshots per feedback or answer |
 | `FEEDBACK_ATTACHMENT_MAX_BYTES` | 5 MiB | Largest screenshot |
 | `PAGE_SIZE_MAX` | `50` | Largest `limit` a list or a follow-up can ask for |
+| `DATASET_UPLOAD_MAX_BYTES` | 50 GiB | Largest file sent to a dataset (it goes straight to the storage, in parts) |
+| `UPLOAD_PART_BYTES` | 64 MiB | Size of a part of an upload (bigger for a file that would need more than 10 000 parts) |
+| `UPLOAD_SESSION_HOURS` | `24` | How long an upload can take before it is given up |
+| `SIGNED_ADDRESS_SECONDS` | `3600` | How long a signed address of the storage works |
+| `DATASET_FILE_MAX_BYTES`, `DATASET_VERSION_MAX_FILES` | 100 MiB, `100` | Largest file, and most files, of a version sent through the API (small files) |
 | `NOTIFICATION_API_KEYS` | empty | The applications allowed to emit notifications, as `name=key` pairs separated by commas (a key under 16 characters is ignored); the name becomes the `source` \* |
 | `AUTH_MODE` | `oidc` | `oidc`, or `full-access`: no login, a fixed admin (development and tests only) |
 | `OIDC_ISSUER` | empty | The provider's issuer URL; empty means no login is possible |

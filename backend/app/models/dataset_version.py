@@ -72,7 +72,8 @@ class DatasetFile(Base):
     # Where it is in the dataset: `data/train.parquet`.
     path: Mapped[str] = mapped_column(String(512))
     size_bytes: Mapped[int] = mapped_column(BigInteger)
-    sha256: Mapped[str] = mapped_column(String(64))
+    # Its fingerprint. A file that came in parts does not have one until a worker has read it.
+    sha256: Mapped[str | None] = mapped_column(String(64))
     content_type: Mapped[str] = mapped_column(String(100))
     storage_key: Mapped[str] = mapped_column(String(512))
     # Only for the files that hold rows (csv, tsv, jsonl, parquet): their part of the dataset, and how many rows.

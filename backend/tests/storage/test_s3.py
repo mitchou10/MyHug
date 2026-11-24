@@ -61,3 +61,88 @@ async def test_another_error_is_not_hidden(s3_url: str) -> None:
 
 def test_the_session_is_aioboto3() -> None:
     assert aioboto3.Session  # the dependency the store is built on
+
+
+# ---- a large file goes in parts, straight from the browser
+
+
+MIB = 1024 * 1024
+
+
+async def send(url: str, data: bytes) -> str:
+    """What the browser does with a signed address: sends one part. Returns the fingerprint the storage gave it."""
+    import httpx2
+
+    async with httpx2.AsyncClient() as client:
+        response = await client.put(url, content=data)
+    assert response.status_code == 200, response.text
+    return response.headers["etag"]
+
+
+async def test_a_file_is_uploaded_in_parts_to_signed_addresses_and_put_together(s3_url: str) -> None:
+    store = make_store(s3_url, "parts")
+    upload_id = await store.create_multipart("big/file", "text/csv")
+    first, second = b"a" * (5 * MIB), b"tail"
+    await send(await store.presign_part("big/file", upload_id, 1, 600), first)
+    await send(await store.presign_part("big/file", upload_id, 2, 600), second)
+
+    parts = await store.list_parts("big/file", upload_id)
+    assert [(p.number, p.size) for p in parts] == [(1, 5 * MIB), (2, 4)]
+    assert await store.head("big/file") is None  # nothing exists until the parts are put together
+    await store.complete_multipart("big/file", upload_id, parts)
+
+    info = await store.head("big/file")
+    assert info is not None and (info.size, info.content_type) == (5 * MIB + 4, "text/csv")
+    stored = await store.get("big/file")
+    assert stored is not None and stored.data == first + second
+
+
+async def test_the_parts_that_arrived_are_known_when_an_upload_is_resumed(s3_url: str) -> None:
+    store = make_store(s3_url, "resume")
+    upload_id = await store.create_multipart("k", "application/octet-stream")
+    await send(await store.presign_part("k", upload_id, 2, 600), b"x" * (5 * MIB))  # the second one arrived first
+    assert [p.number for p in await store.list_parts("k", upload_id)] == [2]
+
+
+async def test_the_signed_address_is_the_one_the_browser_reaches(s3_url: str) -> None:
+    store = S3Store(
+        bucket="public",
+        endpoint_url=s3_url,
+        access_key_id="test",
+        secret_access_key="test",
+        region="us-east-1",
+        public_endpoint_url="https://files.example.com",
+    )
+    upload_id = await store.create_multipart(
+        "k", "text/plain"
+    )  # the API itself speaks to the storage at its own address
+    assert (await store.presign_part("k", upload_id, 1, 600)).startswith("https://files.example.com/public/k?")
+    assert (await store.presign_get("k", 600)).startswith("https://files.example.com/public/k?")
+
+
+async def test_giving_up_an_upload_frees_it_and_can_be_done_twice(s3_url: str) -> None:
+    store = make_store(s3_url, "abort")
+    upload_id = await store.create_multipart("k", "text/plain")
+    await send(await store.presign_part("k", upload_id, 1, 600), b"x")
+    await store.abort_multipart("k", upload_id)
+    await store.abort_multipart("k", upload_id)  # already gone: nothing to say
+    assert await store.head("k") is None
+
+
+async def test_an_object_is_downloaded_from_a_signed_address(s3_url: str) -> None:
+    import httpx2
+
+    store = make_store(s3_url, "download")
+    await store.put("a/b.csv", b"n\n1\n", "text/csv")
+    url = await store.presign_get("a/b.csv", 600, filename="données.csv")
+    async with httpx2.AsyncClient() as client:
+        response = await client.get(url)
+    assert response.status_code == 200 and response.content == b"n\n1\n"
+    assert "UTF-8''donn%C3%A9es.csv" in response.headers["content-disposition"]
+
+
+async def test_head_says_nothing_of_an_object_that_is_not_there(s3_url: str) -> None:
+    store = make_store(s3_url, "heads")
+    await store.put("k", b"x", "text/plain")
+    assert await store.head("nope") is None
+    assert await make_store(s3_url, "ghost-bucket").head("k") is None

@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
-from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, Query, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 
 from app.config import settings
 from app.routers.deps import ActorDep, DatasetServiceDep, DatasetVersionServiceDep
@@ -110,7 +110,12 @@ async def list_files(
     return [FileOut.model_validate(file) for file in files]
 
 
-@router.get("/{owner}/{name}/files/{path:path}", summary="Download a file")
+@router.get(
+    "/{owner}/{name}/files/{path:path}",
+    summary="Download a file: it answers with a redirection to a signed address of the storage",
+    response_class=RedirectResponse,
+    status_code=status.HTTP_302_FOUND,
+)
 async def download_file(
     owner: str,
     name: str,
@@ -118,13 +123,9 @@ async def download_file(
     actor: ActorDep,
     service: DatasetVersionServiceDep,
     version: Annotated[int | None, Query(ge=1)] = None,
-) -> Response:
-    file, stored = await service.download(actor, owner, name, path, version)
-    filename = quote(file.path.rsplit("/", 1)[-1])
-    return Response(
-        stored.data,
-        media_type=file.content_type,
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+) -> RedirectResponse:
+    return RedirectResponse(
+        await service.download(actor, owner, name, path, version), status_code=status.HTTP_302_FOUND
     )
 
 

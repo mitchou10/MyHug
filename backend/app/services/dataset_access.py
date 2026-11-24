@@ -44,3 +44,11 @@ class DatasetAccess:
         if role not in EDITORS:
             raise NotAllowed
         return dataset
+
+    async def require_editable(self, actor: Actor, dataset: Dataset) -> None:
+        """The same, for a dataset that is already loaded."""
+        role = await self.role(actor, dataset)
+        if dataset.visibility != PUBLIC and role is None:
+            raise DatasetNotFound
+        if role not in EDITORS:
+            raise NotAllowed

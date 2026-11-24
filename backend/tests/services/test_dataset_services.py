@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DatasetMember
+from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.routers.deps import get_dataset_service
@@ -83,9 +84,9 @@ async def test_the_database_decides_when_two_requests_create_the_same_name(db: A
     await service(db).create(ADA, name="reviews", **FIELDS)
     blind = Blind(db)
     with pytest.raises(DatasetNameTaken):
-        await DatasetService(blind, DatasetAccess(blind), DatasetVersionRepository(db), MemoryStore()).create(
-            ADA, name="reviews", **FIELDS
-        )
+        await DatasetService(
+            blind, DatasetAccess(blind), DatasetVersionRepository(db), DatasetUploadRepository(db), MemoryStore()
+        ).create(ADA, name="reviews", **FIELDS)
 
 
 # ---- when the storage or the database breaks halfway
@@ -108,7 +109,13 @@ class BreaksAfter(MemoryStore):
 def versions(db: AsyncSession, store: MemoryStore) -> DatasetVersionService:
     datasets = DatasetRepository(db)
     return DatasetVersionService(
-        datasets, DatasetVersionRepository(db), DatasetAccess(datasets), store, max_bytes=1_000_000, max_files=10
+        datasets,
+        DatasetVersionRepository(db),
+        DatasetAccess(datasets),
+        store,
+        max_bytes=1_000_000,
+        max_files=10,
+        signed_seconds=60,
     )
 
 
@@ -134,7 +141,7 @@ async def test_when_the_database_breaks_after_the_storage_the_new_files_are_take
     store = MemoryStore()
     datasets = DatasetRepository(db)
     broken = DatasetVersionService(
-        datasets, Breaks(db), DatasetAccess(datasets), store, max_bytes=1_000_000, max_files=10
+        datasets, Breaks(db), DatasetAccess(datasets), store, max_bytes=1_000_000, max_files=10, signed_seconds=60
     )
     with pytest.raises(ConnectionError):
         await broken.create(ADA, "ada", "reviews", uploads=two_files(), remove=[], message="")
@@ -155,7 +162,7 @@ async def test_a_file_already_stored_by_an_older_version_is_not_taken_back_when_
 
     datasets = DatasetRepository(db)
     broken = DatasetVersionService(
-        datasets, Breaks(db), DatasetAccess(datasets), store, max_bytes=1_000_000, max_files=10
+        datasets, Breaks(db), DatasetAccess(datasets), store, max_bytes=1_000_000, max_files=10, signed_seconds=60
     )
     with pytest.raises(ConnectionError):
         # the same content as version 1, under another name, and a new file
