@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/mitchou10/MyHug/compare/v0.12.0...v0.13.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** talk to MLflow through a registry port ([215ac73](https://github.com/mitchou10/MyHug/commit/215ac7372054f08ac0205cbf6e79d5bf132f9e24))
+
 ## [0.12.0](https://github.com/mitchou10/MyHug/compare/v0.11.0...v0.12.0) (2026-11-24)
 
 
