@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/mitchou10/MyHug/compare/v0.13.0...v0.14.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** create, list, read, change, share and delete models ([456996d](https://github.com/mitchou10/MyHug/commit/456996d6e40c719336f4470f8d52b87641c60854))
+
 ## [0.13.0](https://github.com/mitchou10/MyHug/compare/v0.12.0...v0.13.0) (2026-11-24)
 
 
