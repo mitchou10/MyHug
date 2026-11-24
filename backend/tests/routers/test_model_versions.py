@@ -235,6 +235,7 @@ async def test_a_version_can_be_only_code(client, login, registry) -> None:
         "sha": None,
         "state": "unresolved",
         "error": None,
+        "tree_url": None,  # nothing to link to until it is pinned
     }
     assert registry.models == set()  # MLflow knows nothing of a version without artifacts
     assert (await client.get(f"{ADDRESS}/files")).json() == []

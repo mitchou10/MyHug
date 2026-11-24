@@ -2,6 +2,7 @@ import uuid
 
 import httpx2
 import pytest
+from celery.exceptions import Retry
 
 from tests.conftest import CSV, KEY, FakePlatform, sha256
 from worker import tasks
@@ -175,3 +176,100 @@ def test_a_big_file_is_not_kept_while_it_is_fingerprinted(
 
 def test_the_task_has_the_name_the_api_queues_it_by() -> None:
     assert "models.process_version" in celery_app.tasks
+
+
+# ---- pinning the code of a model
+
+
+def pin(version: uuid.UUID | None = None):
+    return tasks.resolve_code.apply(args=[str(version or uuid.uuid4())])
+
+
+@pytest.fixture
+def code_platform(platform: FakePlatform, monkeypatch: pytest.MonkeyPatch):
+    from tests.test_code import Host, lookup
+
+    platform.code = {"url": "https://github.com/ada/x", "ref": "v1", "ref_kind": "unknown"}
+    state = {"host": Host()}
+    monkeypatch.setattr(tasks, "_lookup", lambda: lookup(state["host"]))
+    return platform, state
+
+
+def code_calls(platform: FakePlatform) -> list[str]:
+    return [path.rsplit("/", 1)[1] for _, path in platform.calls if "/code/" in path]
+
+
+def test_a_reference_is_pinned_and_the_api_is_told(code_platform) -> None:
+    from tests.test_code import SHA, Host, github
+
+    platform, state = code_platform
+    state["host"] = Host(github())
+    assert pin().result == "pinned"
+    assert platform.bodies[next(p for p in platform.bodies if p.endswith("/code/pinned"))] == {"sha": SHA}
+
+
+def test_a_repository_not_found_is_told_as_not_verified_and_not_as_a_failure(code_platform) -> None:
+    from tests.test_code import Host
+
+    platform, state = code_platform
+    state["host"] = Host(httpx2.Response(404))
+    assert pin().result == "unverified"
+    assert code_calls(platform) == ["claim", "unverified"]
+    assert platform.bodies[next(p for p in platform.bodies if p.endswith("/code/unverified"))]["reason"]
+
+
+def test_an_answer_that_cannot_be_used_fails_the_code_with_the_reason(code_platform) -> None:
+    from tests.test_code import Host
+
+    platform, state = code_platform
+    state["host"] = Host(httpx2.Response(418))
+    assert pin().result == "failed"
+    assert "418" in platform.bodies[next(p for p in platform.bodies if p.endswith("/code/failure"))]["reason"]
+
+
+def test_nothing_to_do_when_the_code_is_not_up_for_the_taking(platform: FakePlatform) -> None:
+    platform.code = None
+    assert pin().result is None
+    assert [p.rsplit("/", 1)[1] for _, p in platform.calls] == ["claim"]
+
+
+def test_a_host_that_is_down_gives_the_code_back_and_the_job_is_tried_again(
+    code_platform, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.test_code import Host
+
+    platform, state = code_platform
+    state["host"] = Host(httpx2.Response(503))
+    monkeypatch.setattr(tasks.resolve_code, "retry", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("retry")))
+    result = pin()
+    assert not result.successful()
+    assert code_calls(platform) == ["claim", "release"]
+
+
+def test_a_rate_limit_waits_for_the_time_the_host_gives(code_platform, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.test_code import Host
+
+    platform, state = code_platform
+    state["host"] = Host(httpx2.Response(429, headers={"retry-after": "120"}))
+    delays: list[float | None] = []
+
+    def retry(*, exc=None, countdown=None, **_):
+        delays.append(countdown)
+        return Retry()  # what Celery raises: the task is not tried again at once, the wait is the host's
+
+    monkeypatch.setattr(tasks.resolve_code, "retry", retry)
+    assert not pin().successful()
+    assert delays == [121]
+    assert code_calls(platform) == ["claim", "release"]
+
+
+def test_the_sweep_queues_the_code_that_waits(platform: FakePlatform, monkeypatch: pytest.MonkeyPatch) -> None:
+    platform.waiting_code_ids = [str(uuid.uuid4())]
+    queued: list[list[str]] = []
+    monkeypatch.setattr(tasks.resolve_code, "apply_async", lambda args: queued.append(args))
+    assert tasks.process_waiting.apply().result == 1
+    assert queued == [platform.waiting_code_ids]
+
+
+def test_the_task_has_the_name_the_api_queues_the_code_by() -> None:
+    assert "models.resolve_code" in celery_app.tasks

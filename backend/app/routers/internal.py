@@ -12,6 +12,7 @@ from app.config import settings
 from app.routers.deps import (
     DatasetDerivativesDep,
     DatasetProcessingDep,
+    ModelCodeDep,
     ModelProcessingDep,
     ModelUploadExpiryDep,
     StorageGarbageDep,
@@ -153,6 +154,62 @@ async def model_version_release(version_id: uuid.UUID, _: Worker, service: Model
 
 @router.get("/model-versions/waiting", summary="The versions of models nobody is checking, for the worker to queue")
 async def waiting_model_versions(_: Worker, service: ModelProcessingDep) -> WaitingOut:
+    return WaitingOut(ids=await service.waiting())
+
+
+# ---- the code of the versions of the models: the worker pins it to a commit
+
+
+class CodeToResolveOut(BaseModel):
+    claimed: bool
+    url: str | None = None
+    ref: str | None = None
+    ref_kind: str | None = None
+
+
+class CommitIn(BaseModel):
+    sha: str = Field(pattern=r"^([0-9a-f]{40}|[0-9a-f]{64})$")
+
+
+class ReasonIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class CodeStateOut(BaseModel):
+    state: str
+
+
+@router.post("/model-versions/{version_id}/code/claim", summary="Take the code of a version in hand: what to resolve")
+async def claim_code(version_id: uuid.UUID, _: Worker, service: ModelCodeDep) -> CodeToResolveOut:
+    code = await service.claim(version_id)
+    if code is None:
+        return CodeToResolveOut(claimed=False)
+    return CodeToResolveOut(claimed=True, url=code.url, ref=code.ref, ref_kind=code.ref_kind)
+
+
+@router.post("/model-versions/{version_id}/code/pinned", summary="The commit the reference points to")
+async def code_pinned(version_id: uuid.UUID, data: CommitIn, _: Worker, service: ModelCodeDep) -> CodeStateOut:
+    return CodeStateOut(state=(await service.pin(version_id, data.sha)).code_state)
+
+
+@router.post("/model-versions/{version_id}/code/unverified", summary="Not found, or private: kept as written")
+async def code_unverified(version_id: uuid.UUID, data: ReasonIn, _: Worker, service: ModelCodeDep) -> CodeStateOut:
+    return CodeStateOut(state=(await service.unverified(version_id, data.reason)).code_state)
+
+
+@router.post("/model-versions/{version_id}/code/failure", summary="The host answered something that cannot be used")
+async def code_failure(version_id: uuid.UUID, data: ReasonIn, _: Worker, service: ModelCodeDep) -> CodeStateOut:
+    return CodeStateOut(state=(await service.fail(version_id, data.reason)).code_state)
+
+
+@router.post("/model-versions/{version_id}/code/release", summary="Put the code back to waiting (not its fault)")
+async def code_release(version_id: uuid.UUID, _: Worker, service: ModelCodeDep) -> CodeStateOut:
+    await service.release(version_id)
+    return CodeStateOut(state="unresolved")
+
+
+@router.get("/model-code/waiting", summary="The code nobody is resolving, for the worker to queue again")
+async def waiting_code(_: Worker, service: ModelCodeDep) -> WaitingOut:
     return WaitingOut(ids=await service.waiting())
 
 

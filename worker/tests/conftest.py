@@ -25,6 +25,8 @@ class FakePlatform:
         self.storage_failure: int | None = None  # a status the storage answers instead
         self.waiting_ids: list[str] = []
         self.waiting_model_ids: list[str] = []
+        self.waiting_code_ids: list[str] = []
+        self.code: dict | None = None  # what `claim` of the code answers (None: nothing to do)
         self.waiting_copy_ids: list[str] = []
         self.copy: dict | None = None  # what `claim` of a copy answers (None: nothing to do)
         self.uploaded: dict[int, bytes] = {}  # the parts of the copy that reached the storage
@@ -83,6 +85,13 @@ class FakePlatform:
             self.bodies[path] = json.loads(request.content)
         if path == "/storage/collect":
             return httpx2.Response(200, json=self.collections.pop(0))
+        if "/code/" in path:
+            if path.endswith("/claim"):
+                if self.code is None:
+                    return httpx2.Response(200, json={"claimed": False})
+                return httpx2.Response(200, json={"claimed": True, **self.code})
+            states = {"pinned": "pinned", "unverified": "unverified", "failure": "failed", "release": "unresolved"}
+            return httpx2.Response(200, json={"state": states[path.rsplit("/", 1)[1]]})
         if path.startswith("/derivatives/"):
             return self.handle_copy(path)
         if path.endswith("/claim"):
@@ -95,6 +104,8 @@ class FakePlatform:
             return httpx2.Response(200, json={"status": "failed"})
         if path.endswith("/release"):
             return httpx2.Response(200, json={"status": "pending"})
+        if path == "/model-code/waiting":
+            return httpx2.Response(200, json={"ids": self.waiting_code_ids})
         if path == "/model-versions/waiting":
             return httpx2.Response(200, json={"ids": self.waiting_model_ids})
         if path.endswith("/waiting"):

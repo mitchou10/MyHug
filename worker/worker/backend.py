@@ -23,6 +23,13 @@ class FileToRead:
 
 
 @dataclass(frozen=True)
+class CodeToResolve:
+    url: str
+    ref: str | None
+    ref_kind: str
+
+
+@dataclass(frozen=True)
 class CopyToMake:
     id: uuid.UUID
     source_url: str
@@ -117,6 +124,31 @@ class Backend:
 
     def waiting_model_versions(self) -> list[uuid.UUID]:
         return [uuid.UUID(item) for item in self._call("GET", "/model-versions/waiting")["ids"]]
+
+    # ---- the code of the versions of the models
+
+    def claim_code(self, version_id: uuid.UUID) -> "CodeToResolve | None":
+        answer = self._call("POST", f"/model-versions/{version_id}/code/claim")
+        if not answer["claimed"]:
+            return None
+        return CodeToResolve(url=answer["url"], ref=answer["ref"], ref_kind=answer["ref_kind"])
+
+    def code_pinned(self, version_id: uuid.UUID, sha: str) -> str:
+        return self._call("POST", f"/model-versions/{version_id}/code/pinned", json={"sha": sha})["state"]
+
+    def code_unverified(self, version_id: uuid.UUID, reason: str) -> str:
+        return self._call("POST", f"/model-versions/{version_id}/code/unverified", json={"reason": reason[:2000]})[
+            "state"
+        ]
+
+    def code_failure(self, version_id: uuid.UUID, reason: str) -> str:
+        return self._call("POST", f"/model-versions/{version_id}/code/failure", json={"reason": reason[:2000]})["state"]
+
+    def code_release(self, version_id: uuid.UUID) -> None:
+        self._call("POST", f"/model-versions/{version_id}/code/release")
+
+    def waiting_code(self) -> list[uuid.UUID]:
+        return [uuid.UUID(item) for item in self._call("GET", "/model-code/waiting")["ids"]]
 
     # ---- the Parquet copies
 

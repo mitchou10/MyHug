@@ -5,6 +5,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.jobs import Jobs, NoJobs
 from app.models import Model, ModelFile, ModelVersion
 from app.models.model_version import FAILED, PENDING, READY, UNRESOLVED
 from app.registry import MlflowLinks, ModelRegistry, registered_name
@@ -79,6 +80,7 @@ class ModelVersionService:
         max_files: int,
         signed_seconds: int,
         code_hosts: list[str],
+        jobs: Jobs | None = None,
     ) -> None:
         self._models = models
         self._versions = versions
@@ -89,6 +91,7 @@ class ModelVersionService:
         self._max_files = max_files
         self._signed_seconds = signed_seconds
         self._code_hosts = code_hosts
+        self._jobs: Jobs = jobs or NoJobs()
 
     def check_code(self, code: dict | None) -> CodeReference | None:
         """The code reference of a request, checked. Raises InvalidCodeReference."""
@@ -197,6 +200,11 @@ class ModelVersionService:
             except Exception:
                 await self._versions.rollback()
                 raise
+        # Queued once the version is recorded, so that the worker finds it.
+        if version.status == PENDING:
+            await self._jobs.process_model_version(version.id)  # the files are fingerprinted by the worker
+        if code is not None:
+            await self._jobs.resolve_code(version.id)  # the reference is pinned to a commit
         return version
 
     async def _register(

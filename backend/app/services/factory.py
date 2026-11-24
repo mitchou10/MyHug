@@ -22,6 +22,7 @@ from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.model_access import ModelAccess
+from app.services.model_code import ModelCodeResolution
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
 from app.services.model_uploads import ModelUploadService
@@ -124,7 +125,7 @@ def build_model_members(db: AsyncSession) -> ModelMemberService:
 
 
 def build_model_versions(
-    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks
+    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks, jobs: Jobs | None = None
 ) -> ModelVersionService:
     models = ModelRepository(db)
     return ModelVersionService(
@@ -137,6 +138,7 @@ def build_model_versions(
         max_files=settings.MODEL_VERSION_MAX_FILES,
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         code_hosts=settings.MODEL_CODE_HOSTS,
+        jobs=jobs,
     )
 
 
@@ -147,7 +149,7 @@ def build_model_uploads(
     return ModelUploadService(
         models,
         ModelUploadRepository(db),
-        build_model_versions(db, store, registry, links),
+        build_model_versions(db, store, registry, links, jobs),
         ModelAccess(models),
         store,
         max_bytes=settings.MODEL_FILE_MAX_BYTES,
@@ -155,7 +157,6 @@ def build_model_uploads(
         part_bytes=settings.UPLOAD_PART_BYTES,
         session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
-        jobs=jobs,
     )
 
 
@@ -167,4 +168,13 @@ def build_model_processing(db: AsyncSession, store: ObjectStore) -> ModelProcess
         max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
         stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+    )
+
+
+def build_model_code(db: AsyncSession) -> ModelCodeResolution:
+    return ModelCodeResolution(
+        ModelVersionRepository(db),
+        hosts=settings.MODEL_CODE_HOSTS,
+        max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
+        stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
     )

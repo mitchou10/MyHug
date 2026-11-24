@@ -3,9 +3,10 @@ import uuid
 
 from worker.backend import Backend
 from worker.celery_app import celery_app
+from worker.code import CodeLookup, Pinned, RateLimited
 from worker.config import settings
 from worker.copier import make_copy
-from worker.errors import FileProblem
+from worker.errors import CodeProblem, FileProblem
 from worker.reader import fingerprint, read
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 def _backend() -> Backend:
     return Backend()
+
+
+def _lookup() -> CodeLookup:
+    return CodeLookup()
 
 
 @celery_app.task(
@@ -66,6 +71,41 @@ def process_model_version(version_id: str) -> str | None:
 
 
 @celery_app.task(
+    name="models.resolve_code",  # the name the API queues it by
+    bind=True,
+    autoretry_for=(Exception,),  # the host was down: asked again later, with a growing delay
+    retry_backoff=30,
+    retry_backoff_max=3600,
+    max_retries=8,
+    rate_limit=settings.CODE_RATE_LIMIT,  # the public APIs limit the calls that have no token
+)
+def resolve_code(self, version_id: str) -> str | None:
+    """Pins the code of a version of a model to a commit and tells the API. Returns where the code ended, or None when
+    there was nothing to do. A repository that is not found (or private) is not a failure of the version: the link is
+    kept as written, `unverified`."""
+    api, version = _backend(), uuid.UUID(version_id)
+    wanted = api.claim_code(version)
+    if wanted is None:
+        return None
+    try:
+        found = _lookup().resolve(wanted.url, wanted.ref, wanted.ref_kind)
+    except CodeProblem as error:
+        logger.warning("The code of version %s cannot be pinned: %s", version, error)
+        return api.code_failure(version, str(error))
+    except RateLimited as error:
+        api.code_release(version)
+        if error.wait:  # the host says when to come back
+            raise self.retry(exc=error, countdown=min(error.wait + 1, 3600)) from error
+        raise
+    except Exception:
+        api.code_release(version)  # not its fault: it is taken again by the retry
+        raise
+    if isinstance(found, Pinned):
+        return api.code_pinned(version, found.sha)
+    return api.code_unverified(version, found.reason)
+
+
+@celery_app.task(
     name="datasets.convert_file",  # the name the API queues it by
     autoretry_for=(Exception,),
     retry_backoff=True,
@@ -97,13 +137,16 @@ def process_waiting() -> int:
     api = _backend()
     versions, copies = api.waiting(), api.waiting_copies()
     models = api.waiting_model_versions()
+    codes = api.waiting_code()
     for version in versions:
         process_version.apply_async(args=[str(version)])
     for model_version in models:
         process_model_version.apply_async(args=[str(model_version)])
+    for code in codes:
+        resolve_code.apply_async(args=[str(code)])
     for copy in copies:
         convert_file.apply_async(args=[str(copy)])
-    return len(versions) + len(copies) + len(models)
+    return len(versions) + len(copies) + len(models) + len(codes)
 
 
 @celery_app.task(name="datasets.expire_uploads")
