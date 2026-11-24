@@ -179,3 +179,40 @@ async def test_the_address_of_a_part_for_the_worker_is_the_one_of_the_storage_it
     upload_id = await store.create_multipart("k", "text/plain")
     assert (await store.presign_part("k", upload_id, 1, 600)).startswith("https://files.example.com/internal/k?")
     assert (await store.presign_part("k", upload_id, 1, 600, internal=True)).startswith(f"{s3_url}/internal/k?")
+
+
+async def test_the_objects_under_a_prefix_are_listed_in_order_and_by_pages(s3_url: str) -> None:
+    store = make_store(s3_url, "listing")
+    for key in ("a/1", "a/2", "a/3", "b/1"):
+        await store.put(key, key.encode(), "text/plain")
+    first = await store.list_objects("a/", limit=2)
+    assert [o.key for o in first.items] == ["a/1", "a/2"] and first.next_after == "a/2"
+    assert first.items[0].size == 3 and first.items[0].modified.tzinfo is not None
+    second = await store.list_objects("a/", after=first.next_after, limit=2)
+    assert [o.key for o in second.items] == ["a/3"] and second.next_after is None  # b/1 is not under a/
+    assert (await store.list_objects("nothing/")).items == []
+
+
+async def test_listing_an_empty_storage_is_not_an_error(s3_url: str) -> None:
+    store = make_store(s3_url, "never-created")
+    assert (await store.list_objects("a/")).items == []
+    assert await store.list_started_uploads("a/") == []
+
+
+async def test_objects_are_deleted_many_at_a_time_and_missing_ones_do_not_matter(s3_url: str) -> None:
+    store = make_store(s3_url, "deleting")
+    for key in ("k/1", "k/2", "k/3"):
+        await store.put(key, b"x", "text/plain")
+    await store.delete_many(["k/1", "k/2", "k/never-there"])
+    assert [o.key for o in (await store.list_objects("k/")).items] == ["k/3"]
+    await store.delete_many([])  # nothing to do
+
+
+async def test_the_uploads_that_were_started_and_not_finished_are_listed(s3_url: str) -> None:
+    store = make_store(s3_url, "started")
+    first = await store.create_multipart("x/one", "text/plain")
+    await store.create_multipart("y/two", "text/plain")
+    found = await store.list_started_uploads("x/")
+    assert [(u.key, u.upload_id) for u in found] == [("x/one", first)] and found[0].initiated.tzinfo is not None
+    await store.abort_multipart("x/one", first)
+    assert await store.list_started_uploads("x/") == []

@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     DERIVATIVE_MAX_SOURCE_BYTES: int = 20 * 1024**3
     DERIVATIVE_PART_BYTES: int = 16 * 1024**2  # the size of the parts the worker sends the copy in
 
+    # The collector of the objects that nothing points to (the worker asks for it every day). It starts as a dry run: it
+    # says what it would delete, and deletes nothing, until STORAGE_GC_DRY_RUN is turned off.
+    STORAGE_GC_ENABLED: bool = True
+    STORAGE_GC_DRY_RUN: bool = True
+    # An object younger than this is never touched. 0: the length of an upload session plus 12 hours, so that an
+    # object waiting for its row to be committed is never taken for garbage. Never less than that.
+    STORAGE_GC_GRACE_HOURS: int = 0
+    STORAGE_GC_MAX_SCANNED: int = 20_000  # objects looked at in one pass
+    STORAGE_GC_MAX_DELETIONS: int = 5_000  # objects deleted in one pass
+    STORAGE_GC_CHECK_ROWS: int = 200  # files of versions whose object is checked to be there, in the first pass
+
     # Notifications: the applications allowed to emit them, as `name=key` pairs separated by commas. The name becomes
     # the `source` of what they emit; a key shorter than 16 characters is ignored. Empty: nobody can emit.
     NOTIFICATION_API_KEYS: str = ""

@@ -123,6 +123,10 @@ class Backend:
         """Sends one part of a copy to its signed address. A refusal or a down storage is an error of the job."""
         self._storage.put(url, content=data).raise_for_status()
 
+    def collect_storage(self, after: str | None = None) -> dict[str, Any]:
+        """One pass of the collection of the objects nothing points to: the backend looks, decides and deletes."""
+        return self._call("POST", "/storage/collect", json={"after": after})
+
     def download(self, url: str, chunk_size: int = 8 * 1024 * 1024) -> Iterator[bytes]:
         """A file as it comes, in chunks. Raises FileMissing when the storage does not have it."""
         with self._storage.stream("GET", url) as response:

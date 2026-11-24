@@ -10,12 +10,14 @@ from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
+from app.repositories.storage_references import StorageReferenceRepository
 from app.services.dataset_access import DatasetAccess
 from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
+from app.services.storage_garbage import StorageGarbage
 from app.storage import ObjectStore
 
 
@@ -82,4 +84,20 @@ def build_dataset_processing(db: AsyncSession, store: ObjectStore, jobs: Jobs | 
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         derivatives=build_dataset_derivatives(db, store),
         jobs=jobs,
+    )
+
+
+def garbage_grace() -> timedelta:
+    """How old an object must be to be garbage: longer than an upload session, whatever is configured."""
+    return timedelta(hours=max(settings.STORAGE_GC_GRACE_HOURS, settings.UPLOAD_SESSION_HOURS + 12))
+
+
+def build_storage_garbage(db: AsyncSession, store: ObjectStore) -> StorageGarbage:
+    return StorageGarbage(
+        StorageReferenceRepository(db),
+        store,
+        grace=garbage_grace(),
+        max_scanned=settings.STORAGE_GC_MAX_SCANNED,
+        max_deletions=settings.STORAGE_GC_MAX_DELETIONS,
+        check_rows=settings.STORAGE_GC_CHECK_ROWS,
     )
