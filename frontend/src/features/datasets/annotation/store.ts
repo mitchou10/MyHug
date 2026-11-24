@@ -31,8 +31,19 @@ export interface AnnotationProject {
 }
 
 export interface Span { start: number; end: number; label: string; reason?: string; value?: string } // label = id of a LabelDef // token indexes, end included
+/** Question answering: several pairs per text. `sources` are the passages of the text that support the answer. */
+export interface QAPair {
+  id: string
+  question: string
+  answer: string
+  /** Set when the answer was selected in the text (token indexes, end included). */
+  answerSpan?: { start: number; end: number }
+  sources: { start: number; end: number }[]
+}
+export const newPair = (): QAPair => ({ id: Math.random().toString(36).slice(2, 8), question: '', answer: '', sources: [] })
+
 /** `label` is the id of a LabelDef; `reason` is the optional "why" of the annotator. */
-export interface Answer { label?: string; reason?: string; spans?: Span[]; text?: string }
+export interface Answer { label?: string; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[] }
 
 interface State { projects: AnnotationProject[]; answers: Record<string, Record<number, Answer>> }
 
@@ -66,6 +77,7 @@ let state: State = {
         { id: 'DECISION', name: 'DÉCISION', kind: 'semantic', description: 'Issue de l’affaire : condamnation, relaxe, renvoi.' },
       ],
     },
+    { id: 'p5', datasetKey: 'lab/decisions-justice', name: 'Questions sur les décisions', task: 'qa', labels: [], createdBy: 'mitchou', annotators: 2, done: 410, total: 14500 },
   ],
   answers: {},
 }
