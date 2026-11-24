@@ -40,6 +40,8 @@ jobs:
           - 'docker-compose.test.yaml'
         worker:
           - 'worker/**'
+        mlflow:
+          - 'docker/mlflow/**'
         frontend:
           - 'frontend/**'
         ci:
@@ -161,6 +163,17 @@ jobs:
       CONTEXT: worker
       TARGET: runtime
 
+  # ---- MLflow (dev only): the image of the compose, which adds the PostgreSQL driver and boto3 to the official one ----
+  mlflow-image:
+    needs: paths
+    if: contains(fromJSON(needs.paths.outputs.changed), 'mlflow')
+    uses: Mitchou10/github-workflow/.github/workflows/build-docker.yml@v0
+    permissions:
+      contents: read
+    with:
+      PUSH: false # only checks that the Dockerfile builds
+      CONTEXT: docker/mlflow
+
   # ---- frontend (React / pnpm): no reusable workflow for it yet, so inline ----
   frontend:
     needs: paths
@@ -215,6 +228,7 @@ jobs:
       - worker-deadcode
       - worker-tests
       - worker-image
+      - mlflow-image
       - frontend
       - frontend-image
     uses: Mitchou10/github-workflow/.github/workflows/status-gate.yml@v0
