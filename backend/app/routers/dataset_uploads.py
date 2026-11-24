@@ -19,7 +19,7 @@ router = APIRouter(tags=["dataset uploads"])
 async def start_upload(
     owner: str, name: str, data: UploadIn, actor: ActorDep, service: DatasetUploadServiceDep
 ) -> UploadOut:
-    files = [PlannedFile(path=f.path, size=f.size, content_type=f.content_type) for f in data.files]
+    files = [PlannedFile(path=f.path, size=f.size, content_type=f.content_type, sha256=f.sha256) for f in data.files]
     return UploadOut.from_view(
         await service.start(actor, owner, name, files=files, remove=data.remove, message=data.message)
     )

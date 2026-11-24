@@ -65,6 +65,8 @@ class DatasetFile(Base):
     __table_args__ = (
         UniqueConstraint("version_id", "path", name="uq_dataset_files_path"),
         CheckConstraint("size_bytes >= 0", name="size"),
+        # Looking for a file that has the same content as one that is announced.
+        Index("ix_dataset_files_sha256", "sha256", postgresql_where=text("sha256 IS NOT NULL")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

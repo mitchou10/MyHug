@@ -190,6 +190,16 @@ class UploadFileIn(BaseModel):
     path: str = Field(max_length=512)
     size: int = Field(gt=0, description="Its size in bytes")
     content_type: str | None = Field(None, max_length=100)
+    sha256: str | None = Field(
+        None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+        description="Its fingerprint, if the browser knows it: a file the dataset already holds is not sent again",
+    )
+
+    @field_validator("sha256")
+    @classmethod
+    def _lowercase(cls, value: str | None) -> str | None:
+        return value.lower() if value else value
 
 
 class UploadIn(BaseModel):
@@ -212,6 +222,8 @@ class UploadFileOut(BaseModel):
     # The browser cuts the file in parts of this size (the last one is shorter) and numbers them from 1.
     part_size: int
     parts_count: int
+    # True when the dataset already holds exactly this file: nothing is sent (no parts), and `complete` is enough.
+    already_stored: bool = False
     # The parts that reached the storage: only when asked for, to resume.
     received: list[PartOut] | None = None
 
@@ -237,6 +249,7 @@ class UploadOut(BaseModel):
                     size_bytes=file.size_bytes,
                     part_size=file.part_size,
                     parts_count=file.parts_count,
+                    already_stored=file.already_stored,
                     received=None
                     if view.received is None
                     else [PartOut(number=p.number, size=p.size) for p in view.received[file.id]],

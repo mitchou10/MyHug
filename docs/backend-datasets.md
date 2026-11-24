@@ -266,6 +266,18 @@ vers le même objet. **L'empreinte (sha256) n'est plus calculée à l'envoi**: e
 morceaux, jusqu'à ce qu'un worker le lise (voir 6 bis). L'envoi par l'API (`POST …/versions`, 100 Mio au plus par
 fichier) existe toujours pour les petits fichiers et les scripts; il range les fichiers par empreinte.
 
+**Ne pas renvoyer un fichier que le dataset a déjà.** À l'annonce, le navigateur peut donner l'empreinte (`sha256`) d'un
+fichier. Si le **même dataset** contient déjà un fichier de même empreinte et de même taille, rien n'est envoyé: le nouveau
+chemin pointe vers le même objet (`already_stored: true`, aucun morceau), et `complete` suffit. Trois règles:
+- **Seule une empreinte calculée par le serveur compte.** Une empreinte annoncée par le navigateur n'est pas crue: pour un
+  fichier envoyé par morceaux, elle est seulement gardée (`dataset_upload_files.sha256`), pour que le worker la compare quand
+  il lira le fichier. Sinon une fausse déclaration ferait passer un contenu pour un autre auprès des envois suivants. Tant
+  que le worker n'a pas calculé les empreintes, ce sont donc les fichiers envoyés par l'API (qui les calcule) qui peuvent
+  être réutilisés.
+- **Jamais entre datasets.** Dire « ce fichier existe déjà » à quelqu'un d'autre révélerait que son contenu est stocké ailleurs.
+- **Un objet réutilisé n'est jamais supprimé par un envoi qui échoue ou qu'on abandonne**: seuls les objets créés par cet
+  envoi sont repris.
+
 **Le téléchargement** aussi va directement du stockage au navigateur: `GET …/files/{chemin}` compte un téléchargement
 et répond par une **redirection** vers une adresse signée de courte durée (`SIGNED_ADDRESS_SECONDS`).
 

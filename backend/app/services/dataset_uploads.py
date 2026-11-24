@@ -37,6 +37,8 @@ class PlannedFile(BaseModel):
     path: str
     size: int
     content_type: str | None = None
+    # Its fingerprint, if the browser knows it: a file that is already in the dataset is not sent again.
+    sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,21 +121,40 @@ class DatasetUploadService:
         try:
             for path, planned in zip(paths, files, strict=True):
                 file_id = uuid.uuid4()
-                key = f"datasets/{dataset.id}/files/{file_id}"
                 content_type = planned.content_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
-                size = part_size_for(planned.size, self._part_bytes)
-                multipart_id = await self._store.create_multipart(key, content_type)
-                row = DatasetUploadFile(
-                    id=file_id,
-                    upload_id=upload.id,
-                    path=path,
-                    size_bytes=planned.size,
-                    content_type=content_type,
-                    storage_key=key,
-                    multipart_id=multipart_id,
-                    part_size=size,
-                    parts_count=math.ceil(planned.size / size),
-                )
+                stored = None
+                if planned.sha256:
+                    stored = await self._versions.find_stored(dataset, planned.sha256, planned.size)
+                if stored is not None:
+                    # The dataset already holds this file: the new path points to the same object, nothing is sent.
+                    row = DatasetUploadFile(
+                        id=file_id,
+                        upload_id=upload.id,
+                        path=path,
+                        size_bytes=planned.size,
+                        content_type=stored.content_type,
+                        storage_key=stored.storage_key,
+                        sha256=planned.sha256,
+                        multipart_id=None,
+                        part_size=0,
+                        parts_count=0,
+                    )
+                else:
+                    key = f"datasets/{dataset.id}/files/{file_id}"
+                    size = part_size_for(planned.size, self._part_bytes)
+                    multipart_id = await self._store.create_multipart(key, content_type)
+                    row = DatasetUploadFile(
+                        id=file_id,
+                        upload_id=upload.id,
+                        path=path,
+                        size_bytes=planned.size,
+                        content_type=content_type,
+                        storage_key=key,
+                        sha256=planned.sha256,
+                        multipart_id=multipart_id,
+                        part_size=size,
+                        parts_count=math.ceil(planned.size / size),
+                    )
                 prepared.append(row)
             self._uploads.add(upload)
             await self._uploads.flush()
@@ -171,7 +192,12 @@ class DatasetUploadService:
         files = await self._uploads.files(upload.id)
         received = None
         if parts and upload.status == OPEN:
-            received = {file.id: await self._store.list_parts(file.storage_key, file.multipart_id) for file in files}
+            received = {
+                file.id: []
+                if file.multipart_id is None
+                else await self._store.list_parts(file.storage_key, file.multipart_id)
+                for file in files
+            }
         return UploadView(upload, files, received)
 
     async def part_urls(
@@ -182,12 +208,15 @@ class DatasetUploadService:
         file = next((f for f in files if f.id == file_id), None)
         if file is None:
             raise UploadNotFound
+        if file.multipart_id is None:
+            raise UploadIncomplete(f"{file.path} is already stored in the dataset: there is nothing to send")
+        multipart_id = file.multipart_id
         if any(not 1 <= number <= file.parts_count for number in numbers):
             raise UploadIncomplete(
                 f"{file.path} has {file.parts_count} parts: ask for a number from 1 to {file.parts_count}"
             )
         return [
-            (number, await self._store.presign_part(file.storage_key, file.multipart_id, number, self._signed_seconds))
+            (number, await self._store.presign_part(file.storage_key, multipart_id, number, self._signed_seconds))
             for number in numbers
         ]
 
@@ -210,11 +239,15 @@ class DatasetUploadService:
         dataset = await self._datasets.get(upload.dataset_id)
         assert dataset is not None  # _open found it
 
-        received = {file.id: await self._checked_parts(file) for file in files}  # all checked before anything is joined
+        sent = [file for file in files if file.multipart_id is not None]
+        received = {file.id: await self._checked_parts(file) for file in sent}  # all checked before anything is joined
+        for file in files:
+            if file.multipart_id is None and await self._store.head(file.storage_key) is None:  # it was already stored
+                raise UploadIncomplete(f"{file.path} is no longer stored in the dataset: send it")
         joined: list[DatasetUploadFile] = []
         try:
-            for file in files:
-                await self._store.complete_multipart(file.storage_key, file.multipart_id, received[file.id])
+            for file in sent:
+                await self._store.complete_multipart(file.storage_key, file.multipart_id or "", received[file.id])
                 joined.append(file)
                 info = await self._store.head(file.storage_key)
                 if info is None or info.size != file.size_bytes:
@@ -224,7 +257,9 @@ class DatasetUploadService:
                     id=file.id,
                     path=file.path,
                     size_bytes=file.size_bytes,
-                    sha256=None,
+                    # A file that was already stored keeps the fingerprint it was found by; one that was sent has none
+                    # until a worker reads it (what the browser announced is not believed).
+                    sha256=file.sha256 if file.multipart_id is None else None,
                     content_type=file.content_type,
                     storage_key=file.storage_key,
                     split=None,
@@ -241,7 +276,7 @@ class DatasetUploadService:
         except Exception:
             for file in joined:  # what was put together is of no use now
                 await self._store.delete(file.storage_key)
-            await self._abort_all([file for file in files if file not in joined])
+            await self._abort_all([file for file in sent if file not in joined])
             upload.status = ABORTED
             await self._uploads.commit()
             raise
@@ -249,7 +284,7 @@ class DatasetUploadService:
 
     async def _checked_parts(self, file: DatasetUploadFile) -> list[PartInfo]:
         """The parts of a file, if they are all there and the size the browser was told."""
-        parts = {part.number: part for part in await self._store.list_parts(file.storage_key, file.multipart_id)}
+        parts = {part.number: part for part in await self._store.list_parts(file.storage_key, file.multipart_id or "")}
         for number in range(1, file.parts_count + 1):
             expected = (
                 file.part_size
@@ -290,4 +325,5 @@ class DatasetUploadService:
 
     async def _abort_all(self, files: list[DatasetUploadFile]) -> None:
         for file in files:
-            await self._store.abort_multipart(file.storage_key, file.multipart_id)
+            if file.multipart_id is not None:
+                await self._store.abort_multipart(file.storage_key, file.multipart_id)
