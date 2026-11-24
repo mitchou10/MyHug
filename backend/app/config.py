@@ -36,14 +36,14 @@ class Settings(BaseSettings):
     UPLOAD_SESSION_HOURS: int = 24  # how long an upload can take before it is given up
     SIGNED_ADDRESS_SECONDS: int = 3600
 
-    # The worker (Celery, with Redis between it and the API): it reads the files of the versions that were sent.
+    # The worker is a service of its own (see `worker/`): the API queues jobs for it in Redis, by the name of the task,
+    # the worker calls back `/api/internal` with this key (16 characters at least; empty: it is refused).
     REDIS_URL: str = "redis://localhost:6379/0"
+    WORKER_API_KEY: str = ""
     # A version being read for longer than this is taken to belong to a worker that died: another one takes it over.
     PROCESSING_STALE_MINUTES: int = 30
     # How many times a version is taken in hand before it is given up as failed.
     PROCESSING_MAX_ATTEMPTS: int = 3
-    # Where the worker keeps a file while it reads it (empty: the system's temporary folder): room for the largest one.
-    WORKER_TEMP_DIR: str = ""
 
     # Notifications: the applications allowed to emit them, as `name=key` pairs separated by commas. The name becomes
     # the `source` of what they emit; a key shorter than 16 characters is ignored. Empty: nobody can emit.

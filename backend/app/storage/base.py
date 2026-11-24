@@ -77,6 +77,9 @@ class ObjectStore(Protocol):
         """Gives up an upload and frees the parts that arrived. Does nothing when it is already gone."""
         ...
 
-    async def presign_get(self, key: str, expires_in: int, filename: str | None = None) -> str:
-        """The address from which the browser downloads an object, signed and short-lived."""
+    async def presign_get(
+        self, key: str, expires_in: int, filename: str | None = None, *, internal: bool = False
+    ) -> str:
+        """The address from which the browser downloads an object, signed and short-lived. `internal`: the address as
+        the other services of the platform reach the storage (the worker), not the one of the browser."""
         ...

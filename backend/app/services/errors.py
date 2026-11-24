@@ -169,3 +169,9 @@ class NotificationNotFound(ServiceError):
 
 class InvalidUrl(ServiceError):
     message = "The link must be a path of the app (starting with a single /) or an http(s) address"
+
+
+class NotBeingProcessed(ServiceError):
+    """The worker reports on a version that it does not hold (it was taken over, or it is not being read)."""
+
+    message = "This version is not being read"

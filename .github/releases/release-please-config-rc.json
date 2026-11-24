@@ -74,6 +74,20 @@
         }
       ]
     },
+    "worker": {
+      "release-type": "python",
+      "package-name": "app-worker",
+      "component": "worker",
+      "include-component-in-tag": true,
+      "initial-version": "0.1.0-rc.1",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='app-worker')].version"
+        }
+      ]
+    },
     "frontend": {
       "release-type": "node",
       "package-name": "app-frontend",
