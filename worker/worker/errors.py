@@ -8,3 +8,12 @@ class UnreadableFile(FileProblem):
 
 class FileMissing(FileProblem):
     """The storage does not have the file."""
+
+
+class CodeProblem(Exception):
+    """The host answered something that cannot be used, or the address is not one the worker may call. Asking again
+    would give the same."""
+
+
+class HostUnavailable(Exception):
+    """The host is down, or limits the calls: the lookup is made again later."""

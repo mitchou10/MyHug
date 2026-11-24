@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import and_, delete, func, or_, select, update
 
 from app.models import Model, ModelFile, ModelVersion
-from app.models.model_version import FAILED, PENDING, PROCESSING
+from app.models.model_version import FAILED, PENDING, PROCESSING, RESOLVING, UNRESOLVED
 from app.repositories.base import Repository
 
 
@@ -175,3 +175,51 @@ class ModelVersionRepository(Repository):
     async def repoint(self, old_key: str, new_key: str) -> None:
         """Every file that was the object `old_key` is the object `new_key` from now on (they hold the same content)."""
         await self._db.execute(update(ModelFile).where(ModelFile.storage_key == old_key).values(storage_key=new_key))
+
+    # ---- for the worker: the code a version points to
+
+    async def claim_code(self, version_id: uuid.UUID, stale_before: datetime) -> ModelVersion | None:
+        """Takes the code of a version in hand, for one worker only: it is `resolving` from then on, and the attempt is
+        counted. Only code that is not resolved can be taken (or that a worker was resolving for so long that it must
+        have died): a commit that was found is never looked for again."""
+        taken = await self._db.execute(
+            update(ModelVersion)
+            .where(
+                ModelVersion.id == version_id,
+                or_(
+                    ModelVersion.code_state == UNRESOLVED,
+                    and_(ModelVersion.code_state == RESOLVING, ModelVersion.code_started_at < stale_before),
+                ),
+            )
+            .values(code_state=RESOLVING, code_started_at=func.now(), code_attempts=ModelVersion.code_attempts + 1)
+            .returning(ModelVersion)
+            .execution_options(populate_existing=True)
+        )
+        version = taken.scalar_one_or_none()
+        await self._db.commit()  # the other workers see it at once
+        return version
+
+    async def release_code(self, version_id: uuid.UUID) -> None:
+        """Back to waiting after a failure that is not its fault (the host was down, or limited the calls)."""
+        await self._db.execute(
+            update(ModelVersion)
+            .where(ModelVersion.id == version_id, ModelVersion.code_state == RESOLVING)
+            .values(code_state=UNRESOLVED)
+        )
+        await self._db.commit()
+
+    async def waiting_code(self, *, older_than: datetime, stale_before: datetime, limit: int) -> list[uuid.UUID]:
+        """The code nobody is resolving: waiting for a while (the job may have been lost), or being resolved by a worker
+        that stopped answering."""
+        result = await self._db.execute(
+            select(ModelVersion.id)
+            .where(
+                or_(
+                    and_(ModelVersion.code_state == UNRESOLVED, ModelVersion.created_at < older_than),
+                    and_(ModelVersion.code_state == RESOLVING, ModelVersion.code_started_at < stale_before),
+                )
+            )
+            .order_by(ModelVersion.created_at)
+            .limit(limit)
+        )
+        return list(result.scalars())

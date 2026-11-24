@@ -4,9 +4,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
+from app.config import settings
 from app.models import ModelFile
 from app.repositories.models import ModelRow
 from app.schemas.dataset import Modality, Slug, Tag, UploadFileIn, Visibility, _distinct
+from app.services.code_reference import tree_url
 from app.services.model_versions import VersionView
 from app.services.models import ModelView
 
@@ -184,6 +186,9 @@ class CodeOut(BaseModel):
     # `unresolved` (not looked at yet), `resolving`, `pinned`, `unverified` (private or not found), `failed`.
     state: str
     error: str | None
+    # The page of the code at the exact commit (and folder), only once it is pinned: built by the platform from the
+    # checked parts of the address, never taken as written.
+    tree_url: str | None = None
 
 
 class ModelUploadIn(BaseModel):
@@ -243,6 +248,9 @@ class ModelVersionOut(BaseModel):
                 sha=version.code_sha,
                 state=version.code_state,
                 error=version.code_error,
+                tree_url=tree_url(version.code_url, version.code_sha, version.code_path, settings.MODEL_CODE_HOSTS)
+                if version.code_sha
+                else None,
             )
             if version.code_url
             else None

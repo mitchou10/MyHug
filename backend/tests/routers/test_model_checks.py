@@ -28,6 +28,7 @@ def sha(data: bytes) -> str:
 class RecordedJobs:
     def __init__(self) -> None:
         self.model_versions: list[uuid.UUID] = []
+        self.codes: list[uuid.UUID] = []
 
     async def process_version(self, version_id: uuid.UUID) -> None:
         return None
@@ -37,6 +38,9 @@ class RecordedJobs:
 
     async def process_model_version(self, version_id: uuid.UUID) -> None:
         self.model_versions.append(version_id)
+
+    async def resolve_code(self, version_id: uuid.UUID) -> None:
+        self.codes.append(version_id)
 
 
 @pytest.fixture(autouse=True)
@@ -241,11 +245,14 @@ async def test_once_fingerprinted_a_file_is_not_sent_again(client, login, store,
     assert done.json()["status"] == "ready"  # nothing to check: the content is known
 
 
-async def test_a_new_version_that_only_keeps_files_waits_for_the_ones_still_unknown(client, login, store, db) -> None:
+async def test_a_new_version_that_only_keeps_files_waits_for_the_ones_still_unknown(
+    client, login, store, jobs, db
+) -> None:
     await start(client, login)
     await push(client, store, **{"weights.bin": WEIGHTS})  # not fingerprinted yet
     second = await client.post(f"{ADDRESS}/versions", json={"code": {"url": "https://github.com/ada/sentiment"}})
     assert second.json()["status"] == "pending"  # the file it keeps has to be read
+    assert len(jobs.model_versions) == 2  # and the check is queued for it too
 
 
 async def test_only_the_worker_may_call(client, login, store, db) -> None:

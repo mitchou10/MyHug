@@ -4,10 +4,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from app.jobs import Jobs, NoJobs
 from app.models import ModelFile, ModelUpload, ModelUploadFile, ModelVersion
 from app.models.model_upload import ABORTED, COMPLETED, EXPIRED, OPEN
-from app.models.model_version import PENDING
 from app.repositories.model_uploads import ModelUploadRepository
 from app.repositories.models import ModelRepository
 from app.services.actor import Actor
@@ -60,7 +58,6 @@ class ModelUploadService:
         part_bytes: int,
         session: timedelta,
         signed_seconds: int,
-        jobs: Jobs | None = None,
     ) -> None:
         self._models = models
         self._uploads = uploads
@@ -72,7 +69,6 @@ class ModelUploadService:
         self._part_bytes = part_bytes
         self._session = session
         self._signed_seconds = signed_seconds
-        self._jobs: Jobs = jobs or NoJobs()
 
     # ---- starting
 
@@ -279,8 +275,6 @@ class ModelUploadService:
                 failed.status = ABORTED
                 await self._uploads.commit()
             raise
-        if version.status == PENDING:
-            await self._jobs.process_model_version(version.id)  # the files are fingerprinted by the worker
         return version
 
     async def _checked_parts(self, file: ModelUploadFile) -> list[PartInfo]:

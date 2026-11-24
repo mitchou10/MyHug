@@ -2,18 +2,20 @@
 
 Nothing here (or anywhere in the API) fetches the address or clones it: it is only checked, kept, and shown. A worker
 pins it to a commit later. The rules are strict because a machine will follow the address, not a person:
-https only, no credentials, a host of the allowlist (so no IP address, no `localhost`, no internal name), the default
-port, and a path of exactly `/{owner}/{repository}`."""
+https only, no credentials, a host of the allowlist (so no IP address, no `localhost`, no internal name),
+the port of its entry (443 unless the entry says `host:port`), and a path of exactly `/{owner}/{repository}`
+(a GitLab also allows groups in groups)."""
 
 import re
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from app.models.model_version import CODE_REF_KINDS, COMMIT, UNKNOWN
 from app.services.errors import InvalidCodeReference, InvalidFilePath
 from app.services.paths import clean_path
 
-_REPOSITORY = re.compile(r"^/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$")
+_SEGMENT = re.compile(r"^(?!-)[A-Za-z0-9_.-]+$")  # not `-`: a GitLab puts `/-/` before its own pages
+MAX_GROUPS = 4  # a GitLab allows groups in groups: `group/sub/sub/repository`
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$")
 _COMMIT = re.compile(r"^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
 
@@ -44,34 +46,82 @@ class CodeReference:
         )
 
 
-def check_repository_url(url: str, hosts: list[str]) -> str:
-    """The address, as written (without the spaces around it), if it is the repository of an allowed host."""
-    written = url.strip()
+@dataclass(frozen=True)
+class Repository:
+    """The parts of a repository address that were checked."""
+
+    host: str
+    port: int
+    segments: tuple[str, ...]
+
+    @property
+    def project(self) -> str:
+        """`owner/repository` (GitLab: `group/subgroup/repository`), without a `.git` at the end."""
+        return "/".join(self.segments)
+
+
+def _allowed_ports(hosts: list[str]) -> dict[str, set[int]]:
+    """`github.com` is allowed on 443; `git.example.org:8443` on 8443 (and only there)."""
+    allowed: dict[str, set[int]] = {}
+    for entry in hosts:
+        host, _, port = entry.strip().lower().partition(":")
+        allowed.setdefault(host, set()).add(int(port) if port else 443)
+    return allowed
+
+
+def parse_repository(url: str, hosts: list[str]) -> Repository:
+    """The repository the address names. Raises InvalidCodeReference for what is not a repository of an allowed host.
+    GitHub has `/{owner}/{repository}`, a GitLab (any other host) allows groups inside groups."""
     refusal = InvalidCodeReference(
         "The code must be a repository, `https://{host}/{owner}/{repository}`, on an allowed host"
     )
+    written = url.strip()
     if not written or any(ord(char) < 33 or ord(char) > 126 for char in written):  # spaces, control and non-ASCII
         raise refusal
     try:
         parts = urlsplit(written)
-        port = parts.port
+        port = parts.port or 443
     except ValueError:
         raise refusal from None
-    host = (parts.hostname or "").lower()
+    host = (parts.hostname or "").lower()  # a trailing dot (`github.com.`) is another name: it is not in the list
+    segments = [part for part in parts.path.split("/") if part]
+    if segments and segments[-1].endswith(".git"):
+        segments[-1] = segments[-1][:-4]
+    limit = 2 if host == "github.com" else MAX_GROUPS + 2
     if (
         parts.scheme != "https"
         or parts.username is not None
         or parts.password is not None
-        or port not in (None, 443)
-        or host not in {allowed.lower() for allowed in hosts}
+        or "@" in parts.netloc
+        or port not in _allowed_ports(hosts).get(host, set())
         or parts.query
         or parts.fragment
-        or "@" in parts.netloc
-        or not _REPOSITORY.match(parts.path)
-        or any(part in (".", "..") for part in parts.path.split("/"))
+        or not parts.path.startswith("/")
+        or "//" in parts.path
+        or not 2 <= len(segments) <= limit
+        or not all(_SEGMENT.match(part) and part not in (".", "..") for part in segments)
     ):
         raise refusal
-    return written
+    return Repository(host, port, tuple(segments))
+
+
+def check_repository_url(url: str, hosts: list[str]) -> str:
+    """The address, as written (without the spaces around it), if it is the repository of an allowed host."""
+    parse_repository(url, hosts)
+    return url.strip()
+
+
+def tree_url(url: str, sha: str, path: str | None, hosts: list[str]) -> str | None:
+    """The page of the code at the exact commit (and the folder), built from the checked parts; None if the address is
+    not one of an allowed host (the list changed since)."""
+    try:
+        repository = parse_repository(url, hosts)
+    except InvalidCodeReference:
+        return None
+    port = "" if repository.port == 443 else f":{repository.port}"
+    marker = "tree" if repository.host == "github.com" else "-/tree"
+    folder = f"/{quote(path, safe='/')}" if path else ""
+    return f"https://{repository.host}{port}/{repository.project}/{marker}/{sha}{folder}"
 
 
 def check_code_reference(

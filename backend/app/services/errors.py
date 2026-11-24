@@ -220,6 +220,10 @@ class InvalidCodeReference(ServiceError):
     message = "This reference to the code is not accepted"
 
 
+class InvalidSha(ServiceError):
+    message = "A commit is 40 or 64 hexadecimal characters, in lowercase"
+
+
 class VersionFailed(ServiceError):
     message = "The files of this version did not pass the checks"
 

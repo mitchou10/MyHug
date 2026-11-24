@@ -27,6 +27,7 @@ STATUS_CODES: dict[type[errors.ServiceError], int] = {
     errors.ModelFileNotFound: status.HTTP_404_NOT_FOUND,
     errors.EmptyVersion: status.HTTP_422_UNPROCESSABLE_CONTENT,
     errors.InvalidCodeReference: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    errors.InvalidSha: status.HTTP_422_UNPROCESSABLE_CONTENT,
     errors.VersionFailed: status.HTTP_409_CONFLICT,
     errors.RegistryUnavailable: status.HTTP_503_SERVICE_UNAVAILABLE,
     errors.RegistryNotFound: status.HTTP_404_NOT_FOUND,

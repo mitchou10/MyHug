@@ -194,3 +194,81 @@ création (`null`): c'est la base de la plateforme qui fait foi. Un fichier dont
 Un fichier de 300 Mio (5 parties de 64 Mio) contre le vrai compose (RustFS, MLflow, worker): envoi en 7 s, version `ready`
 après la vérification du worker, empreinte égale à celle calculée à l'envoi, téléchargement par adresse signée identique,
 version et lien MLflow présents, puis suppression du modèle (MLflow et stockage).
+
+## Épingler le code d'une version (issue #27)
+
+### Les trois cas
+
+| Cas | Ce que la version a | `code_state` |
+|---|---|---|
+| **Artefact seul** (une architecture standard, un modèle déjà emballé pour MLflow) | des fichiers, pas de lien | `none` |
+| **Artefact + code** (le cas courant d'un modèle qui a besoin de code) | des fichiers et un lien | `unresolved`, puis l'un des états ci-dessous |
+| **Code seul** | un lien, pas de fichier à soi | idem; la version est `ready` d'emblée |
+
+Le code est écrit **sur la version** (un état du code va avec un jeu de poids) et n'est pas hérité de la précédente. Une
+version a au moins l'un des deux, sinon 422.
+
+### Ce que veut dire « épinglé »
+
+Une branche et un tag bougent; un commit non. L'auteur écrit ce qu'il veut (`ref`: un commit, un tag, une branche, ou rien =
+la branche par défaut), la plateforme le garde **tel quel** et le worker cherche **le commit** vers lequel ça pointe:
+
+| `code_state` | Veut dire |
+|---|---|
+| `unresolved` | pas encore regardé: la page dit « non épinglé » |
+| `resolving` | un worker s'en occupe |
+| `pinned` | le commit est dans `code_sha` (40 ou 64 caractères hexadécimaux, minuscules) et **ne change plus jamais**: un autre commit est une autre version. `tree_url` donne la page de l'arbre à ce commit (et au dossier `path`), construite par la plateforme |
+| `unverified` | dépôt ou référence introuvable, ou dépôt privé: le lien reste tel qu'écrit, `code_error` dit pourquoi. **Ce n'est pas un échec de la version** |
+| `failed` | l'hôte a répondu quelque chose d'inutilisable, ou le travail a été interrompu trop de fois (`code_error`) |
+
+Un dépôt privé n'est jamais résolu et aucun identifiant n'est demandé ni gardé. Un dépôt peut disparaître ou être réécrit
+après coup: le commit reste dans la fiche, le lien peut casser, et la page doit le dire plutôt que le cacher.
+
+### Les règles de l'adresse
+
+Vérifiées par l'API avant tout (`services/code_reference.py`) **et revérifiées par le worker** avant d'appeler quoi que ce
+soit (`worker/code.py`): `https` seulement, pas d'identifiants, hôte de la liste (`MODEL_CODE_HOSTS` côté API, `CODE_HOSTS`
+côté worker; une entrée `hôte:port` autorise ce port, sinon 443), donc ni IP, ni `localhost`, ni nom terminé par un point;
+chemin `/{propriétaire}/{dépôt}` (GitHub), ou avec des groupes dans des groupes pour un GitLab (6 niveaux au plus); pas de
+`..`, `//`, requête ni fragment; un segment ne commence pas par `-` (c'est le marqueur des pages de GitLab). `code_path` et
+`entrypoint` sont relatifs, sans `..`.
+
+### Ce que fait le worker
+
+La tâche `models.resolve_code` (file `datasets`, 30 appels par minute et par worker) demande **seulement** le commit:
+GitHub `GET api.github.com/repos/{o}/{r}/commits/{ref}`, GitLab `GET /api/v4/projects/{chemin}/repository/commits/{ref}`
+(`HEAD` quand il n'y a pas de référence). Rien n'est cloné ni téléchargé. L'adresse appelée est **reconstruite** à partir
+des parties vérifiées, jamais prise telle qu'elle a été envoyée.
+
+| Réponse | Résultat |
+|---|---|
+| 200 | `pinned` (si la référence était un commit, la réponse doit être le même) |
+| 404, 422, 401, 403 simple | `unverified` |
+| 429, ou 403 avec limite atteinte | l'API reprend la main (`release`), nouvel essai après le délai que l'hôte donne, sinon un délai croissant (8 essais) |
+| 5xx, réseau, nom introuvable | idem, délai croissant |
+| autre, corps illisible, trop gros | `failed` avec la raison |
+
+Protections contre le SSRF (l'adresse vient des utilisateurs): liste d'hôtes; **aucune redirection suivie** hors du même hôte
+(même schéma, même port: un 302 vers `http://169.254.169.254` n'est jamais suivi); hôte qui se résout vers une adresse privée
+(boucle locale, `169.254.x.x`, réseaux privés…) **refusé avant de se connecter**, sauf s'il est nommé dans
+`CODE_PRIVATE_HOSTS` (un GitLab dans le réseau de l'entreprise); délai court (`CODE_TIMEOUT_SECONDS`); réponse limitée
+(`CODE_MAX_ANSWER_BYTES`, par l'en-tête puis en lisant). Limite connue: le nom est résolu pour la vérification puis résolu
+encore par la connexion; un attaquant qui contrôle le DNS d'un hôte de la liste pourrait changer la réponse entre les deux.
+Les hôtes de la liste sont des services publics connus, et le worker n'a ni base de données ni clé du stockage: c'est
+acceptable, mais à savoir si on ajoute un hôte qu'on ne contrôle pas.
+
+Jetons: `CODE_TOKENS` (JSON, `{"github.com": "…"}`) relève la limite de débit des recherches publiques. Un jeton ne part que
+vers son hôte (jamais vers la cible d'une redirection, qui est de toute façon refusée), et n'est écrit dans aucun journal ni
+message d'erreur.
+
+### Reprise
+
+Le code d'une version a ses propres compteurs (`code_attempts`, `code_started_at`), distincts de ceux de la vérification des
+fichiers: les deux travaux sont indépendants. Un worker mort est remplacé au bout de `PROCESSING_STALE_MINUTES`, le balayage
+remet en file le code oublié (`GET /api/internal/model-code/waiting`), trois prises au plus. Le travail est mis en file par
+nom (`models.resolve_code`) quand la version est enregistrée.
+
+### Pas fait ici
+
+La licence et la branche par défaut du dépôt, que l'issue mentionne comme « informatives », ne sont pas gardées: aucune colonne
+ne les attend et rien ne s'en sert pour l'instant.

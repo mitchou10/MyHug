@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 PROCESS_VERSION = "datasets.process_version"
 CONVERT_FILE = "datasets.convert_file"
 PROCESS_MODEL_VERSION = "models.process_version"
+RESOLVE_CODE = "models.resolve_code"
 QUEUE = "datasets"
 
 
@@ -31,6 +32,10 @@ class Jobs(Protocol):
         """A version of a model was recorded: its files are to be fingerprinted."""
         ...
 
+    async def resolve_code(self, version_id: uuid.UUID) -> None:
+        """A version of a model points to code: its reference is to be pinned to a commit."""
+        ...
+
 
 class NoJobs:
     """Nothing is queued (tests, scripts): the versions wait until something reads them."""
@@ -42,6 +47,9 @@ class NoJobs:
         return None
 
     async def process_model_version(self, version_id: uuid.UUID) -> None:
+        return None
+
+    async def resolve_code(self, version_id: uuid.UUID) -> None:
         return None
 
 
@@ -71,3 +79,6 @@ class CeleryJobs:
 
     async def process_model_version(self, version_id: uuid.UUID) -> None:
         await self._send(PROCESS_MODEL_VERSION, version_id)
+
+    async def resolve_code(self, version_id: uuid.UUID) -> None:
+        await self._send(RESOLVE_CODE, version_id)

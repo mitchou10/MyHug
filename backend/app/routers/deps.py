@@ -31,6 +31,7 @@ from app.services.factory import (
     build_dataset_uploads,
     build_dataset_versions,
     build_datasets,
+    build_model_code,
     build_model_members,
     build_model_processing,
     build_model_uploads,
@@ -42,6 +43,7 @@ from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
 from app.services.messages import MessageService
+from app.services.model_code import ModelCodeResolution
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
 from app.services.model_uploads import ModelUploadService
@@ -201,8 +203,10 @@ ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 ModelMemberServiceDep = Annotated[ModelMemberService, Depends(get_model_member_service)]
 
 
-def get_model_version_service(db: DB, store: Store, registry: RegistryDep, links: LinksDep) -> ModelVersionService:
-    return build_model_versions(db, store, registry, links)
+def get_model_version_service(
+    db: DB, store: Store, registry: RegistryDep, links: LinksDep, jobs: JobsDep
+) -> ModelVersionService:
+    return build_model_versions(db, store, registry, links, jobs)
 
 
 def get_model_upload_service(
@@ -228,3 +232,10 @@ def get_model_processing(db: DB, store: Store) -> ModelProcessing:
 
 
 ModelProcessingDep = Annotated[ModelProcessing, Depends(get_model_processing)]
+
+
+def get_model_code(db: DB) -> ModelCodeResolution:
+    return build_model_code(db)
+
+
+ModelCodeDep = Annotated[ModelCodeResolution, Depends(get_model_code)]
