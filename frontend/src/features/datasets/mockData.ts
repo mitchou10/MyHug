@@ -100,7 +100,7 @@ export const DATASETS: Dataset[] = [
     tags: ['audio', 'biodiversité'], rows: 9600, sizeMb: 5400, downloads: 310, likes: 11, updatedAt: '2026-08-14',
     files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'audio/', sizeMb: 5400 }],
     columns: ['file', 'species', 'duration_s'],
-    sample: [['a001.wav', 'Parus major', 12.4], ['a002.wav', 'Erithacus rubecula', 8.1], ['a003.wav', 'Turdus merula', 15.9]],
+    sample: [['a001.wav', 'Parus major', 12.4], ['a002.wav', 'Erithacus rubecula', 8.1], ['a003.wav', 'Turdus merula', 15.9], ['a004.wav', 'Fringilla coelebs', 10.2], ['a005.wav', 'Sylvia atricapilla', 7.6], ['a006.wav', 'Parus major', 13.3]],
     card: 'Chants d’oiseaux collectés en Europe de l’Ouest.',
   },
   {
@@ -153,6 +153,16 @@ export const DATASETS: Dataset[] = [
       [8, 'Lors de l’audience du 9 septembre 2023 à Bordeaux, Lucie Moreau a contesté les faits de harcèlement moral (affaire n° 2301457).', 'Conseil de prud’hommes'],
     ],
     card: 'Décisions anonymisées de plusieurs juridictions françaises, destinées à l’extraction d’informations juridiques.',
+  },
+  {
+    id: '9', owner: 'lab', name: 'call-center-fr',
+    description: 'Appels de service client en français, à transcrire et à découper par locuteur.',
+    modality: 'audio', language: 'fr', license: 'cc-by-nc-4.0',
+    tags: ['parole', 'asr', 'diarisation'], rows: 3200, sizeMb: 2100, downloads: 410, likes: 22, updatedAt: '2026-11-12',
+    files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'calls/', sizeMb: 2100 }, { path: 'metadata.csv', sizeMb: 0.3 }],
+    columns: ['file', 'topic', 'duration_s'],
+    sample: [['call_001.wav', 'facturation', 18.5], ['call_002.wav', 'résiliation', 14.2], ['call_003.wav', 'panne', 19.8], ['call_004.wav', 'renseignement', 9.4], ['call_005.wav', 'facturation', 16.1]],
+    card: 'Appels anonymisés, 8 kHz, deux locuteurs en moyenne.',
   },
 ]
 

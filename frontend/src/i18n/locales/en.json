@@ -353,6 +353,22 @@
         "image_vqa": {
           "title": "Visual question answering",
           "hint": "Write questions about the image and their answers."
+        },
+        "audio_classification": {
+          "title": "Audio classification",
+          "hint": "Give one or several labels to each clip."
+        },
+        "audio_segments": {
+          "title": "Labelled segments",
+          "hint": "Mark stretches of the clip: sound events, speakers, music."
+        },
+        "audio_transcription": {
+          "title": "Transcription",
+          "hint": "Write what is said, stretch by stretch, with its timing."
+        },
+        "audio_caption": {
+          "title": "Audio to text",
+          "hint": "Describe each clip with one or more sentences."
         }
       },
       "labelName": "Label name",
@@ -519,7 +535,46 @@
         "title": "Several labels per item",
         "hint": "An item can get more than one label (e.g. an image that is both “rain” and “night”).",
         "badge": "multi-label"
-      }
+      },
+      "audio": {
+        "play": "Play",
+        "pause": "Pause",
+        "speed": "Speed",
+        "zoom": "Zoom",
+        "tools": {
+          "select": "Select",
+          "region": "Region"
+        },
+        "mark": "Mark",
+        "markStart": "Start marked at {{t}}. Press M again for the end.",
+        "addHere": "Add here (2 s)",
+        "start": "Start",
+        "end": "End",
+        "text": "Text",
+        "textPlaceholder": "What is said…",
+        "segments": "Segments",
+        "none": "No segment yet. Press M while listening, drag on the waveform, or use “Add here”.",
+        "hintSegments": "Drag on the waveform to create a region, drag its edges to adjust. Space plays, M marks the start and the end.",
+        "hintTranscribe": "Listen, mark a stretch (M … M), then type what is said. Space plays, click the waveform to move.",
+        "hintPlain": "Space plays or pauses, click the waveform to move.",
+        "playSegment": "Play this segment",
+        "empty": "Generated placeholder sound: the real files will come from the backend.",
+        "duration": "{{s}} s",
+        "seconds": "s",
+        "regionsToggle": {
+          "title": "Annotate stretches of the clip",
+          "hint": "Instead of one answer per clip, annotators mark regions on the waveform, each with its own answer, on one or several tracks."
+        },
+        "tracks": "Tracks",
+        "tracksPlaceholder": "Add a track (e.g. Speaker 1), then Enter",
+        "tracksHint": "Regions on different tracks can overlap. Keep one track if you do not need that.",
+        "tracksBadge": "{{count}} tracks",
+        "track": "Track",
+        "regionsBadge": "regions",
+        "speakersHint": "Speakers are optional. If you add some, each region of the transcription can be given one.",
+        "timeText": "Text"
+      },
+      "editTask": "Edit the task"
     }
   }
 }

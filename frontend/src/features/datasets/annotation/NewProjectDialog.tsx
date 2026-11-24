@@ -6,36 +6,48 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { LabelsEditor, labelsValid } from './LabelsEditor'
+import { AudioRegionOptions } from './AudioRegionOptions'
 import { MultiLabelToggle } from './MultiLabelToggle'
 import { emptyScale, ScaleForm, scaleValid as isScaleValid, toScale } from './ScaleForm'
-import { addProject, CURRENT_USER, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, type LabelDef, type TaskType } from './store'
+import { addProject, CURRENT_USER, AUDIO_TASKS, DEFAULT_TRACKS, IMAGE_TASKS, TABULAR_TASKS, supportsMultiLabel, TEXT_TASKS, type LabelDef, type TaskType } from './store'
 
 /** Tasks that need a list of labels; `regression` needs a scale; `qa` needs nothing more. */
-const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa'
+const needsLabels = (t: TaskType) => t !== 'qa' && t !== 'regression' && t !== 'image_caption' && t !== 'image_vqa' && t !== 'audio_transcription' && t !== 'audio_caption'
 
 /** Creates an annotation task in two steps (what, then how): everyone who can see the dataset will be able to annotate it. */
 export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: { datasetKey: string; modality: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
-  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : TEXT_TASKS
+  const TASKS: TaskType[] = modality === 'tabular' ? TABULAR_TASKS : modality === 'image' ? IMAGE_TASKS : modality === 'audio' ? AUDIO_TASKS : TEXT_TASKS
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [task, setTask] = useState<TaskType>(TASKS[0])
   const [labels, setLabels] = useState<LabelDef[]>([])
   const [multi, setMulti] = useState(false)
   const [sc, setSc] = useState(emptyScale)
+  const [regions, setRegions] = useState(false)
+  const [tracks, setTracks] = useState<string[]>(DEFAULT_TRACKS)
 
   const scale = toScale(sc)
   const scaleValid = isScaleValid(scale)
-  const hasStep2 = needsLabels(task) || task === 'regression'
-  const valid = !!name.trim() && (!needsLabels(task) || labelsValid(labels)) && (task !== 'regression' || scaleValid)
+  const isAudio = modality === 'audio'
+  /** For audio, classification, description and regression can apply to the whole clip or to stretches of it. */
+  const canChoose = isAudio && (task === 'audio_classification' || task === 'audio_caption' || task === 'regression')
+  const regionsMode = isAudio && (canChoose ? regions : task === 'audio_segments' || task === 'audio_transcription')
+  // Speakers are optional when transcribing: none, or at least two.
+  const optionalLabels = task === 'audio_transcription'
+  const hasStep2 = needsLabels(task) || task === 'regression' || isAudio
+  const labelsOk = needsLabels(task) ? labelsValid(labels) : optionalLabels ? labels.length === 0 || labelsValid(labels) : true
+  const valid = !!name.trim() && labelsOk && (task !== 'regression' || scaleValid) && (!regionsMode || tracks.length > 0)
 
-  const reset = () => { setStep(0); setName(''); setLabels([]); setMulti(false); setTask(TASKS[0]); setSc(emptyScale) }
+  const reset = () => { setStep(0); setName(''); setLabels([]); setMulti(false); setTask(TASKS[0]); setSc(emptyScale); setRegions(false); setTracks(DEFAULT_TRACKS) }
   const submit = () => {
     addProject({
       datasetKey, name: name.trim(), task, createdBy: CURRENT_USER, total: 0,
-      labels: needsLabels(task) ? labels.map((l) => ({ ...l, name: l.name.trim(), description: l.description.trim() })) : [],
+      labels: needsLabels(task) || optionalLabels ? labels.map((l) => ({ ...l, name: l.name.trim(), description: l.description.trim() })) : [],
       scale: task === 'regression' ? scale : undefined,
       multiLabel: supportsMultiLabel(task) && multi ? true : undefined,
+      granularity: canChoose ? (regions ? 'regions' : 'clip') : undefined,
+      tracks: regionsMode ? tracks : undefined,
     })
     reset(); onOpenChange(false)
   }
@@ -65,14 +77,19 @@ export function NewProjectDialog({ datasetKey, modality, open, onOpenChange }: {
               </div>
             </div>
           </div>
-        ) : needsLabels(task) ? (
-          <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
-            {task === 'image_keypoints' && <p className="text-sm text-muted-foreground">{t('datasets.annotation.image.keypointsHint')}</p>}
-            {supportsMultiLabel(task) && <MultiLabelToggle value={multi} onChange={setMulti} />}
-            <LabelsEditor labels={labels} onChange={setLabels} showKind={task === 'ner'} />
-          </div>
         ) : (
-          <ScaleForm value={sc} onChange={setSc} />
+          <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
+            {isAudio && <AudioRegionOptions canChoose={canChoose} regions={regionsMode} onRegions={setRegions} tracks={tracks} onTracks={setTracks} />}
+            {(needsLabels(task) || optionalLabels) && (
+              <div className="space-y-3">
+                {optionalLabels && <p className="text-sm text-muted-foreground">{t('datasets.annotation.audio.speakersHint')}</p>}
+                {task === 'image_keypoints' && <p className="text-sm text-muted-foreground">{t('datasets.annotation.image.keypointsHint')}</p>}
+                {supportsMultiLabel(task) && <MultiLabelToggle value={multi} onChange={setMulti} />}
+                <LabelsEditor labels={labels} onChange={setLabels} showKind={task === 'ner'} />
+              </div>
+            )}
+            {task === 'regression' && <ScaleForm value={sc} onChange={setSc} />}
+          </div>
         )}
 
         <DialogFooter className="items-center sm:justify-between">
