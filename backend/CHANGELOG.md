@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/mitchou10/MyHug/compare/backend-v0.4.1...backend-v0.5.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** add the tables of the datasets ([035d29a](https://github.com/mitchou10/MyHug/commit/035d29a29782340e97833cbae2ed31b4155eee20))
+* **backend:** create, list, read, change and delete datasets, with their files ([1b0fa4d](https://github.com/mitchou10/MyHug/commit/1b0fa4daf04fe818117e18d91c0c9af78f046651))
+* **backend:** do not send again a file the dataset already holds ([6b6aa02](https://github.com/mitchou10/MyHug/commit/6b6aa022d33eec3a1d5e96f5aceeb6582e5a736b))
+* **backend:** leave the reading of the dataset files to a worker ([b308ccc](https://github.com/mitchou10/MyHug/commit/b308ccc1d98cbd6cecab27d2e834fe31b4c13baa))
+* **backend:** read the dataset files in a Celery worker, with Redis ([e01de8e](https://github.com/mitchou10/MyHug/commit/e01de8e569b3a5ba934470f8d94d34bd89238aeb))
+* **backend:** upload the files of a dataset in parts, straight to the storage ([765e65b](https://github.com/mitchou10/MyHug/commit/765e65bf8af302e7a1c31003b32b797844af4348))
+* **worker:** move the reading of the dataset files to a service of its own ([1fdbbd7](https://github.com/mitchou10/MyHug/commit/1fdbbd747f80e563897e059e1c4c304f8eda9a44))
+
+
+### Bug Fixes
+
+* **backend:** sign the storage addresses with signature version 4 ([93a27d3](https://github.com/mitchou10/MyHug/commit/93a27d364d1e6c60e1e71663bad3adc9fcedda75))
+
 ## [0.4.1](https://github.com/mitchou10/MyHug/compare/backend-v0.4.0...backend-v0.4.1) (2026-11-24)
 
 
