@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -18,8 +20,8 @@ def fresh_store(monkeypatch: pytest.MonkeyPatch) -> MemorySessionStore:
     return store
 
 
-def make_session(**kwargs) -> Session:
-    defaults = {
+def make_session(**kwargs: Any) -> Session:
+    defaults: dict[str, Any] = {
         "user": {"sub": "1", "name": "Ada", "email": "ada@example.com", "preferred_username": "ada"},
         "access_token": "at",
         "expires_at": now() + 3600,
@@ -27,7 +29,7 @@ def make_session(**kwargs) -> Session:
         "id_token": "idt",
         "created_at": now(),
     }
-    return Session(**{**defaults, **kwargs})
+    return Session.model_validate({**defaults, **kwargs})
 
 
 class FakeClient:

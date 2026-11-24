@@ -49,4 +49,4 @@ class NotificationRepository(Repository):
             .values(read_at=datetime.now(UTC))
         )
         await self._db.commit()
-        return result.rowcount  # ty: ignore[unresolved-attribute]
+        return result.rowcount  # ty: ignore[missing-attribute]
