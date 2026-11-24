@@ -1,9 +1,10 @@
+from collections.abc import AsyncIterator
 from urllib.parse import quote
 
 import aioboto3
 from botocore.exceptions import ClientError
 
-from app.storage.base import ObjectInfo, PartInfo, StoredObject
+from app.storage.base import ObjectInfo, ObjectNotFound, PartInfo, StoredObject
 
 
 class S3Store:
@@ -62,6 +63,18 @@ class S3Store:
                 raise
             async with response["Body"] as body:
                 return StoredObject(data=await body.read(), content_type=response["ContentType"])
+
+    async def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
+        async with self._client() as s3:
+            try:
+                response = await s3.get_object(Bucket=self._bucket, Key=key)
+            except ClientError as error:
+                if error.response["Error"]["Code"] in ("NoSuchKey", "404", "NoSuchBucket"):
+                    raise ObjectNotFound(key) from None
+                raise
+            async with response["Body"] as body:
+                async for chunk in body.iter_chunks(chunk_size):
+                    yield chunk
 
     async def delete(self, key: str) -> None:
         async with self._client() as s3:

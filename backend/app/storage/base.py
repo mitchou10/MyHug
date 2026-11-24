@@ -1,6 +1,11 @@
+from collections.abc import AsyncIterator
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
+
+
+class ObjectNotFound(Exception):  # noqa: N818 - says what it is, like KeyError
+    """The object that was asked for is not in the storage."""
 
 
 class StoredObject(BaseModel):
@@ -39,6 +44,11 @@ class ObjectStore(Protocol):
         ...
 
     async def delete(self, key: str) -> None: ...
+
+    def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
+        """The content of an object as it comes, in chunks: a large file is never held whole in memory.
+        Raises ObjectNotFound when the object does not exist."""
+        ...
 
     async def head(self, key: str) -> ObjectInfo | None:
         """The size and the type of an object, or None when it does not exist."""

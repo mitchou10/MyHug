@@ -24,6 +24,19 @@ class DatasetUploadRepository(Repository):
         )
         return list(result.scalars())
 
+    async def announced_fingerprints(self, file_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """The fingerprints the browser announced for files it sent in parts, to compare with what is really there."""
+        if not file_ids:
+            return {}
+        result = await self._db.execute(
+            select(DatasetUploadFile.id, DatasetUploadFile.sha256).where(
+                DatasetUploadFile.id.in_(file_ids),
+                DatasetUploadFile.sha256.is_not(None),
+                DatasetUploadFile.multipart_id.is_not(None),
+            )
+        )
+        return {file_id: sha for file_id, sha in result.all() if sha}
+
     async def open_files(self, dataset_id: uuid.UUID) -> list[DatasetUploadFile]:
         """The files of the uploads of a dataset that are still going on: their parts are in the storage."""
         result = await self._db.execute(

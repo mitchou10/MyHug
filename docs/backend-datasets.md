@@ -295,8 +295,8 @@ et répond par une **redirection** vers une adresse signée de courte durée (`S
 
 **L'API n'ouvre jamais le contenu des fichiers pour répondre à un envoi.** Elle enregistre les fichiers (chemin, taille,
 empreinte, type) et crée la version à l'état `pending`. Compter les lignes, trouver les colonnes et les parties (train,
-test…) est le travail d'un **worker**, qui n'existe pas encore: seul le code qu'il appellera est écrit et testé
-(`DatasetProcessor.process(version_id)`, dans `app/services/dataset_processing.py`).
+test…) est le travail d'un **worker** (Celery, avec Redis entre l'API et lui): `DatasetProcessor.process(version_id)`,
+dans `app/services/dataset_processing.py`, appelé par la tâche `datasets.process_version` (`app/worker/tasks.py`).
 
 **Les états d'une version**: `pending` (en attente) → `processing` (lue par un worker) → `ready`, ou `failed` avec la raison
 dans `error` (un fichier illisible, un fichier absent du stockage). Une version `failed` peut être relue.
@@ -313,19 +313,32 @@ pas de fichier), pour que le frontend écrive « calcul en cours » plutôt que 
 
 **Contrat du worker** (ce que `process` garantit):
 - **Idempotent**: une version `ready` est laissée telle quelle; rejouer après un plantage est sans risque.
-- **Il ne relit pas ce qui a déjà été lu**: un fichier gardé d'une version à la suivante garde ses lignes et ses colonnes
-  (même contenu, même résultat); seuls les nouveaux fichiers sont ouverts.
-- **Il ne plante pas sur un fichier illisible**: la version passe `failed` avec le message.
+- **Un seul worker à la fois par version**: la version est prise par un `UPDATE … WHERE status IN (pending, failed) OR
+  (processing depuis trop longtemps) … RETURNING` atomique (`claim`), qui compte aussi les tentatives.
+- **La base reste la source de vérité**: Redis ne porte que « il y a quelque chose à lire ». Si Redis perd un message,
+  rien n'est perdu.
+- **Il lit en flux**: le fichier est copié par morceaux dans un fichier temporaire (jamais entier en mémoire), son
+  sha256 est calculé au passage, puis les lignes sont comptées.
+- **Il ne croit pas le navigateur**: pour un fichier envoyé en parties, l'empreinte annoncée est comparée à celle qu'il
+  calcule; si elle diffère, la version passe `failed`. Un fichier déjà présent dans le dataset (même empreinte, même
+  taille) n'est gardé qu'une fois: les fichiers pointent vers l'objet existant et le doublon est supprimé.
+- **Il ne relit pas ce qui a déjà été lu**: un fichier gardé d'une version à la suivante garde ses lignes et ses colonnes.
+- **Il ne plante pas sur un fichier illisible** (absent, mauvaise taille, format, empreinte): la version passe `failed`
+  avec le message. Une panne du stockage ou de la base (pas la faute du fichier) rend la version à la file et Celery
+  réessaie avec un délai croissant.
+- **Trop d'interruptions**: au-delà de `PROCESSING_MAX_ATTEMPTS` prises, la version passe `failed`.
 - **Il met à jour la liste**: `datasets.rows` n'est recopié que si la version lue est la dernière du dataset.
 
-**Comment déclencher le worker** (à choisir quand on le fera):
-1. **La base fait office de file d'attente** (recommandé pour commencer). Les versions `pending` sont déjà indexées
-   (`ix_dataset_versions_pending`, partiel). Le worker prend les plus anciennes avec
-   `SELECT … WHERE status = 'pending' ORDER BY created_at FOR UPDATE SKIP LOCKED`, sans courtier de messages à ajouter.
-2. **Un courtier de messages** (Celery, Redis…): l'API publie `version_id` après la validation de l'envoi. Plus réactif,
-   mais deux systèmes à faire tenir (et un message perdu laisse une version `pending`: il faudra un balayage).
-
-Dans les deux cas, une version `pending` ou `processing` depuis trop longtemps est reprise (un worker a pu mourir).
+**Comment c'est branché**
+- Après la validation d'un envoi (`create` d'une version, `complete` d'un upload en parties), l'API met un job dans Redis
+  (`CeleryJobs`). Si Redis est arrêté la requête réussit quand même: la version attend.
+- **Balayage** (`datasets.process_waiting`, toutes les minutes, lancé par `celery beat`): remet en file les versions
+  `pending` depuis plus de 2 minutes et celles `processing` depuis plus de `PROCESSING_STALE_MINUTES` (un worker mort).
+- **Nettoyage** (`datasets.expire_uploads`, toutes les 15 minutes): abandonne les uploads trop longs et libère leurs parties.
+- Un seul `beat` doit tourner. Plusieurs workers peuvent tourner: le `claim` évite les doublons.
+- En local: `docker compose up` lance `redis`, `worker` et `beat`. À la main:
+  `celery -A app.worker.celery_app worker -Q datasets` et `celery -A app.worker.celery_app beat`.
+- Les tests ne passent jamais par Redis (`NoJobs`): ils appellent le processeur ou les tâches directement.
 
 **Pas encore décidé**: l'aperçu (`GET …/rows`) relit aujourd'hui les fichiers à chaque requête, ce qui convient aux petits
 fichiers. À terme, le worker peut aussi préparer l'aperçu (les premières lignes de chaque partie, stockées avec la

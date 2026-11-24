@@ -22,7 +22,9 @@ from app.auth.deps import get_current_user  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.storage import ObjectInfo, PartInfo, StoredObject, get_store  # noqa: E402
+from app.routers.deps import get_jobs  # noqa: E402
+from app.storage import ObjectInfo, ObjectNotFound, PartInfo, StoredObject, get_store  # noqa: E402
+from app.worker.jobs import NoJobs  # noqa: E402
 
 SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
@@ -73,6 +75,10 @@ async def db(migrated_database: None) -> AsyncIterator[AsyncSession]:
 class MemoryStore:
     """In place of RustFS."""
 
+    @staticmethod
+    def stored(data: bytes, content_type: str = "text/csv") -> StoredObject:
+        return StoredObject(data=data, content_type=content_type)
+
     def __init__(self) -> None:
         self.objects: dict[str, StoredObject] = {}
         # Files being uploaded in parts: upload id -> where it goes, and the parts that arrived.
@@ -86,6 +92,13 @@ class MemoryStore:
 
     async def delete(self, key: str) -> None:
         self.objects.pop(key, None)
+
+    async def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
+        stored = self.objects.get(key)
+        if stored is None:
+            raise ObjectNotFound(key)
+        for start in range(0, len(stored.data), chunk_size):
+            yield stored.data[start : start + chunk_size]
 
     async def head(self, key: str) -> ObjectInfo | None:
         stored = self.objects.get(key)
@@ -128,6 +141,14 @@ def store() -> Iterator[MemoryStore]:
     app.dependency_overrides[get_store] = lambda: memory
     yield memory
     app.dependency_overrides.pop(get_store, None)
+
+
+@pytest.fixture(autouse=True)
+def no_queue() -> Iterator[None]:
+    """Nothing is queued in Redis by the tests: the versions are read by calling the processor."""
+    app.dependency_overrides[get_jobs] = NoJobs
+    yield
+    app.dependency_overrides.pop(get_jobs, None)
 
 
 @pytest.fixture

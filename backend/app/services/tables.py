@@ -1,4 +1,7 @@
-"""Reading the files that hold rows: csv, tsv, jsonl and parquet. Everything here works on bytes in memory."""
+"""Reading the files that hold rows: csv, tsv, jsonl and parquet.
+
+A file is given as its bytes (a small one) or as an open binary file (a large one, kept on disk by the worker): it is
+read as it goes, never loaded whole."""
 
 import csv
 import io
@@ -10,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
 from itertools import islice
-from typing import Any
+from typing import Any, BinaryIO
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -19,6 +22,9 @@ from app.services.errors import UnreadableDataFile
 
 CSV, TSV, JSONL, PARQUET = ".csv", ".tsv", ".jsonl", ".parquet"
 DATA_SUFFIXES = {CSV, TSV, JSONL, ".ndjson", PARQUET}
+# A file is given as its bytes, or as an open binary file.
+Source = bytes | BinaryIO
+csv.field_size_limit(16 * 1024 * 1024)  # a cell of a few megabytes is a text, not an error
 # A column is typed from its first rows: a file can be huge.
 SAMPLE_ROWS = 200
 
@@ -118,6 +124,12 @@ def _dtype_of_arrow(kind: pa.DataType) -> str:
     return "string"
 
 
+def _binary(source: Source) -> BinaryIO:
+    handle = io.BytesIO(source) if isinstance(source, bytes) else source
+    handle.seek(0)
+    return handle
+
+
 def _convert(cell: str) -> Any:
     """A cell of a csv as the number or the boolean it looks like. An empty one is nothing."""
     if cell == "":
@@ -130,44 +142,58 @@ def _convert(cell: str) -> Any:
     return {"true": True, "false": False}.get(cell.lower(), cell)
 
 
-def _csv_rows(data: bytes, delimiter: str, path: str) -> Iterator[list[Any]]:
+def _text(source: Source) -> io.TextIOWrapper:
+    return io.TextIOWrapper(_binary(source), encoding="utf-8-sig", newline="")
+
+
+def _csv_rows(source: Source, delimiter: str, path: str) -> Iterator[list[str]]:
+    text = _text(source)
     try:
-        text = data.decode("utf-8-sig")
+        yield from csv.reader(text, delimiter=delimiter)
     except UnicodeDecodeError:
         raise UnreadableDataFile(f"{path} is not text in UTF-8") from None
-    yield from csv.reader(io.StringIO(text, newline=""), delimiter=delimiter)
+    except csv.Error as error:
+        raise UnreadableDataFile(f"{path} is not a valid csv: {error}") from None
+    finally:
+        text.detach()  # the caller keeps the file
 
 
-def _jsonl_objects(data: bytes, path: str) -> Iterator[dict[str, Any]]:
-    for number, line in enumerate(data.decode("utf-8-sig", errors="replace").splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            item = json.loads(line)
-        except ValueError:
-            raise UnreadableDataFile(f"{path}: line {number} is not JSON") from None
-        if not isinstance(item, dict):
-            raise UnreadableDataFile(f"{path}: line {number} is not a JSON object")
-        yield item
-
-
-def _parquet(data: bytes, path: str) -> pq.ParquetFile:
+def _jsonl_objects(source: Source, path: str) -> Iterator[dict[str, Any]]:
+    text = _text(source)
     try:
-        return pq.ParquetFile(io.BytesIO(data))
+        for number, line in enumerate(text, start=1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except ValueError:
+                raise UnreadableDataFile(f"{path}: line {number} is not JSON") from None
+            if not isinstance(item, dict):
+                raise UnreadableDataFile(f"{path}: line {number} is not a JSON object")
+            yield item
+    except UnicodeDecodeError:
+        raise UnreadableDataFile(f"{path} is not text in UTF-8") from None
+    finally:
+        text.detach()
+
+
+def _parquet(source: Source, path: str) -> pq.ParquetFile:
+    try:
+        return pq.ParquetFile(_binary(source))
     except (pa.ArrowException, OSError, ValueError):
         raise UnreadableDataFile(f"{path} is not a Parquet file") from None
 
 
-def inspect(path: str, data: bytes) -> TableInfo:
+def inspect(path: str, source: Source) -> TableInfo:
     """How many rows a file has and what its columns are. Raises UnreadableDataFile."""
     kind = suffix_of(path)
     if kind == PARQUET:
-        file = _parquet(data, path)
+        file = _parquet(source, path)
         return TableInfo(
             file.metadata.num_rows, [Column(field.name, _dtype_of_arrow(field.type)) for field in file.schema_arrow]
         )
     if kind in (CSV, TSV):
-        rows = _csv_rows(data, "\t" if kind == TSV else ",", path)
+        rows = _csv_rows(source, "\t" if kind == TSV else ",", path)
         header = next(rows, None)
         if not header or not any(name.strip() for name in header):
             raise UnreadableDataFile(f"{path} has no header")
@@ -182,33 +208,33 @@ def inspect(path: str, data: bytes) -> TableInfo:
             ],
         )
     names: list[str] = []
-    sample = []
+    sample_objects: list[dict[str, Any]] = []
     count = 0
-    for item in _jsonl_objects(data, path):
+    for item in _jsonl_objects(source, path):
         count += 1
         if count <= SAMPLE_ROWS:
-            sample.append(item)
+            sample_objects.append(item)
             names.extend(key for key in item if key not in names)
     return TableInfo(
-        count, [Column(name, _dtype_of_values([row[name] for row in sample if name in row])) for name in names]
+        count, [Column(name, _dtype_of_values([row[name] for row in sample_objects if name in row])) for name in names]
     )
 
 
-def iter_rows(path: str, data: bytes) -> Iterator[list[Any]]:
+def iter_rows(path: str, source: Source) -> Iterator[list[Any]]:
     """The rows of a file, as lists of plain values in the order of its columns."""
     kind = suffix_of(path)
     if kind == PARQUET:
-        for batch in _parquet(data, path).iter_batches():
+        for batch in _parquet(source, path).iter_batches():
             columns = [batch.column(i).to_pylist() for i in range(batch.num_columns)]
             for values in zip(*columns, strict=True):
                 yield [plain(value) for value in values]
     elif kind in (CSV, TSV):
-        rows = _csv_rows(data, "\t" if kind == TSV else ",", path)
+        rows = _csv_rows(source, "\t" if kind == TSV else ",", path)
         header = next(rows, [])
         for row in rows:
             cells = [_convert(cell) for cell in row[: len(header)]]
             yield cells + [None] * (len(header) - len(cells))
     else:
-        names = [column.name for column in inspect(path, data).columns]
-        for item in _jsonl_objects(data, path):
+        names = [column.name for column in inspect(path, source).columns]
+        for item in _jsonl_objects(source, path):
             yield [plain(item.get(name)) for name in names]

@@ -1,9 +1,13 @@
+import hashlib
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DatasetVersion
+from app.models import DatasetFile, DatasetUpload, DatasetUploadFile, DatasetVersion
+from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services import tables
@@ -31,7 +35,7 @@ async def dataset_rows(db: AsyncSession) -> int | None:
 
 
 def processor(db: AsyncSession, store: MemoryStore) -> DatasetProcessor:
-    return DatasetProcessor(DatasetRepository(db), DatasetVersionRepository(db), store)
+    return DatasetProcessor(DatasetRepository(db), DatasetVersionRepository(db), DatasetUploadRepository(db), store)
 
 
 async def test_a_version_that_was_just_sent_has_not_been_read(db: AsyncSession) -> None:
@@ -106,3 +110,122 @@ async def test_reading_an_old_version_does_not_change_what_the_list_shows(db: As
     assert await dataset_rows(db) is None  # the dataset is at version 2
     await processor(db, store).process(latest.id)
     assert await dataset_rows(db) == 4
+
+
+# ---- what the worker adds: the fingerprint of a file sent in parts, the twins, the attempts
+
+
+async def sent_in_parts(db: AsyncSession, store: MemoryStore, version: DatasetVersion, path: str, data: bytes) -> str:
+    """Makes a file of the version look like one that came in parts: an object of its own, and no fingerprint."""
+    key = f"datasets/{version.dataset_id}/upload-{path}"
+    store.objects[key] = MemoryStore.stored(data)
+    await db.execute(
+        update(DatasetFile)
+        .where(DatasetFile.version_id == version.id, DatasetFile.path == path)
+        .values(storage_key=key, sha256=None, size_bytes=len(data))
+    )
+    await db.commit()
+    return key
+
+
+async def test_a_file_sent_in_parts_gets_the_fingerprint_the_worker_computes(db: AsyncSession) -> None:
+    store = MemoryStore()
+    version = await setup(db, store, ("train.csv", CSV))
+    key = await sent_in_parts(db, store, version, "train.csv", CSV)
+    await processor(db, store).process(version.id)
+    (file,) = await DatasetVersionRepository(db).files(version.id)
+    assert file.sha256 == hashlib.sha256(CSV).hexdigest() and file.storage_key == key and file.rows == 3
+
+
+async def test_a_file_sent_in_parts_that_the_dataset_holds_already_is_stored_once(db: AsyncSession) -> None:
+    store = MemoryStore()
+    first = await setup(db, store, ("a.csv", CSV))
+    (original,) = await DatasetVersionRepository(db).files(first.id)
+    second = await setup(db, store, ("b.csv", CSV))
+    duplicate = await sent_in_parts(db, store, second, "b.csv", CSV)
+    await processor(db, store).process(second.id)
+    files = {f.path: f for f in await DatasetVersionRepository(db).files(second.id)}
+    assert files["b.csv"].storage_key == original.storage_key  # it points to the one that was there
+    assert duplicate not in store.objects  # and the copy is gone
+
+
+async def test_a_fingerprint_that_is_not_the_one_announced_fails_the_version(db: AsyncSession) -> None:
+    store = MemoryStore()
+    version = await setup(db, store, ("train.csv", CSV))
+    await sent_in_parts(db, store, version, "train.csv", CSV)
+    (file,) = await DatasetVersionRepository(db).files(version.id)
+    upload = DatasetUpload(
+        id=uuid.uuid4(),
+        dataset_id=version.dataset_id,
+        created_by="ada",
+        created_by_username="ada",
+        expires_at=datetime.now(UTC),
+        remove=[],
+    )
+    db.add(upload)
+    await db.flush()
+    db.add(
+        DatasetUploadFile(
+            id=file.id,
+            upload_id=upload.id,
+            path="train.csv",
+            size_bytes=len(CSV),
+            sha256="0" * 64,
+            content_type="text/csv",
+            storage_key=file.storage_key,
+            multipart_id="m",
+            part_size=5 * 1024 * 1024,
+            parts_count=1,
+        )
+    )
+    await db.commit()
+    done = await processor(db, store).process(version.id)
+    assert done is not None and done.status == "failed" and "announced" in (done.error or "")
+
+
+async def test_a_version_is_taken_by_one_worker_at_a_time(db: AsyncSession) -> None:
+    store = MemoryStore()
+    version = await setup(db, store, ("train.csv", CSV))
+    versions_ = DatasetVersionRepository(db)
+    stale = datetime.now(UTC) - timedelta(minutes=30)
+    assert await versions_.claim(version.id, stale) is not None
+    assert await versions_.claim(version.id, stale) is None  # being read
+    await versions_.release(version.id)
+    taken = await versions_.claim(version.id, stale)
+    assert taken is not None and taken.attempts == 2
+
+
+async def test_a_version_whose_worker_died_is_taken_again_after_a_while(db: AsyncSession) -> None:
+    store = MemoryStore()
+    version = await setup(db, store, ("train.csv", CSV))
+    await DatasetVersionRepository(db).claim(version.id, datetime.now(UTC))
+    await db.execute(update(DatasetVersion).values(processing_started_at=datetime.now(UTC) - timedelta(hours=1)))
+    await db.commit()
+    done = await processor(db, store).process(version.id)
+    assert done is not None and done.status == "ready"
+
+
+async def test_a_version_that_keeps_being_interrupted_ends_failed(db: AsyncSession) -> None:
+    store = MemoryStore()
+    version = await setup(db, store, ("train.csv", CSV))
+    await db.execute(update(DatasetVersion).values(attempts=3))
+    await db.commit()
+    done = await processor(db, store).process(version.id)
+    assert done is not None and done.status == "failed" and "interrupted" in (done.error or "")
+
+
+async def test_the_sweep_finds_the_versions_nobody_is_reading(db: AsyncSession) -> None:
+    store = MemoryStore()
+    old = await setup(db, store, ("a.csv", CSV))
+    await setup(db, store, ("b.csv", b"n\n5\n"))  # too recent: its job is probably about to start
+    await db.execute(
+        update(DatasetVersion)
+        .where(DatasetVersion.id == old.id)
+        .values(created_at=datetime.now(UTC) - timedelta(hours=1))
+    )
+    await db.commit()
+    now = datetime.now(UTC)
+    found = await DatasetVersionRepository(db).waiting(
+        older_than=now - timedelta(minutes=2), stale_before=now - timedelta(minutes=30), limit=10
+    )
+    assert found == [old.id]
