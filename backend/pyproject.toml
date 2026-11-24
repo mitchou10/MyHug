@@ -7,13 +7,13 @@ dependencies = [
     "aioboto3>=15.5.0",
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
-    "authlib>=1.9.4",
-    "fastapi>=0.162.0",
-    "httpx2>=2.16.0",
+    "authlib>=1.9.10",
+    "fastapi>=0.165.0",
+    "httpx2>=2.16.2",
     "itsdangerous>=2.2.0",
-    "pydantic-settings>=2.16.2",
-    "python-multipart>=0.0.33",
-    "sqlalchemy[asyncio]>=2.1.8",
+    "pydantic-settings>=2.16.3",
+    "python-multipart>=0.0.34",
+    "sqlalchemy[asyncio]>=2.1.9",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -21,12 +21,12 @@ dependencies = [
 dev = [
     "eralchemy>=1.7.0",
     "graphviz>=0.21",
-    "moto[s3,server]>=5.2.5",
+    "moto[s3,server]>=5.2.6",
     "pytest>=9.2.0",
-    "pytest-asyncio>=1.4.1.post1",
+    "pytest-asyncio>=1.5.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.17.3",
-    "ty>=0.0.97",
+    "ruff>=0.17.6",
+    "ty>=0.0.109",
 ]
 
 [build-system]
