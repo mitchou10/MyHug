@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/mitchou10/MyHug/compare/backend-v0.12.0...backend-v0.13.0) (2026-11-24)
+
+
+### Features
+
+* **worker:** pin the code of a model version to a commit ([2ed65a3](https://github.com/mitchou10/MyHug/commit/2ed65a3733e3c0ffa6ec919cb5f2d02f3ef4a354))
+
 ## [0.12.0](https://github.com/mitchou10/MyHug/compare/backend-v0.11.0...backend-v0.12.0) (2026-11-24)
 
 

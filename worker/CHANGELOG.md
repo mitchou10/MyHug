@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/mitchou10/MyHug/compare/worker-v0.3.0...worker-v0.4.0) (2026-11-24)
+
+
+### Features
+
+* **worker:** pin the code of a model version to a commit ([2ed65a3](https://github.com/mitchou10/MyHug/commit/2ed65a3733e3c0ffa6ec919cb5f2d02f3ef4a354))
+
 ## [0.3.0](https://github.com/mitchou10/MyHug/compare/worker-v0.2.0...worker-v0.3.0) (2026-11-24)
 
 

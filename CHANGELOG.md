@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/mitchou10/MyHug/compare/v0.16.0...v0.17.0) (2026-11-24)
+
+
+### Features
+
+* **worker:** pin the code of a model version to a commit ([2ed65a3](https://github.com/mitchou10/MyHug/commit/2ed65a3733e3c0ffa6ec919cb5f2d02f3ef4a354))
+
 ## [0.16.0](https://github.com/mitchou10/MyHug/compare/v0.15.0...v0.16.0) (2026-11-24)
 
 
