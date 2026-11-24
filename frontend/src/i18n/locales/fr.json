@@ -57,7 +57,8 @@
   "appNav": {
     "home": "Accueil",
     "toggle": "Afficher ou masquer la barre latérale",
-    "adminFeedback": "Gérer les retours"
+    "adminFeedback": "Gérer les retours",
+    "datasets": "Datasets"
   },
   "userMenu": {
     "open": "Ouvrir le menu utilisateur",
@@ -235,5 +236,129 @@
     "count": "{{shown}} sur {{total}}",
     "more": "Afficher {{count}} de plus",
     "loading": "Chargement..."
+  },
+  "datasets": {
+    "title": "Jeux de données",
+    "count_one": "{{count}} jeu de données",
+    "count_other": "{{count}} jeux de données",
+    "new": "Nouveau dataset",
+    "search": "Rechercher un dataset…",
+    "none": "Aucun dataset ne correspond.",
+    "rows": "lignes",
+    "back": "Tous les datasets",
+    "download": "Télécharger",
+    "sort": {
+      "downloads": "Plus téléchargés",
+      "likes": "Plus aimés",
+      "updatedAt": "Récents"
+    },
+    "tabs": {
+      "card": "Fiche",
+      "preview": "Aperçu",
+      "files": "Fichiers",
+      "annotation": "Annotation"
+    },
+    "meta": {
+      "modality": "Modalité",
+      "language": "Langue",
+      "license": "Licence",
+      "rows": "Lignes",
+      "size": "Taille",
+      "updated": "Mis à jour"
+    },
+    "modalities": {
+      "text": "Texte",
+      "image": "Image",
+      "audio": "Audio",
+      "video": "Vidéo",
+      "tabular": "Tabulaire",
+      "timeseries": "Série temporelle"
+    },
+    "viewer": {
+      "search": "Rechercher dans ce split…",
+      "rowsShown": "Lignes {{from}}–{{to}} sur {{total}} (échantillon)"
+    },
+    "annotation": {
+      "intro": "Toute personne ayant accès à ce dataset peut l'annoter.",
+      "new": "Nouvelle tâche",
+      "newHint": "Créez une tâche d'annotation. Tous ceux qui ont accès au dataset pourront y participer.",
+      "name": "Nom",
+      "task": "Type de tâche",
+      "labels": "Labels",
+      "labelsHint": "2 labels minimum, chacun avec un nom différent.",
+      "cancel": "Annuler",
+      "create": "Créer",
+      "empty": "Aucune tâche d'annotation pour l'instant.",
+      "by": "Par {{user}} · {{count}} annotateurs",
+      "start": "Annoter",
+      "progress": "{{done}} / {{total}} annotés par vous",
+      "row": "Ligne n°{{n}}",
+      "skip": "Passer",
+      "submit": "Valider",
+      "selectWords": "Sélectionnez du texte à la souris (ou cliquez sur un mot, maj + clic pour étendre), puis choisissez un ou plusieurs labels. Les passages peuvent se chevaucher.",
+      "pickLabel": "Choisissez un type d'entité (ou son numéro).",
+      "answerPlaceholder": "Écrivez la réponse…",
+      "tasks": {
+        "classification": {
+          "title": "Classification",
+          "hint": "Donner un label à chaque texte."
+        },
+        "ner": {
+          "title": "Extraction d'entités",
+          "hint": "Surligner les personnes, lieux, etc. dans le texte."
+        },
+        "qa": {
+          "title": "Question-réponse",
+          "hint": "Écrire la réponse à chaque question."
+        }
+      },
+      "labelName": "Nom du label",
+      "labelDescription": "Description : quand utiliser ce label",
+      "deleteLabel": "Supprimer ce label",
+      "addLabel": "Ajouter un label",
+      "usedBy": "Utilisé dans {{count}} de vos annotations",
+      "editLabels": "Modifier les labels",
+      "editLabelsHint": "Renommer ou décrire un label le met à jour partout. Supprimer un label conserve les annotations existantes, qui s'afficheront comme « label supprimé ».",
+      "save": "Enregistrer",
+      "deletedLabel": "label supprimé",
+      "reason": "Pourquoi ?",
+      "optional": "facultatif",
+      "reasonPlaceholder": "Expliquez votre choix (un mot, une citation, une règle…)",
+      "kind": "Nature du label",
+      "kinds": {
+        "entity": {
+          "title": "Entité",
+          "hint": "Une unité : un nom, un prénom, une date, un lieu…"
+        },
+        "semantic": {
+          "title": "Sémantique",
+          "hint": "Un sens métier, souvent un passage plus long : une infraction, une peine…"
+        }
+      },
+      "entitiesTitle": "Entités",
+      "semanticTitle": "Sémantique",
+      "spanReason": "Pourquoi ? (facultatif)",
+      "valueType": "Type de valeur",
+      "types": {
+        "text": "Texte",
+        "date": "Date",
+        "number": "Nombre",
+        "identifier": "Identifiant",
+        "amount": "Montant"
+      },
+      "formatDate": "Format, ex. YYYY-MM-DD",
+      "formatOther": "Format, ex. DDDDDDD (D chiffre, A lettre, X les deux)",
+      "examples": "Exemples",
+      "examplesPlaceholder": "Ajouter un exemple, puis Entrée",
+      "normalizedValue": "Valeur normalisée",
+      "formatMismatch": "Ne respecte pas {{format}}",
+      "ex": "ex.",
+      "formats": "Formats acceptés",
+      "formatHelp": "Un ou plusieurs. D = chiffre, A = lettre, X = lettre ou chiffre, + = un ou plusieurs. Entrée pour ajouter.",
+      "formatHelpDate": "Un ou plusieurs. YYYY année, MM mois, DD jour, HH heure, mm minute, ss seconde. Entrée pour ajouter.",
+      "editLabel": "Modifier le label",
+      "labelDialogHint": "Décrivez le label pour que chaque annotateur comprenne quand l'utiliser.",
+      "labelDuplicate": "Un autre label porte déjà ce nom."
+    }
   }
 }

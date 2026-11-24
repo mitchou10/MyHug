@@ -57,7 +57,8 @@
   "appNav": {
     "home": "Home",
     "toggle": "Toggle the sidebar",
-    "adminFeedback": "Manage feedback"
+    "adminFeedback": "Manage feedback",
+    "datasets": "Datasets"
   },
   "userMenu": {
     "open": "Open the user menu",
@@ -235,5 +236,129 @@
     "count": "{{shown}} of {{total}}",
     "more": "Show {{count}} more",
     "loading": "Loading..."
+  },
+  "datasets": {
+    "title": "Datasets",
+    "count_one": "{{count}} dataset",
+    "count_other": "{{count}} datasets",
+    "new": "New dataset",
+    "search": "Search datasets…",
+    "none": "No dataset matches your search.",
+    "rows": "rows",
+    "back": "All datasets",
+    "download": "Download",
+    "sort": {
+      "downloads": "Most downloaded",
+      "likes": "Most liked",
+      "updatedAt": "Recently updated"
+    },
+    "tabs": {
+      "card": "Dataset card",
+      "preview": "Preview",
+      "files": "Files",
+      "annotation": "Annotation"
+    },
+    "meta": {
+      "modality": "Modality",
+      "language": "Language",
+      "license": "License",
+      "rows": "Rows",
+      "size": "Size",
+      "updated": "Updated"
+    },
+    "modalities": {
+      "text": "Text",
+      "image": "Image",
+      "audio": "Audio",
+      "video": "Video",
+      "tabular": "Tabular",
+      "timeseries": "Time series"
+    },
+    "viewer": {
+      "search": "Search in this split…",
+      "rowsShown": "Rows {{from}}–{{to}} of {{total}} (sample)"
+    },
+    "annotation": {
+      "intro": "Anyone who can access this dataset can annotate it.",
+      "new": "New task",
+      "newHint": "Create an annotation task. Everyone with access to the dataset will be able to take part.",
+      "name": "Name",
+      "task": "Type of task",
+      "labels": "Labels",
+      "labelsHint": "At least 2 labels, each with a different name.",
+      "cancel": "Cancel",
+      "create": "Create",
+      "empty": "No annotation task yet.",
+      "by": "By {{user}} · {{count}} annotators",
+      "start": "Annotate",
+      "progress": "{{done}} / {{total}} annotated by you",
+      "row": "Row #{{n}}",
+      "skip": "Skip",
+      "submit": "Submit",
+      "selectWords": "Select text with the mouse (or click a word, shift + click to extend), then pick one or more labels. Passages may overlap.",
+      "pickLabel": "Choose an entity type (or press its number).",
+      "answerPlaceholder": "Write the answer…",
+      "tasks": {
+        "classification": {
+          "title": "Classification",
+          "hint": "Give one label to each text."
+        },
+        "ner": {
+          "title": "Entity extraction",
+          "hint": "Highlight the people, places, etc. in the text."
+        },
+        "qa": {
+          "title": "Question answering",
+          "hint": "Write the answer to each question."
+        }
+      },
+      "labelName": "Label name",
+      "labelDescription": "Description: when to use this label",
+      "deleteLabel": "Delete this label",
+      "addLabel": "Add a label",
+      "usedBy": "Used by {{count}} of your annotations",
+      "editLabels": "Edit labels",
+      "editLabelsHint": "Renaming or describing a label updates it everywhere. Deleting a label keeps existing annotations but they will show as “deleted label”.",
+      "save": "Save",
+      "deletedLabel": "deleted label",
+      "reason": "Why?",
+      "optional": "optional",
+      "reasonPlaceholder": "Explain your choice (a word, a quote, a rule…)",
+      "kind": "Kind of label",
+      "kinds": {
+        "entity": {
+          "title": "Entity",
+          "hint": "A unit: a name, a first name, a date, a place…"
+        },
+        "semantic": {
+          "title": "Semantic",
+          "hint": "A business meaning, often a longer passage: an offence, a sentence…"
+        }
+      },
+      "entitiesTitle": "Entities",
+      "semanticTitle": "Semantic",
+      "spanReason": "Why? (optional)",
+      "valueType": "Value type",
+      "types": {
+        "text": "Text",
+        "date": "Date",
+        "number": "Number",
+        "identifier": "Identifier",
+        "amount": "Amount"
+      },
+      "formatDate": "Format, e.g. YYYY-MM-DD",
+      "formatOther": "Format, e.g. DDDDDDD (D digit, A letter, X both)",
+      "examples": "Examples",
+      "examplesPlaceholder": "Add an example, then Enter",
+      "normalizedValue": "Normalized value",
+      "formatMismatch": "Does not match {{format}}",
+      "ex": "e.g.",
+      "formats": "Accepted formats",
+      "formatHelp": "One or more. D = digit, A = letter, X = letter or digit, + = one or more. Press Enter to add.",
+      "formatHelpDate": "One or more. YYYY year, MM month, DD day, HH hour, mm minute, ss second. Press Enter to add.",
+      "editLabel": "Edit the label",
+      "labelDialogHint": "Describe the label so that every annotator understands when to use it.",
+      "labelDuplicate": "Another label already has this name."
+    }
   }
 }

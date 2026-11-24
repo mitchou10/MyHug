@@ -1,6 +1,8 @@
 import type { RouteObject } from 'react-router'
 import { RequireAdmin } from '@/auth/RequireAdmin'
 import { RequireAuth } from '@/auth/RequireAuth'
+import { DatasetDetailPage } from '@/features/datasets/pages/DatasetDetailPage'
+import { DatasetsPage } from '@/features/datasets/pages/DatasetsPage'
 import { AdminFeedbackPage } from '@/features/feedback/pages/AdminFeedbackPage'
 import { MyFeedbackPage } from '@/features/feedback/pages/MyFeedbackPage'
 import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage'
@@ -34,6 +36,8 @@ export const routes: RouteObject[] = [
         element: <AppLayout />,
         children: [
           { path: 'app', element: <AppHomePage /> },
+          { path: 'datasets', element: <DatasetsPage /> },
+          { path: 'datasets/:owner/:name', element: <DatasetDetailPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
           { path: 'feedback', element: <MyFeedbackPage /> },
