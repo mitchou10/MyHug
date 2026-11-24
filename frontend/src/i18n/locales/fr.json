@@ -353,6 +353,22 @@
         "image_vqa": {
           "title": "Question-réponse sur image",
           "hint": "Écrire des questions sur l'image et leurs réponses."
+        },
+        "audio_classification": {
+          "title": "Classification audio",
+          "hint": "Donner un ou plusieurs labels à chaque extrait."
+        },
+        "audio_segments": {
+          "title": "Segments étiquetés",
+          "hint": "Marquer des passages de l'extrait : événements sonores, locuteurs, musique."
+        },
+        "audio_transcription": {
+          "title": "Transcription",
+          "hint": "Écrire ce qui est dit, passage par passage, avec son horodatage."
+        },
+        "audio_caption": {
+          "title": "Audio vers texte",
+          "hint": "Décrire chaque extrait avec une ou plusieurs phrases."
         }
       },
       "labelName": "Nom du label",
@@ -519,7 +535,46 @@
         "title": "Plusieurs labels par élément",
         "hint": "Un élément peut recevoir plusieurs labels (ex. une image à la fois « pluie » et « nuit »).",
         "badge": "multi-label"
-      }
+      },
+      "audio": {
+        "play": "Lecture",
+        "pause": "Pause",
+        "speed": "Vitesse",
+        "zoom": "Zoom",
+        "tools": {
+          "select": "Sélection",
+          "region": "Région"
+        },
+        "mark": "Marquer",
+        "markStart": "Début marqué à {{t}}. Appuyez de nouveau sur M pour la fin.",
+        "addHere": "Ajouter ici (2 s)",
+        "start": "Début",
+        "end": "Fin",
+        "text": "Texte",
+        "textPlaceholder": "Ce qui est dit…",
+        "segments": "Segments",
+        "none": "Aucun segment. Appuyez sur M pendant l'écoute, glissez sur la forme d'onde, ou « Ajouter ici ».",
+        "hintSegments": "Glissez sur la forme d'onde pour créer une région, glissez ses bords pour l'ajuster. Espace lance la lecture, M marque le début puis la fin.",
+        "hintTranscribe": "Écoutez, marquez un passage (M … M), puis écrivez ce qui est dit. Espace lance la lecture, cliquez la forme d'onde pour vous déplacer.",
+        "hintPlain": "Espace lance ou met en pause, cliquez la forme d'onde pour vous déplacer.",
+        "playSegment": "Écouter ce segment",
+        "empty": "Son de substitution généré : les vrais fichiers viendront du backend.",
+        "duration": "{{s}} s",
+        "seconds": "s",
+        "regionsToggle": {
+          "title": "Annoter des passages de l'extrait",
+          "hint": "Au lieu d'une réponse par extrait, les annotateurs marquent des régions sur la forme d'onde, chacune avec sa propre réponse, sur une ou plusieurs pistes."
+        },
+        "tracks": "Pistes",
+        "tracksPlaceholder": "Ajouter une piste (ex. Locuteur 1), puis Entrée",
+        "tracksHint": "Des régions sur des pistes différentes peuvent se chevaucher. Gardez une seule piste si vous n'en avez pas besoin.",
+        "tracksBadge": "{{count}} pistes",
+        "track": "Piste",
+        "regionsBadge": "régions",
+        "speakersHint": "Les locuteurs sont facultatifs. Si vous en ajoutez, chaque région de la transcription peut en recevoir un.",
+        "timeText": "Texte"
+      },
+      "editTask": "Modifier la tâche"
     }
   }
 }
