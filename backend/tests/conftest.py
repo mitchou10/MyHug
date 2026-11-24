@@ -30,7 +30,7 @@ SEEDED = ("feedback_types", "feedback_statuses")
 RESET = (
     "TRUNCATE feedback_attachments, feedback_messages, feedbacks, feedback_types, feedback_statuses, "
     "user_profiles, notifications, dataset_likes, dataset_members, dataset_upload_files, dataset_uploads, "
-    "dataset_files, dataset_versions, datasets"
+    "dataset_file_derivatives, dataset_files, dataset_versions, datasets"
 )
 
 
@@ -100,6 +100,12 @@ class MemoryStore:
         for start in range(0, len(stored.data), chunk_size):
             yield stored.data[start : start + chunk_size]
 
+    async def get_range(self, key: str, start: int, length: int) -> bytes:
+        stored = self.objects.get(key)
+        if stored is None:
+            raise ObjectNotFound(key)
+        return stored.data[start : start + length]
+
     async def head(self, key: str) -> ObjectInfo | None:
         stored = self.objects.get(key)
         return ObjectInfo(size=len(stored.data), content_type=stored.content_type) if stored else None
@@ -109,7 +115,9 @@ class MemoryStore:
         self.uploads[upload_id] = {"key": key, "content_type": content_type, "parts": {}}
         return upload_id
 
-    async def presign_part(self, key: str, upload_id: str, number: int, expires_in: int) -> str:
+    async def presign_part(
+        self, key: str, upload_id: str, number: int, expires_in: int, *, internal: bool = False
+    ) -> str:
         return f"memory://{upload_id}/{number}"
 
     def receive(self, url: str, data: bytes) -> str:

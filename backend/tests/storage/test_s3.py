@@ -5,7 +5,7 @@ import aioboto3
 import pytest
 from moto.server import ThreadedMotoServer
 
-from app.storage import S3Store
+from app.storage import ObjectNotFound, S3Store
 
 
 @pytest.fixture(scope="module")
@@ -155,3 +155,27 @@ async def test_head_says_nothing_of_an_object_that_is_not_there(s3_url: str) -> 
     await store.put("k", b"x", "text/plain")
     assert await store.head("nope") is None
     assert await make_store(s3_url, "ghost-bucket").head("k") is None
+
+
+async def test_a_range_of_an_object_is_read_without_the_rest(s3_url: str) -> None:
+    store = make_store(s3_url, "ranges")
+    await store.put("k", b"0123456789", "text/plain")
+    assert await store.get_range("k", 2, 4) == b"2345"
+    assert await store.get_range("k", 8, 100) == b"89"  # up to the end
+    assert await store.get_range("k", 50, 10) == b""  # past the end
+    with pytest.raises(ObjectNotFound):
+        await store.get_range("missing", 0, 1)
+
+
+async def test_the_address_of_a_part_for_the_worker_is_the_one_of_the_storage_itself(s3_url: str) -> None:
+    store = S3Store(
+        bucket="internal",
+        endpoint_url=s3_url,
+        access_key_id="test",
+        secret_access_key="test",
+        region="us-east-1",
+        public_endpoint_url="https://files.example.com",
+    )
+    upload_id = await store.create_multipart("k", "text/plain")
+    assert (await store.presign_part("k", upload_id, 1, 600)).startswith("https://files.example.com/internal/k?")
+    assert (await store.presign_part("k", upload_id, 1, 600, internal=True)).startswith(f"{s3_url}/internal/k?")

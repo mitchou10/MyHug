@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.dataset import Dataset
+from app.models.dataset_derivative import DatasetFileDerivative
 from app.models.dataset_member import DatasetLike, DatasetMember
 from app.models.dataset_upload import DatasetUpload, DatasetUploadFile
 from app.models.dataset_version import DatasetFile, DatasetVersion
@@ -15,6 +16,7 @@ __all__ = [
     "Base",
     "Dataset",
     "DatasetFile",
+    "DatasetFileDerivative",
     "DatasetLike",
     "DatasetMember",
     "DatasetUpload",

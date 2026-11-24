@@ -64,6 +64,11 @@ def is_data_file(path: str) -> bool:
     return suffix_of(path) in DATA_SUFFIXES
 
 
+def is_convertible(path: str) -> bool:
+    """A file whose rows are worth a copy in Parquet: csv, tsv and jsonl. A Parquet file already is one."""
+    return is_data_file(path) and suffix_of(path) != PARQUET
+
+
 def split_of(path: str) -> str:
     """The split a file belongs to, by its name. A file that does not say is the `train` split, like everywhere else."""
     found = _SPLIT_IN_PATH.search(path)

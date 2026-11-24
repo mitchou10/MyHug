@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # How many times a version is taken in hand before it is given up as failed.
     PROCESSING_MAX_ATTEMPTS: int = 3
 
+    # A tabular file (csv, tsv, jsonl) at least this big gets a copy in Parquet, made by the worker: below it the copy
+    # would gain nothing. A source over the maximum is left as it is.
+    DERIVATIVE_MIN_BYTES: int = 8 * 1024**2
+    DERIVATIVE_MAX_SOURCE_BYTES: int = 20 * 1024**3
+    DERIVATIVE_PART_BYTES: int = 16 * 1024**2  # the size of the parts the worker sends the copy in
+
     # Notifications: the applications allowed to emit them, as `name=key` pairs separated by commas. The name becomes
     # the `source` of what they emit; a key shorter than 16 characters is ignored. Empty: nobody can emit.
     NOTIFICATION_API_KEYS: str = ""

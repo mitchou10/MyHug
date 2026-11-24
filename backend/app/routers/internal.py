@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.auth.worker import Worker
-from app.routers.deps import DatasetProcessingDep, UploadExpiryDep
+from app.routers.deps import DatasetDerivativesDep, DatasetProcessingDep, UploadExpiryDep
 from app.services import tables
 from app.services.dataset_processing import FileRead
 
@@ -105,3 +105,75 @@ class ExpiredOut(BaseModel):
 @router.post("/dataset-uploads/expire", summary="Give up the uploads that took too long and free their parts")
 async def expire_uploads(_: Worker, service: UploadExpiryDep) -> ExpiredOut:
     return ExpiredOut(expired=await service.expire_stale())
+
+
+# ---- the copies of the files in Parquet
+
+
+class ClaimedCopyOut(BaseModel):
+    claimed: bool
+    id: uuid.UUID | None = None
+    source_url: str | None = None
+    source_path: str | None = None
+    source_size_bytes: int | None = None
+    part_bytes: int | None = None
+
+
+class PartsRequest(BaseModel):
+    numbers: list[int] = Field(min_length=1, max_length=100, description="Part numbers, from 1")
+
+
+class SignedPartOut(BaseModel):
+    number: int
+    url: str
+
+
+class SignedPartsOut(BaseModel):
+    parts: list[SignedPartOut]
+
+
+class CopyResultIn(BaseModel):
+    rows: int = Field(ge=0)
+    columns: list[ColumnIn] = Field(max_length=10_000)
+
+
+@router.post("/derivatives/{derivative_id}/claim", summary="Take a copy to make in hand, and get its source")
+async def claim_copy(derivative_id: uuid.UUID, _: Worker, service: DatasetDerivativesDep) -> ClaimedCopyOut:
+    claimed = await service.claim(derivative_id)
+    if claimed is None:
+        return ClaimedCopyOut(claimed=False)
+    return ClaimedCopyOut(claimed=True, **vars(claimed))
+
+
+@router.post("/derivatives/{derivative_id}/parts", summary="Signed addresses to send the parts of the copy to")
+async def sign_copy_parts(
+    derivative_id: uuid.UUID, data: PartsRequest, _: Worker, service: DatasetDerivativesDep
+) -> SignedPartsOut:
+    urls = await service.part_urls(derivative_id, sorted(set(data.numbers)))
+    return SignedPartsOut(parts=[SignedPartOut(number=number, url=url) for number, url in urls.items()])
+
+
+@router.post("/derivatives/{derivative_id}/result", summary="The copy is written: put it together and check it")
+async def copy_result(
+    derivative_id: uuid.UUID, data: CopyResultIn, _: Worker, service: DatasetDerivativesDep
+) -> StatusOut:
+    columns = [tables.Column(c.name, c.dtype) for c in data.columns]
+    return StatusOut(status=(await service.complete(derivative_id, data.rows, columns)).status)
+
+
+@router.post("/derivatives/{derivative_id}/failure", summary="The copy cannot be made: it is failed")
+async def copy_failure(
+    derivative_id: uuid.UUID, data: FailureIn, _: Worker, service: DatasetDerivativesDep
+) -> StatusOut:
+    return StatusOut(status=(await service.fail(derivative_id, data.error)).status)
+
+
+@router.post("/derivatives/{derivative_id}/release", summary="Put a copy back to waiting (not the file's fault)")
+async def release_copy(derivative_id: uuid.UUID, _: Worker, service: DatasetDerivativesDep) -> StatusOut:
+    await service.release(derivative_id)
+    return StatusOut(status="pending")
+
+
+@router.get("/derivatives/waiting", summary="The copies nobody is making, for the worker to queue again")
+async def waiting_copies(_: Worker, service: DatasetDerivativesDep) -> WaitingOut:
+    return WaitingOut(ids=await service.waiting())

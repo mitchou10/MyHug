@@ -43,6 +43,11 @@ class ObjectStore(Protocol):
         """The object, or None when it does not exist."""
         ...
 
+    async def get_range(self, key: str, start: int, length: int) -> bytes:
+        """`length` bytes of an object from `start` (fewer at its end): a part of a large file, not all of it.
+        Raises ObjectNotFound when the object does not exist."""
+        ...
+
     async def delete(self, key: str) -> None: ...
 
     def stream(self, key: str, chunk_size: int = 8 * 1024 * 1024) -> AsyncIterator[bytes]:
@@ -60,9 +65,11 @@ class ObjectStore(Protocol):
         """Starts the upload of a file in parts and returns its identifier."""
         ...
 
-    async def presign_part(self, key: str, upload_id: str, number: int, expires_in: int) -> str:
+    async def presign_part(
+        self, key: str, upload_id: str, number: int, expires_in: int, *, internal: bool = False
+    ) -> str:
         """The address to which the browser sends one part (with PUT). It is signed, and stops working after
-        `expires_in` seconds."""
+        `expires_in` seconds. `internal`: as the worker reaches the storage, not the browser."""
         ...
 
     async def list_parts(self, key: str, upload_id: str) -> list[PartInfo]:

@@ -3,12 +3,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from app.jobs import Jobs, NoJobs
 from app.models import DatasetFile, DatasetVersion
 from app.models.dataset_version import FAILED, PROCESSING, READY
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
 from app.services import tables
+from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.errors import FingerprintMismatch, NotBeingProcessed, UnreadableDataFile, VersionNotFound
 from app.storage import ObjectStore
 
@@ -61,6 +63,8 @@ class DatasetProcessing:
         max_attempts: int = 3,
         stale: timedelta = timedelta(minutes=30),
         signed_seconds: int = 3600,
+        derivatives: DatasetDerivatives | None = None,
+        jobs: Jobs | None = None,
     ) -> None:
         self._datasets = datasets
         self._versions = versions
@@ -69,6 +73,8 @@ class DatasetProcessing:
         self._max_attempts = max_attempts
         self._stale = stale
         self._signed_seconds = signed_seconds
+        self._derivatives = derivatives
+        self._jobs: Jobs = jobs or NoJobs()
 
     async def claim(self, version_id: uuid.UUID) -> list[FileToRead] | None:
         """Takes a version in hand and says what is to be read in it. None when it is not up for the taking (ready,
@@ -151,10 +157,19 @@ class DatasetProcessing:
             dataset = await self._datasets.get(version.dataset_id)
             if dataset is not None and dataset.version == version.number:
                 dataset.rows = version.rows
+        copies = await self._copies_wanted(version) if status == READY else []
         await self._versions.commit()
+        for copy in copies:  # queued once the version is recorded, so the worker finds it
+            await self._jobs.convert_file(copy)
         for key in obsolete:  # the files point to the other object now
             await self._store.delete(key)
         return version
+
+    async def _copies_wanted(self, version: DatasetVersion) -> list[uuid.UUID]:
+        """Makes the records of the Parquet copies the files of this version need (the big tabular ones)."""
+        if self._derivatives is None:
+            return []
+        return await self._derivatives.create_for(await self._versions.files(version.id))
 
     async def _write(
         self,

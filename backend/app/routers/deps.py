@@ -19,11 +19,18 @@ from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
+from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
-from app.services.factory import build_dataset_processing, build_dataset_uploads, build_dataset_versions, build_datasets
+from app.services.factory import (
+    build_dataset_derivatives,
+    build_dataset_processing,
+    build_dataset_uploads,
+    build_dataset_versions,
+    build_datasets,
+)
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
@@ -141,8 +148,12 @@ DatasetVersionServiceDep = Annotated[DatasetVersionService, Depends(get_dataset_
 DatasetUploadServiceDep = Annotated[DatasetUploadService, Depends(get_dataset_upload_service)]
 
 
-def get_dataset_processing(db: DB, store: Store) -> DatasetProcessing:
-    return build_dataset_processing(db, store)
+def get_dataset_processing(db: DB, store: Store, jobs: JobsDep) -> DatasetProcessing:
+    return build_dataset_processing(db, store, jobs)
+
+
+def get_dataset_derivatives(db: DB, store: Store) -> DatasetDerivatives:
+    return build_dataset_derivatives(db, store)
 
 
 def get_upload_expiry(db: DB, store: Store) -> DatasetUploadService:
@@ -151,3 +162,4 @@ def get_upload_expiry(db: DB, store: Store) -> DatasetUploadService:
 
 DatasetProcessingDep = Annotated[DatasetProcessing, Depends(get_dataset_processing)]
 UploadExpiryDep = Annotated[DatasetUploadService, Depends(get_upload_expiry)]
+DatasetDerivativesDep = Annotated[DatasetDerivatives, Depends(get_dataset_derivatives)]

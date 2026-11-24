@@ -24,6 +24,9 @@ class FakePlatform:
         self.keys: list[str | None] = []
         self.storage_failure: int | None = None  # a status the storage answers instead
         self.waiting_ids: list[str] = []
+        self.waiting_copy_ids: list[str] = []
+        self.copy: dict | None = None  # what `claim` of a copy answers (None: nothing to do)
+        self.uploaded: dict[int, bytes] = {}  # the parts of the copy that reached the storage
 
     def add_file(self, path: str, data: bytes, *, rows: bool = True, fingerprint: bool = True) -> dict:
         url = f"https://storage.test/{uuid.uuid4().hex}/{path}"
@@ -37,9 +40,34 @@ class FakePlatform:
             "needs_rows": rows,
         }
 
+    def handle_copy(self, path: str) -> httpx2.Response:
+        if path.endswith("/claim"):
+            if self.copy is None:
+                return httpx2.Response(200, json={"claimed": False})
+            return httpx2.Response(200, json={"claimed": True, **self.copy})
+        if path.endswith("/parts"):
+            numbers = self.bodies[path]["numbers"]
+            return httpx2.Response(
+                200, json={"parts": [{"number": n, "url": f"https://storage.test/up/{n}"} for n in numbers]}
+            )
+        if path.endswith("/result"):
+            return httpx2.Response(200, json={"status": "ready"})
+        if path.endswith("/failure"):
+            return httpx2.Response(200, json={"status": "failed"})
+        if path.endswith("/release"):
+            return httpx2.Response(200, json={"status": "pending"})
+        if path.endswith("/waiting"):
+            return httpx2.Response(200, json={"ids": self.waiting_copy_ids})
+        return httpx2.Response(404)
+
     def handle(self, request: httpx2.Request) -> httpx2.Response:
         if request.url.host == "storage.test":
             self.keys.append(request.headers.get("X-Api-Key"))
+            if request.method == "PUT":
+                if self.storage_failure:
+                    return httpx2.Response(self.storage_failure)
+                self.uploaded[int(request.url.path.rsplit("/", 1)[1])] = request.content
+                return httpx2.Response(200)
             if self.storage_failure:
                 return httpx2.Response(self.storage_failure)
             data = self.files.get(str(request.url))
@@ -51,6 +79,8 @@ class FakePlatform:
             import json
 
             self.bodies[path] = json.loads(request.content)
+        if path.startswith("/derivatives/"):
+            return self.handle_copy(path)
         if path.endswith("/claim"):
             if self.to_read is None:
                 return httpx2.Response(200, json={"claimed": False, "files": []})
