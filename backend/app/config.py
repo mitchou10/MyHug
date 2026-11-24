@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     FEEDBACK_MAX_ATTACHMENTS: int = 5
     FEEDBACK_ATTACHMENT_MAX_BYTES: int = 5 * 1024 * 1024
     PAGE_SIZE_MAX: int = 50
+    # The files of a dataset come through the API for now, so each one is read in memory: bigger ones will go
+    # straight to the storage with a signed address.
+    DATASET_FILE_MAX_BYTES: int = 100 * 1024 * 1024
+    DATASET_VERSION_MAX_FILES: int = 100
 
     # Notifications: the applications allowed to emit them, as `name=key` pairs separated by commas. The name becomes
     # the `source` of what they emit; a key shorter than 16 characters is ignored. Empty: nobody can emit.

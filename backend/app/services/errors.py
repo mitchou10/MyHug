@@ -83,6 +83,51 @@ class EmptyMessage(ServiceError):
     message = "The message is empty"
 
 
+# ---- datasets
+class DatasetNotFound(ServiceError):
+    """Also used for a private dataset the user may not see: it must look like it does not exist."""
+
+    message = "This dataset does not exist"
+
+
+class DatasetNameTaken(ServiceError):
+    message = "You already have a dataset with this name"
+
+
+class InvalidFilePath(ServiceError):
+    message = "A file path must be relative, without `..`, and at most 512 characters"
+
+
+class FileTooLarge(ServiceError):
+    message = "This file is too large"
+
+
+class TooManyFiles(ServiceError):
+    message = "Too many files in one version"
+
+
+class NothingToCommit(ServiceError):
+    message = "Send at least one file to add or to remove"
+
+
+class UnreadableDataFile(ServiceError):
+    """A csv, tsv, jsonl or parquet file that cannot be read as such."""
+
+    message = "This file cannot be read"
+
+
+class VersionNotFound(ServiceError):
+    message = "This version does not exist"
+
+
+class DatasetFileNotFound(ServiceError):
+    message = "This file does not exist"
+
+
+class SplitNotFound(ServiceError):
+    message = "This split does not exist"
+
+
 # ---- notifications
 class NotificationNotFound(ServiceError):
     """Also used for somebody else's notification: it must look like it does not exist."""

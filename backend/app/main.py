@@ -6,6 +6,7 @@ from app.config import settings
 from app.routers import (
     admin_feedback,
     admin_feedback_references,
+    datasets,
     emit,
     feedback,
     feedback_attachments,
@@ -43,3 +44,4 @@ app.include_router(feedback_attachments.router)
 app.include_router(admin_feedback.router)
 app.include_router(notifications.router)
 app.include_router(emit.router)
+app.include_router(datasets.router)

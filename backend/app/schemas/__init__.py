@@ -1,5 +1,17 @@
 from app.schemas.attachment import AttachmentOut
 from app.schemas.auth import LogoutOut, UserOut
+from app.schemas.dataset import (
+    ColumnOut,
+    DatasetChange,
+    DatasetIn,
+    DatasetOut,
+    DatasetSummaryOut,
+    FileOut,
+    LikeOut,
+    RowsOut,
+    SplitOut,
+    VersionOut,
+)
 from app.schemas.feedback import FeedbackChange, FeedbackOut, FeedbackSummaryOut
 from app.schemas.health import HealthOut
 from app.schemas.message import MessageOut, MessagesPageOut
@@ -24,7 +36,13 @@ from app.schemas.reference import (
 
 __all__ = [
     "AttachmentOut",
+    "ColumnOut",
+    "DatasetChange",
+    "DatasetIn",
+    "DatasetOut",
+    "DatasetSummaryOut",
     "EmittedOut",
+    "FileOut",
     "FeedbackChange",
     "FeedbackOut",
     "FeedbackStatusIn",
@@ -35,6 +53,7 @@ __all__ = [
     "FeedbackTypeOut",
     "FeedbackTypeUpdate",
     "HealthOut",
+    "LikeOut",
     "LogoutOut",
     "MarkedReadOut",
     "MessageOut",
@@ -44,6 +63,9 @@ __all__ = [
     "NotificationRead",
     "Page",
     "ProfileOut",
+    "RowsOut",
+    "SplitOut",
     "UnreadCountOut",
     "UserOut",
+    "VersionOut",
 ]

@@ -1,0 +1,313 @@
+import hashlib
+import mimetypes
+import posixpath
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from itertools import islice
+from typing import Any
+
+from pydantic import BaseModel
+
+from app.models import Dataset, DatasetFile, DatasetVersion
+from app.repositories.dataset_versions import DatasetVersionRepository
+from app.repositories.datasets import DatasetRepository
+from app.services import tables
+from app.services.actor import Actor
+from app.services.dataset_access import DatasetAccess
+from app.services.errors import (
+    DatasetFileNotFound,
+    FileTooLarge,
+    InvalidFilePath,
+    NothingToCommit,
+    SplitNotFound,
+    TooManyFiles,
+    VersionNotFound,
+)
+from app.storage import ObjectStore, StoredObject
+
+README = "README.md"
+SPLIT_ORDER = ("train", "validation", "test")
+MEDIA = ("image/", "audio/", "video/")
+mimetypes.add_type("application/vnd.apache.parquet", ".parquet")
+mimetypes.add_type("application/x-ndjson", ".jsonl")
+mimetypes.add_type("application/x-ndjson", ".ndjson")
+
+
+class NamedUpload(BaseModel):
+    """A file of a request, read, and where it goes in the dataset."""
+
+    path: str
+    data: bytes
+
+
+@dataclass(frozen=True)
+class SplitInfo:
+    name: str
+    rows: int
+    files: int
+
+
+@dataclass(frozen=True)
+class RowsPage:
+    split: str
+    splits: list[str]
+    columns: list[tables.Column]
+    rows: list[list[Any]]
+    total: int
+
+
+def clean_path(path: str) -> str:
+    """A path inside a dataset: relative, with `/`, nothing like `..`. Raises InvalidFilePath."""
+    candidate = path.strip().replace("\\", "/").lstrip("/")
+    parts = candidate.split("/")
+    if not candidate or len(candidate) > 512 or any(part in ("", ".", "..") or len(part) > 255 for part in parts):
+        raise InvalidFilePath
+    if any(ord(char) < 32 for char in candidate):
+        raise InvalidFilePath
+    return posixpath.normpath(candidate)
+
+
+def splits_of(files: list[DatasetFile]) -> list[SplitInfo]:
+    """The parts of a dataset, from its files that hold rows: train first, then validation and test, then the others."""
+    found: dict[str, list[DatasetFile]] = {}
+    for file in files:
+        if file.split is not None:
+            found.setdefault(file.split, []).append(file)
+    ordered = sorted(
+        found, key=lambda name: (SPLIT_ORDER.index(name) if name in SPLIT_ORDER else len(SPLIT_ORDER), name)
+    )
+    return [SplitInfo(name, sum(f.rows or 0 for f in found[name]), len(found[name])) for name in ordered]
+
+
+class DatasetVersionService:
+    """The files of a dataset: add or remove some (a new version), list and download them, read their rows."""
+
+    def __init__(
+        self,
+        datasets: DatasetRepository,
+        versions: DatasetVersionRepository,
+        access: DatasetAccess,
+        store: ObjectStore,
+        *,
+        max_bytes: int,
+        max_files: int,
+    ) -> None:
+        self._datasets = datasets
+        self._versions = versions
+        self._access = access
+        self._store = store
+        self._max_bytes = max_bytes
+        self._max_files = max_files
+
+    # ---- writing
+
+    async def create(
+        self, actor: Actor, owner: str, name: str, *, uploads: list[NamedUpload], remove: list[str], message: str
+    ) -> DatasetVersion:
+        """A new version: the files of the previous one, with `uploads` added (or replacing the same path) and the
+        `remove` paths taken out. Raises the errors of the paths, the sizes and the files that cannot be read; nothing
+        is stored if one of them fails."""
+        dataset = await self._access.get_editable(actor, owner, name)
+        if not uploads and not remove:
+            raise NothingToCommit
+        paths = [clean_path(upload.path) for upload in uploads]
+        if len(set(paths)) != len(paths) or len(paths) > self._max_files:
+            raise TooManyFiles if len(paths) > self._max_files else InvalidFilePath
+        if any(len(upload.data) > self._max_bytes for upload in uploads):
+            raise FileTooLarge
+
+        previous = await self._versions.latest(dataset.id)
+        before = await self._versions.files(previous.id) if previous else []
+        known = {file.path for file in before}
+        removed = {clean_path(path) for path in remove}
+        if missing := sorted(removed - known):
+            raise DatasetFileNotFound(f"Cannot remove {missing[0]}: it is not in the dataset")
+        replaced = set(paths)
+        kept = [file for file in before if file.path not in removed and file.path not in replaced]
+        if len(kept) + len(paths) > self._max_files:
+            raise TooManyFiles
+
+        added = [
+            self._describe(dataset.id, path, upload.data) for path, upload in zip(paths, uploads, strict=True)
+        ]  # all checked first
+        existing_keys = await self._versions.storage_keys(dataset.id)
+        new_keys = {file.storage_key for file, _ in added} - existing_keys
+        try:
+            for file, data in added:
+                if file.storage_key in new_keys:
+                    await self._store.put(file.storage_key, data, file.content_type)
+            version = await self._write(actor, dataset, previous, message, kept, [file for file, _ in added])
+            readme = next((data for file, data in added if file.path == README), None)
+            if readme is not None:
+                dataset.card = readme.decode("utf-8", errors="replace")
+            await self._versions.commit()
+        except Exception:
+            for key in new_keys:  # nothing points to them
+                await self._store.delete(key)
+            raise
+        return version
+
+    @staticmethod
+    def _describe(dataset_id: uuid.UUID, path: str, data: bytes) -> tuple[DatasetFile, bytes]:
+        digest = hashlib.sha256(data).hexdigest()
+        file = DatasetFile(
+            id=uuid.uuid4(),
+            path=path,
+            size_bytes=len(data),
+            sha256=digest,
+            # By its fingerprint: a file that did not change, or that is there twice, is stored once.
+            storage_key=f"datasets/{dataset_id}/{digest}",
+            split=None,
+            rows=None,
+            columns=[],
+            content_type=mimetypes.guess_type(path)[0] or "application/octet-stream",
+        )
+        if tables.is_data_file(path):
+            info = tables.inspect(path, data)
+            file.split, file.rows = tables.split_of(path), info.rows
+            file.columns = [{"name": column.name, "dtype": column.dtype} for column in info.columns]
+        return file, data
+
+    async def _write(
+        self,
+        actor: Actor,
+        dataset: Dataset,
+        previous: DatasetVersion | None,
+        message: str,
+        kept: list[DatasetFile],
+        added: list[DatasetFile],
+    ) -> DatasetVersion:
+        version = DatasetVersion(
+            id=uuid.uuid4(),
+            dataset_id=dataset.id,
+            number=(previous.number if previous else 0) + 1,
+            message=message,
+            created_by=actor.user_id,
+            created_by_username=actor.username,
+        )
+        self._versions.add(version)
+        await self._versions.flush()
+        files = [*kept, *added]
+        for file in files:
+            copy = DatasetFile(
+                id=uuid.uuid4(),
+                version_id=version.id,
+                path=file.path,
+                size_bytes=file.size_bytes,
+                sha256=file.sha256,
+                content_type=file.content_type,
+                split=file.split,
+                rows=file.rows,
+                columns=file.columns,
+                storage_key=file.storage_key,
+            )
+            self._versions.add_file(copy)
+        data_files = sorted((f for f in files if f.split is not None), key=lambda f: (splits_index(f.split), f.path))
+        version.rows = (
+            sum(f.rows or 0 for f in data_files)
+            if data_files
+            else sum(1 for f in files if f.content_type.startswith(MEDIA))
+        )
+        version.size_bytes = sum(f.size_bytes for f in files)
+        version.columns = data_files[0].columns if data_files else []
+        dataset.version, dataset.rows, dataset.size_bytes = version.number, version.rows, version.size_bytes
+        dataset.updated_at = datetime.now(UTC)
+        return version
+
+    # ---- reading
+
+    async def _version_of(self, dataset: Dataset, number: int | None) -> DatasetVersion:
+        version = await (
+            self._versions.latest(dataset.id) if number is None else self._versions.get(dataset.id, number)
+        )
+        if version is None:
+            raise VersionNotFound
+        return version
+
+    async def history(self, actor: Actor, owner: str, name: str) -> list[DatasetVersion]:
+        dataset, _ = await self._access.get_readable(actor, owner, name)
+        return await self._versions.history(dataset.id)
+
+    async def files(
+        self, actor: Actor, owner: str, name: str, number: int | None
+    ) -> tuple[DatasetVersion, list[DatasetFile]]:
+        dataset, _ = await self._access.get_readable(actor, owner, name)
+        version = await self._version_of(dataset, number)
+        return version, await self._versions.files(version.id)
+
+    async def download(
+        self, actor: Actor, owner: str, name: str, path: str, number: int | None
+    ) -> tuple[DatasetFile, StoredObject]:
+        """A file and its content. Counts a download."""
+        dataset, _ = await self._access.get_readable(actor, owner, name)
+        version = await self._version_of(dataset, number)
+        file = await self._versions.file(version.id, clean_path(path))
+        stored = await self._store.get(file.storage_key) if file else None
+        if file is None or stored is None:
+            raise DatasetFileNotFound
+        await self._versions.count_downloads(dataset.id)
+        await self._versions.commit()
+        return file, stored
+
+    async def rows(
+        self,
+        actor: Actor,
+        owner: str,
+        name: str,
+        *,
+        split: str | None,
+        number: int | None,
+        offset: int,
+        limit: int,
+        query: str | None,
+    ) -> RowsPage:
+        """A page of the rows of one split (the preview of a dataset). `query` keeps the rows that contain it."""
+        dataset, _ = await self._access.get_readable(actor, owner, name)
+        version = await self._version_of(dataset, number)
+        files = await self._versions.files(version.id)
+        splits = [info.name for info in splits_of(files)]
+        if not splits:
+            return RowsPage(split="", splits=[], columns=[], rows=[], total=0)
+        chosen = split or splits[0]
+        if chosen not in splits:
+            raise SplitNotFound
+        parts = [file for file in files if file.split == chosen]
+        columns = [tables.Column(c["name"], c["dtype"]) for c in parts[0].columns]
+
+        if query:
+            needle = query.lower()
+            matches = (
+                row
+                for file in parts
+                async for row in self._rows_of(file)
+                if any(needle in str(cell).lower() for cell in row if cell is not None)
+            )
+            found = [row async for row in matches]
+            return RowsPage(chosen, splits, columns, found[offset : offset + limit], len(found))
+
+        page: list[list[Any]] = []
+        skipped = 0
+        for file in parts:
+            count = file.rows or 0
+            if skipped + count <= offset:  # the whole file is before the page
+                skipped += count
+                continue
+            rows = [row async for row in self._rows_of(file)]
+            start = max(0, offset - skipped)
+            page.extend(islice(rows, start, start + limit - len(page)))
+            skipped += count
+            if len(page) >= limit:
+                break
+        return RowsPage(chosen, splits, columns, page, sum(f.rows or 0 for f in parts))
+
+    async def _rows_of(self, file: DatasetFile):
+        stored = await self._store.get(file.storage_key)
+        if stored is None:
+            raise DatasetFileNotFound
+        for row in tables.iter_rows(file.path, stored.data):
+            yield row
+
+
+def splits_index(split: str | None) -> int:
+    return SPLIT_ORDER.index(split) if split in SPLIT_ORDER else len(SPLIT_ORDER)
