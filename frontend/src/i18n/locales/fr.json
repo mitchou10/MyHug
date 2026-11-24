@@ -309,6 +309,22 @@
         "qa": {
           "title": "Question-réponse",
           "hint": "Écrire plusieurs questions-réponses par texte et surligner leur source."
+        },
+        "row_label": {
+          "title": "Étiquetage de lignes",
+          "hint": "Donner un label à chaque ligne (normale, suspecte, doublon…)."
+        },
+        "cell_review": {
+          "title": "Revue de cellules",
+          "hint": "Signaler une valeur fausse ou manquante et donner la bonne."
+        },
+        "column_schema": {
+          "title": "Schéma des colonnes",
+          "hint": "Décrire chaque colonne : rôle, type, format et unité."
+        },
+        "regression": {
+          "title": "Régression",
+          "hint": "Donner un nombre à chaque texte ou ligne : un score, une note, un prix…"
         }
       },
       "labelName": "Nom du label",
@@ -373,7 +389,58 @@
         "source": "Source",
         "noSource": "Aucune source surlignée pour l'instant.",
         "add": "Ajouter une question"
-      }
+      },
+      "tab": {
+        "row": "Ligne {{n}}",
+        "annotation": "Annotation",
+        "cell": "Cellule",
+        "column": "Colonne",
+        "value": "Valeur",
+        "issue": "Problème",
+        "corrected": "Valeur corrigée",
+        "clear": "Effacer",
+        "next": "Suivant",
+        "prev": "Précédent",
+        "role": "Rôle de la colonne",
+        "unit": "Unité",
+        "description": "Description",
+        "expectedFormat": "Format attendu",
+        "noIssue": "Aucun problème signalé",
+        "hintRow": "Cliquez une ligne, choisissez un label. Les flèches déplacent, 1-9 choisit un label.",
+        "hintCell": "Cliquez une cellule et dites ce qui ne va pas. Les flèches déplacent, 1-9 choisit un problème.",
+        "hintColumn": "Cliquez un en-tête de colonne et décrivez-la. Les flèches déplacent, 1-9 choisit un rôle.",
+        "saved": "Enregistré automatiquement",
+        "progressRows": "{{done}} / {{total}} lignes annotées par vous",
+        "progressCells": "{{done}} cellules signalées sur {{rows}} lignes",
+        "progressColumns": "{{done}} / {{total}} colonnes décrites",
+        "pickRow": "Sélectionnez une ligne pour l'annoter.",
+        "pickCell": "Sélectionnez une cellule pour l'annoter.",
+        "pickColumn": "Sélectionnez une colonne pour la décrire.",
+        "mismatch": "Ne respecte pas {{format}}",
+        "valuesOf": "Valeurs de la ligne",
+        "hintValue": "Cliquez une ligne et donnez-lui une valeur sur l'échelle. Les flèches déplacent."
+      },
+      "scale": {
+        "value": "Valeur",
+        "clear": "Effacer",
+        "min": "Minimum",
+        "max": "Maximum",
+        "step": "Pas",
+        "unit": "Unité",
+        "minLabel": "Légende du minimum",
+        "maxLabel": "Légende du maximum",
+        "invalid": "Le minimum doit être inférieur au maximum, et le pas positif."
+      },
+      "step2": {
+        "labels": "Définissez les labels. Chacun a un nom et, idéalement, une description.",
+        "scale": "Définissez l'échelle que les annotateurs utiliseront."
+      },
+      "step": "Étape {{n}} sur 2",
+      "next": "Suivant",
+      "back": "Retour",
+      "edit": "Modifier",
+      "editScale": "Modifier l'échelle",
+      "editScaleHint": "Changer l'échelle ne modifie pas les valeurs déjà données."
     }
   }
 }

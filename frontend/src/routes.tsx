@@ -1,7 +1,7 @@
 import type { RouteObject } from 'react-router'
 import { RequireAdmin } from '@/auth/RequireAdmin'
 import { RequireAuth } from '@/auth/RequireAuth'
-import { AnnotationWorkspace } from '@/features/datasets/annotation/AnnotationWorkspace'
+import { AnnotationRoute } from '@/features/datasets/annotation/AnnotationRoute'
 import { DatasetDetailPage } from '@/features/datasets/pages/DatasetDetailPage'
 import { DatasetsPage } from '@/features/datasets/pages/DatasetsPage'
 import { AdminFeedbackPage } from '@/features/feedback/pages/AdminFeedbackPage'
@@ -39,7 +39,7 @@ export const routes: RouteObject[] = [
           { path: 'app', element: <AppHomePage /> },
           { path: 'datasets', element: <DatasetsPage /> },
           { path: 'datasets/:owner/:name', element: <DatasetDetailPage /> },
-          { path: 'datasets/:owner/:name/annotate/:projectId', element: <AnnotationWorkspace /> },
+          { path: 'datasets/:owner/:name/annotate/:projectId', element: <AnnotationRoute /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
           { path: 'feedback', element: <MyFeedbackPage /> },

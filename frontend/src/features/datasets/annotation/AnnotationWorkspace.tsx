@@ -12,9 +12,9 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { hue } from '../components/viewers/seed'
 import { getDataset } from '../mockData'
 import { matchesFormat, needsValue } from './format'
+import { ScaleInput } from './ScaleInput'
+import { color } from './ui'
 import { newPair, saveAnswer, useAnnotations, type Answer, type LabelDef, type QAPair, type Span } from './store'
-
-const color = (id: string) => ({ background: `hsl(${hue(id)} 80% 88%)`, borderColor: `hsl(${hue(id)} 60% 55%)`, color: `hsl(${hue(id)} 60% 20%)` })
 
 /** Where one annotates: one row at a time, labels on the keyboard (1, 2, 3…), Enter to submit. */
 export function AnnotationWorkspace() {
@@ -222,6 +222,16 @@ export function AnnotationWorkspace() {
         )}
 
       </div>
+
+      {project.task === 'regression' && project.scale && (
+        <div className="mt-4 space-y-3">
+          <ScaleInput scale={project.scale} value={draft.value} onChange={(value) => setDraft({ ...draft, value })} />
+          <div className="space-y-1.5">
+            <label htmlFor="reason" className="text-sm font-medium">{t('datasets.annotation.reason')} <span className="font-normal text-muted-foreground">({t('datasets.annotation.optional')})</span></label>
+            <Textarea id="reason" rows={2} placeholder={t('datasets.annotation.reasonPlaceholder')} value={draft.reason ?? ''} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} />
+          </div>
+        </div>
+      )}
 
       {project.task === 'classification' && (
         <div className="mt-4 space-y-2">

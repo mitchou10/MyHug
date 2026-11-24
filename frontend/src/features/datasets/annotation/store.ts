@@ -2,7 +2,10 @@ import { useSyncExternalStore } from 'react'
 import type { ValueType } from './format'
 
 /** Temporary in-memory store: replaced by the API once the backend handles annotations. */
-export type TaskType = 'classification' | 'ner' | 'qa'
+/** Text: classification, ner, qa. Tabular: label a row, review cells, describe the columns. */
+export type TaskType = 'classification' | 'ner' | 'qa' | 'regression' | 'row_label' | 'cell_review' | 'column_schema'
+export const TEXT_TASKS: TaskType[] = ['classification', 'ner', 'qa', 'regression']
+export const TABULAR_TASKS: TaskType[] = ['row_label', 'cell_review', 'column_schema', 'regression']
 
 /** NER only. `entity`: a small unit (a name, a date…). `semantic`: a business meaning, often a longer passage (an offence, a sentence…). */
 export type LabelKind = 'entity' | 'semantic'
@@ -17,12 +20,17 @@ export interface LabelDef { id: string; name: string; description: string; kind?
 export const CURRENT_USER = 'mitchou'
 export const newLabel = (): LabelDef => ({ id: Math.random().toString(36).slice(2, 8), name: '', description: '', kind: 'entity', valueType: 'text', formats: [], examples: [] })
 
+/** Regression: the numeric value an annotator gives to each text or row, on a scale. */
+export interface Scale { min: number; max: number; step: number; unit?: string; minLabel?: string; maxLabel?: string }
+
 export interface AnnotationProject {
   id: string
   datasetKey: string // owner/name
   name: string
   task: TaskType
   labels: LabelDef[]
+  /** Regression only. */
+  scale?: Scale
   createdBy: string
   annotators: number
   /** Mocked progress of everybody else, on the whole dataset. */
@@ -42,8 +50,19 @@ export interface QAPair {
 }
 export const newPair = (): QAPair => ({ id: Math.random().toString(36).slice(2, 8), question: '', answer: '', sources: [] })
 
+/** Cell review: what is wrong with a cell (`issue` = id of a label), and what it should be. */
+export interface CellNote { issue: string; corrected?: string; reason?: string }
+/** Column schema: what a column is (`role` = id of a label), its type, formats, unit and description. */
+export interface ColumnNote { role?: string; valueType?: ValueType; formats?: string[]; unit?: string; description?: string }
+
 /** `label` is the id of a LabelDef; `reason` is the optional "why" of the annotator. */
-export interface Answer { label?: string; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[] }
+export interface Answer { label?: string; reason?: string; spans?: Span[]; text?: string; qa?: QAPair[]
+  /** Regression: the value given on the scale of the task. */
+  value?: number
+  /** Tabular: notes by column index. A column schema is stored at row 0. */
+  cells?: Record<number, CellNote>
+  columns?: Record<number, ColumnNote>
+}
 
 interface State { projects: AnnotationProject[]; answers: Record<string, Record<number, Answer>> }
 
@@ -78,6 +97,35 @@ let state: State = {
       ],
     },
     { id: 'p5', datasetKey: 'lab/decisions-justice', name: 'Questions sur les décisions', task: 'qa', labels: [], createdBy: 'mitchou', annotators: 2, done: 410, total: 14500 },
+    {
+      id: 'p6', datasetKey: 'mitchou/house-prices', name: 'Qualité des annonces', task: 'row_label', createdBy: 'mitchou', annotators: 3, done: 9200, total: 85000,
+      labels: [
+        { id: 'ok', name: 'normale', description: 'L’annonce est cohérente et exploitable telle quelle.' },
+        { id: 'suspect', name: 'suspecte', description: 'Au moins une valeur paraît improbable (surface minuscule, prix hors marché…).' },
+        { id: 'dup', name: 'doublon', description: 'Même bien que dans une autre ligne.' },
+      ],
+    },
+    {
+      id: 'p7', datasetKey: 'mitchou/house-prices', name: 'Valeurs à corriger', task: 'cell_review', createdBy: 'mitchou', annotators: 2, done: 310, total: 85000,
+      labels: [
+        { id: 'wrong', name: 'erreur', description: 'La valeur est fausse ou impossible (surface de 5 m², prix négatif).' },
+        { id: 'missing', name: 'manquante', description: 'Cellule vide ou « n/a » : la valeur n’a pas été renseignée.' },
+        { id: 'outlier', name: 'aberrante', description: 'Valeur possible mais très éloignée des autres (à vérifier).' },
+        { id: 'format', name: 'format', description: 'La valeur est juste mais mal écrite (espaces, casse, unité).' },
+      ],
+    },
+    {
+      id: 'p8', datasetKey: 'mitchou/house-prices', name: 'Schéma des colonnes', task: 'column_schema', createdBy: 'mitchou', annotators: 1, done: 2, total: 5,
+      labels: [
+        { id: 'identifier', name: 'identifiant', description: 'Identifie une ligne de façon unique.' },
+        { id: 'measure', name: 'mesure', description: 'Une quantité numérique (surface, nombre de pièces).' },
+        { id: 'category', name: 'catégorie', description: 'Un nombre limité de valeurs possibles (ville, type).' },
+        { id: 'date', name: 'date', description: 'Une date ou une heure.' },
+        { id: 'target', name: 'cible', description: 'La valeur que l’on voudra prédire (prix).' },
+      ],
+    },
+    { id: 'p9', datasetKey: 'mitchou/movie-reviews-fr', name: 'Note du film', task: 'regression', labels: [], scale: { min: 0, max: 10, step: 0.5, minLabel: 'Détestable', maxLabel: 'Chef-d’œuvre' }, createdBy: 'mitchou', annotators: 3, done: 5200, total: 120000 },
+    { id: 'p10', datasetKey: 'mitchou/house-prices', name: 'Prix au m² estimé', task: 'regression', labels: [], scale: { min: 500, max: 15000, step: 50, unit: '€/m²', minLabel: 'Très bas', maxLabel: 'Très élevé' }, createdBy: 'mitchou', annotators: 2, done: 120, total: 85000 },
   ],
   answers: {},
 }
@@ -91,6 +139,9 @@ export function addProject(p: Omit<AnnotationProject, 'id' | 'annotators' | 'don
 }
 export function updateLabels(projectId: string, labels: LabelDef[]) {
   set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, labels } : p)) })
+}
+export function updateScale(projectId: string, scale: Scale) {
+  set({ ...state, projects: state.projects.map((p) => (p.id === projectId ? { ...p, scale } : p)) })
 }
 export function saveAnswer(projectId: string, row: number, answer: Answer) {
   set({ ...state, answers: { ...state.answers, [projectId]: { ...state.answers[projectId], [row]: answer } } })
