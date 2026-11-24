@@ -297,7 +297,6 @@
       "submit": "Valider",
       "selectWords": "Sélectionnez du texte à la souris (ou cliquez sur un mot, maj + clic pour étendre), puis choisissez un ou plusieurs labels. Les passages peuvent se chevaucher.",
       "pickLabel": "Choisissez un type d'entité (ou son numéro).",
-      "answerPlaceholder": "Écrivez la réponse…",
       "tasks": {
         "classification": {
           "title": "Classification",
@@ -309,7 +308,7 @@
         },
         "qa": {
           "title": "Question-réponse",
-          "hint": "Écrire la réponse à chaque question."
+          "hint": "Écrire plusieurs questions-réponses par texte et surligner leur source."
         }
       },
       "labelName": "Nom du label",
@@ -358,7 +357,23 @@
       "formatHelpDate": "Un ou plusieurs. YYYY année, MM mois, DD jour, HH heure, mm minute, ss seconde. Entrée pour ajouter.",
       "editLabel": "Modifier le label",
       "labelDialogHint": "Décrivez le label pour que chaque annotateur comprenne quand l'utiliser.",
-      "labelDuplicate": "Un autre label porte déjà ce nom."
+      "labelDuplicate": "Un autre label porte déjà ce nom.",
+      "qa": {
+        "use": {
+          "source": "Source de Q{{n}}",
+          "answer": "Réponse de Q{{n}}"
+        },
+        "pick": "Choisissez le rôle de ce passage pour la question active (touches 1 et 2).",
+        "hint": "Écrivez une question, puis sélectionnez du texte pour surligner sa source. Ajoutez autant de questions que nécessaire pour le même texte.",
+        "active": "question active",
+        "activate": "cliquer pour sélectionner cette question",
+        "question": "Question",
+        "answer": "Réponse",
+        "answerPlaceholder": "Réponse : à saisir, ou à sélectionner dans le texte",
+        "source": "Source",
+        "noSource": "Aucune source surlignée pour l'instant.",
+        "add": "Ajouter une question"
+      }
     }
   }
 }

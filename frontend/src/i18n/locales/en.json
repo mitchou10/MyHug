@@ -297,7 +297,6 @@
       "submit": "Submit",
       "selectWords": "Select text with the mouse (or click a word, shift + click to extend), then pick one or more labels. Passages may overlap.",
       "pickLabel": "Choose an entity type (or press its number).",
-      "answerPlaceholder": "Write the answer…",
       "tasks": {
         "classification": {
           "title": "Classification",
@@ -309,7 +308,7 @@
         },
         "qa": {
           "title": "Question answering",
-          "hint": "Write the answer to each question."
+          "hint": "Write several question-answer pairs per text and highlight their source."
         }
       },
       "labelName": "Label name",
@@ -358,7 +357,23 @@
       "formatHelpDate": "One or more. YYYY year, MM month, DD day, HH hour, mm minute, ss second. Press Enter to add.",
       "editLabel": "Edit the label",
       "labelDialogHint": "Describe the label so that every annotator understands when to use it.",
-      "labelDuplicate": "Another label already has this name."
+      "labelDuplicate": "Another label already has this name.",
+      "qa": {
+        "use": {
+          "source": "Source of Q{{n}}",
+          "answer": "Answer of Q{{n}}"
+        },
+        "pick": "Choose what this passage is for the active question (keys 1 and 2).",
+        "hint": "Write a question, then select text and highlight its source. Add as many questions as you need for the same text.",
+        "active": "active question",
+        "activate": "click to select this question",
+        "question": "Question",
+        "answer": "Answer",
+        "answerPlaceholder": "Answer: type it, or select it in the text",
+        "source": "Source",
+        "noSource": "No source highlighted yet.",
+        "add": "Add a question"
+      }
     }
   }
 }

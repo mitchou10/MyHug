@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, SkipForward, X } from 'lucide-react'
+import { ArrowLeft, Check, Plus, SkipForward, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
@@ -12,7 +12,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { hue } from '../components/viewers/seed'
 import { getDataset } from '../mockData'
 import { matchesFormat, needsValue } from './format'
-import { saveAnswer, useAnnotations, type Answer, type LabelDef, type Span } from './store'
+import { newPair, saveAnswer, useAnnotations, type Answer, type LabelDef, type QAPair, type Span } from './store'
 
 const color = (id: string) => ({ background: `hsl(${hue(id)} 80% 88%)`, borderColor: `hsl(${hue(id)} 60% 55%)`, color: `hsl(${hue(id)} 60% 20%)` })
 
@@ -30,6 +30,7 @@ export function AnnotationWorkspace() {
   /** Where the label menu floats, relative to the text card. */
   const [menu, setMenu] = useState<{ left: number; top: number } | null>(null)
   const card = useRef<HTMLDivElement>(null)
+  const [activeQa, setActiveQa] = useState<string | null>(null)
 
   const rows = d?.sample ?? []
   const text = String(rows[idx]?.[textCol] ?? '')
@@ -37,17 +38,42 @@ export function AnnotationWorkspace() {
   const saved = answers[projectId ?? '']
   const doneCount = Object.keys(saved ?? {}).length
 
-  const labelOf = (id: string) => project?.labels.find((l) => l.id === id)?.name ?? t('datasets.annotation.deletedLabel')
+  const isQa = project?.task === 'qa'
+  /** NER and QA both select passages of the text with the mouse. */
+  const selectable = project?.task === 'ner' || isQa
+  const labelOf = (id: string) => isQa ? `Q${Number(id.slice(2)) + 1}` : project?.labels.find((l) => l.id === id)?.name ?? t('datasets.annotation.deletedLabel')
   const labelDef = (id: string) => project?.labels.find((l) => l.id === id)
   const kindOf = (id: string) => project?.labels.find((l) => l.id === id)?.kind ?? 'entity'
   /** Entities first, then semantic ones: the order of the keys 1, 2, 3… */
   const ordered: LabelDef[] = [...(project?.labels ?? [])].sort((a, b) => Number(a.kind === 'semantic') - Number(b.kind === 'semantic'))
 
   const clearSel = () => { setSel(null); setMenu(null) }
-  const go = (i: number) => { setIdx(i); setDraft(saved?.[i] ?? {}); clearSel() }
+  const init = (a?: Answer): Answer => (project?.task === 'qa' && !a?.qa?.length ? { ...a, qa: [newPair()] } : (a ?? {}))
+  const go = (i: number) => { setIdx(i); setDraft(init(saved?.[i])); setActiveQa(null); clearSel() }
+  useEffect(() => { setDraft(init(saved?.[idx])) }, [project?.id])
+
+  const pairs: QAPair[] = draft.qa ?? []
+  const active = pairs.find((p) => p.id === activeQa) ?? pairs[0]
+  const patchPair = (id: string, patch: Partial<QAPair>) => setDraft({ ...draft, qa: pairs.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+  const range = () => (sel ? { start: Math.min(sel.a, sel.b), end: Math.max(sel.a, sel.b) } : null)
+  /** Highlights the selection as a source of the active question (selecting it again removes it). */
+  const addSource = () => {
+    const r = range()
+    if (!r || !active) return
+    const same = (x: { start: number; end: number }) => x.start === r.start && x.end === r.end
+    patchPair(active.id, { sources: active.sources.some(same) ? active.sources.filter((x) => !same(x)) : [...active.sources, r].sort((x, y) => x.start - y.start) })
+    clearSel()
+  }
+  /** Uses the selection as the answer of the active question. */
+  const useAsAnswer = () => {
+    const r = range()
+    if (!r || !active) return
+    patchPair(active.id, { answer: tokens.slice(r.start, r.end + 1).join(' '), answerSpan: r })
+    clearSel()
+  }
   const submit = () => {
     if (!project) return
-    saveAnswer(project.id, idx, draft)
+    saveAnswer(project.id, idx, isQa ? { qa: pairs.filter((p) => p.question.trim() || p.answer.trim() || p.sources.length) } : draft)
     go(Math.min(rows.length - 1, idx + 1))
   }
   const assign = (label: string) => {
@@ -72,6 +98,8 @@ export function AnnotationWorkspace() {
     const onKey = (e: KeyboardEvent) => {
       if (!project || (e.target as HTMLElement).closest('textarea,input')) return
       const n = Number(e.key)
+      if (isQa) { if (n === 1) addSource(); else if (n === 2) useAsAnswer() }
+      if (isQa && (n === 1 || n === 2)) return
       if (n >= 1 && n <= ordered.length) assign(ordered[n - 1].id)
       else if (e.key === 'Enter') submit()
       else if (e.key === 'Escape') clearSel()
@@ -82,7 +110,10 @@ export function AnnotationWorkspace() {
 
   if (!d || !project) return <NotFoundPage />
 
-  const coveringAt = (i: number) => draft.spans?.filter((s) => i >= s.start && i <= s.end) ?? []
+  /** What is painted on the text: the spans of the entity extraction, or the sources of each question. */
+  const viewSpans: Span[] = isQa ? pairs.flatMap((p, n) => p.sources.map((x) => ({ ...x, label: `qa${n}` }))) : (draft.spans ?? [])
+  const inAnswer = (i: number) => pairs.some((p) => p.answerSpan && i >= p.answerSpan.start && i <= p.answerSpan.end)
+  const coveringAt = (i: number) => viewSpans.filter((s) => i >= s.start && i <= s.end)
   const onSelection = (l: LabelDef) => !!sel && !!draft.spans?.some((x) => x.start === Math.min(sel.a, sel.b) && x.end === Math.max(sel.a, sel.b) && x.label === l.id)
   const inSel = (i: number) => sel && i >= Math.min(sel.a, sel.b) && i <= Math.max(sel.a, sel.b)
   const openMenuAt = (rect: DOMRect) => {
@@ -140,7 +171,7 @@ export function AnnotationWorkspace() {
 
       <div ref={card} className="relative mt-6 rounded-xl border p-6">
         <div className="mb-3 text-xs text-muted-foreground">{t('datasets.annotation.row', { n: idx })}</div>
-        {project.task === 'ner' ? (
+        {selectable ? (
           <p className="text-lg leading-[2.75rem]" onMouseDown={clearSel} onMouseUp={onTextMouseUp}>
             {tokens.map((tok, i) => {
               const covering = coveringAt(i)
@@ -150,7 +181,7 @@ export function AnnotationWorkspace() {
               return (
                 <span key={i} style={bars.length ? { boxShadow: bars.map((x, n) => `inset 0 -${(n + 1) * 3}px 0 hsl(${hue(x.label)} 60% 50%)`).join(',') } : undefined}>
                   <span data-i={i} onClick={(e) => clickToken(i, e)} style={ent ? color(ent.label) : undefined}
-                    className={cn('cursor-text rounded border border-transparent px-1 py-0.5', !ent && 'hover:bg-muted', inSel(i) && 'bg-primary/20 ring-2 ring-primary')}>
+                    className={cn('cursor-text rounded border border-transparent px-1 py-0.5', !ent && 'hover:bg-muted', inAnswer(i) && 'font-semibold underline decoration-2 underline-offset-4', inSel(i) && 'bg-primary/20 ring-2 ring-primary')}>
                     {tok}
                   </span>
                   {covering.filter((x) => x.end === i).map((x) => (
@@ -162,11 +193,22 @@ export function AnnotationWorkspace() {
           </p>
         ) : <p className="text-lg leading-relaxed">{text}</p>}
 
-        {project.task === 'ner' && sel && menu && (
+        {selectable && sel && menu && (
           <div role="menu" style={{ left: menu.left, top: menu.top }} onMouseDown={(e) => e.stopPropagation()}
             className="absolute z-20 w-64 -translate-x-1/2 space-y-1 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-lg">
             <p className="truncate px-1.5 pt-0.5 text-xs text-muted-foreground">« {tokens.slice(Math.min(sel.a, sel.b), Math.max(sel.a, sel.b) + 1).join(' ')} »</p>
-            {ordered.map((l) => (
+            {isQa && active && (
+              <>
+                {([['source', addSource, 1], ['answer', useAsAnswer, 2]] as const).map(([k, fn, n]) => (
+                  <button key={k} role="menuitem" onClick={fn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: `hsl(${hue(`qa${pairs.indexOf(active)}`)} 60% 55%)` }} />
+                    <span className="flex-1 truncate">{t(`datasets.annotation.qa.use.${k}`, { n: pairs.indexOf(active) + 1 })}</span>
+                    <kbd className="rounded bg-muted px-1.5 text-xs">{n}</kbd>
+                  </button>
+                ))}
+              </>
+            )}
+            {!isQa && ordered.map((l) => (
               <button key={l.id} role="menuitem" title={l.description} onClick={() => assign(l.id)}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
                 <span className="size-2.5 shrink-0 rounded-full" style={{ background: `hsl(${hue(l.id)} 60% 55%)` }} />
@@ -179,7 +221,6 @@ export function AnnotationWorkspace() {
           </div>
         )}
 
-        {project.task === 'qa' && <Textarea className="mt-4" placeholder={t('datasets.annotation.answerPlaceholder')} value={draft.text ?? ''} onChange={(e) => setDraft({ text: e.target.value })} />}
       </div>
 
       {project.task === 'classification' && (
@@ -189,6 +230,37 @@ export function AnnotationWorkspace() {
             <label htmlFor="reason" className="text-sm font-medium">{t('datasets.annotation.reason')} <span className="font-normal text-muted-foreground">({t('datasets.annotation.optional')})</span></label>
             <Textarea id="reason" rows={2} placeholder={t('datasets.annotation.reasonPlaceholder')} value={draft.reason ?? ''} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} />
           </div>
+        </div>
+      )}
+
+      {isQa && (
+        <div className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">{sel ? t('datasets.annotation.qa.pick') : t('datasets.annotation.qa.hint')}</p>
+          {pairs.map((p, n) => (
+            <div key={p.id} onClick={() => setActiveQa(p.id)} className={cn('space-y-2 rounded-lg border p-3', active?.id === p.id && 'ring-2 ring-primary')}>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border px-2 py-0.5 text-xs font-medium" style={color(`qa${n}`)}>Q{n + 1}</span>
+                <span className="text-xs text-muted-foreground">{active?.id === p.id ? t('datasets.annotation.qa.active') : t('datasets.annotation.qa.activate')}</span>
+                <button className="ml-auto" aria-label="remove" disabled={pairs.length === 1} onClick={(e) => { e.stopPropagation(); setDraft({ ...draft, qa: pairs.filter((x) => x !== p) }) }}><X className="size-4" /></button>
+              </div>
+              <Input aria-label={t('datasets.annotation.qa.question')} placeholder={t('datasets.annotation.qa.question')} value={p.question} onChange={(e) => patchPair(p.id, { question: e.target.value })} />
+              <div className="flex gap-2">
+                <Input aria-label={t('datasets.annotation.qa.answer')} placeholder={t('datasets.annotation.qa.answerPlaceholder')} value={p.answer} onChange={(e) => patchPair(p.id, { answer: e.target.value, answerSpan: undefined })} />
+              </div>
+              {p.sources.length > 0 ? (
+                <ul className="space-y-1">
+                  {p.sources.map((x) => (
+                    <li key={`${x.start}-${x.end}`} className="flex items-start gap-2 rounded-md bg-muted/50 px-2 py-1 text-xs">
+                      <span className="font-medium">{t('datasets.annotation.qa.source')}</span>
+                      <span className="flex-1">« {tokens.slice(x.start, x.end + 1).join(' ')} »</span>
+                      <button aria-label="remove" onClick={(e) => { e.stopPropagation(); patchPair(p.id, { sources: p.sources.filter((y) => y !== x) }) }}><X className="size-3" /></button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-xs text-muted-foreground">{t('datasets.annotation.qa.noSource')}</p>}
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={() => { const n = newPair(); setDraft({ ...draft, qa: [...pairs, n] }); setActiveQa(n.id) }}><Plus />{t('datasets.annotation.qa.add')}</Button>
         </div>
       )}
 
