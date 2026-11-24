@@ -11,7 +11,8 @@ import { VideoFrame } from '../components/viewers/VideoFrame'
 import { hue } from '../components/viewers/seed'
 import type { Dataset } from '../mockData'
 import { fmtTime } from './audioMock'
-import { saveAnswer, useAnnotations, type Answer, type AnnotationProject, type Keyframe, type ObjectTrack } from './store'
+import { useAnnotations, commitAnswer, rejectProposal, type Answer, type Proposal, type AnnotationProject, type Keyframe, type ObjectTrack, withOrigin } from './store'
+import { ProposalBanner } from './ProposalBanner'
 import { color } from './ui'
 import { useClockPlayer } from './useClockPlayer'
 import { VIDEO_H as H, VIDEO_W as W } from './videoMock'
@@ -52,10 +53,13 @@ type Drag = { kind: 'new'; p0: [number, number] } | { kind: 'move'; id: string; 
  */
 export function TrackingWorkspace({ dataset: d, project }: { dataset: Dataset; project: AnnotationProject }) {
   const { t } = useTranslation()
-  const saved = useAnnotations().answers[project.id]
+  const store = useAnnotations()
+  const saved = store.answers[project.id]
+  const proposed = store.proposals[project.id]
   const rows = d.sample
   const [idx, setIdx] = useState(0)
   const [draft, setDraft] = useState<Answer>(() => saved?.[0] ?? {})
+  const [proposal, setProposal] = useState<Proposal | null>(null)
   const [tool, setTool] = useState<'select' | 'box'>('box')
   const [chosen, setChosen] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -72,8 +76,17 @@ export function TrackingWorkspace({ dataset: d, project }: { dataset: Dataset; p
   const sel = tracks.find((x) => x.id === selected)
   const doneCount = Object.keys(saved ?? {}).length
 
-  const go = (i: number) => { player.pause(); setIdx(i); setDraft(saved?.[i] ?? {}); setSelected(null) }
-  const submit = () => { saveAnswer(project.id, idx, draft); go(Math.min(rows.length - 1, idx + 1)) }
+  /** What an item starts from: the answer already given, else the proposal of the model if the task has one. */
+  const load = (i: number) => {
+    const pr = saved?.[i] ? null : (proposed?.[i] ?? null)
+    setProposal(pr)
+    setDraft(saved?.[i] ?? pr?.answer ?? {})
+  }
+  useEffect(() => { load(0) }, [project.id])
+  // A proposal can arrive while the item is on screen (the run is still going): take it if nothing was typed yet.
+  useEffect(() => { if (!proposal && !saved?.[idx] && proposed?.[idx] && Object.keys(draft).length === 0) load(idx) }, [proposed?.[idx]])
+  const go = (i: number) => { player.pause(); setIdx(i); load(i); setSelected(null) }
+  const submit = () => { commitAnswer(project.id, idx, draft, proposal); go(Math.min(rows.length - 1, idx + 1)) }
   const setTracks = (next: ObjectTrack[]) => setDraft({ ...draft, tracks: next })
   const patchTrack = (id: string, fn: (x: ObjectTrack) => ObjectTrack) => setTracks(tracks.map((x) => (x.id === id ? fn(x) : x)))
   /** Writes the box of a track at the current time: it replaces the keyframe there, or adds one. */
@@ -174,6 +187,8 @@ export function TrackingWorkspace({ dataset: d, project }: { dataset: Dataset; p
       <div className="mt-2 flex gap-1">
         {rows.map((_, i) => <button key={i} aria-label={`#${i}`} onClick={() => go(i)} className={cn('h-1.5 flex-1 rounded-full', saved?.[i] ? 'bg-primary' : 'bg-muted', i === idx && 'ring-2 ring-ring ring-offset-1')} />)}
       </div>
+
+      {proposal && <ProposalBanner proposal={proposal} edited={withOrigin(draft, proposal).origin === 'model_edited'} onAccept={submit} onReject={() => { rejectProposal(project.id, idx, proposal); setProposal(null); setDraft({}) }} />}
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-3">

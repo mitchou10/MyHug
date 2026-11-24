@@ -1,4 +1,4 @@
-import { Pencil, Plus, Users } from 'lucide-react'
+import { Pencil, Plus, Sparkles, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -9,16 +9,18 @@ import { formatCount } from '../format'
 import type { Dataset } from '../mockData'
 import { EditLabelsDialog } from './EditLabelsDialog'
 import { NewProjectDialog } from './NewProjectDialog'
+import { PreannotationDialog } from './PreannotationDialog'
 import { CURRENT_USER, useAnnotations, type AnnotationProject } from './store'
 
 /** The annotation tasks of a dataset: anyone who can see the dataset can annotate. */
 export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
   const { t } = useTranslation()
   const key = `${d.owner}/${d.name}`
-  const { projects, answers } = useAnnotations()
+  const { projects, answers, proposals, runs } = useAnnotations()
   const mine = projects.filter((p) => p.datasetKey === key)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<AnnotationProject | null>(null)
+  const [pre, setPre] = useState<AnnotationProject | null>(null)
 
   return (
     <div className="space-y-4">
@@ -49,8 +51,19 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
                 {p.multiLabel && <Badge variant="outline">{t('datasets.annotation.multiLabel.badge')}</Badge>}
                 {p.scale && <Badge variant="outline">{p.scale.min} – {p.scale.max}{p.scale.unit ? ` ${p.scale.unit}` : ''}</Badge>}
                 {p.labels.length > 0 && <div className="flex flex-wrap gap-1">{p.labels.map((l) => <Badge key={l.id} variant={l.kind === 'semantic' ? 'secondary' : 'outline'} title={l.description}>{l.name}</Badge>)}</div>}
+                {(() => {
+                  const run = [...runs].reverse().find((r) => r.projectId === p.id && r.status !== 'deleted')
+                  const pending = Object.keys(proposals[p.id] ?? {}).length
+                  return run && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Sparkles className="size-3.5 text-amber-600" />
+                      {run.model} · {t(`datasets.annotation.pre.status.${run.status}`)} · {run.processed}/{run.total}{pending > 0 && ` · ${t('datasets.annotation.pre.counts.pending', { n: pending })}`}
+                    </p>
+                  )
+                })()}
                 <div className="flex gap-2">
                   <Button size="sm" className="flex-1" render={<Link to={`/datasets/${key}/annotate/${p.id}`} />}>{t('datasets.annotation.start')}</Button>
+                  {p.createdBy === CURRENT_USER && <Button size="sm" variant="outline" onClick={() => setPre(p)}><Sparkles />{t('datasets.annotation.pre.button')}</Button>}
                   {p.createdBy === CURRENT_USER && (p.labels.length > 0 || !!p.scale || !!p.tracks || p.task === 'audio_caption' || p.task === 'video_caption' || p.task === 'timeseries_caption') && <Button size="sm" variant="outline" onClick={() => setEditing(p)}><Pencil />{t('datasets.annotation.edit')}</Button>}
                 </div>
               </CardContent>
@@ -59,6 +72,7 @@ export function AnnotationTab({ dataset: d }: { dataset: Dataset }) {
         })}
       </div>
       {editing && <EditLabelsDialog key={editing.id} project={projects.find((x) => x.id === editing.id)!} open onOpenChange={(o) => !o && setEditing(null)} />}
+      {pre && <PreannotationDialog key={pre.id} project={pre} dataset={d} open onOpenChange={(o) => !o && setPre(null)} />}
       <NewProjectDialog datasetKey={key} modality={d.modality} open={open} onOpenChange={setOpen} />
     </div>
   )

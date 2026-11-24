@@ -1,14 +1,20 @@
 import { hue, seeded } from './seed'
 
-/** A generated scene (sky, ground, a few shapes) drawn in the coordinates of the image. Stands in for the real file. */
-export function SceneGraphics({ file, width, height }: { file: string; width: number; height: number }) {
+/** The layout of a generated scene: where the horizon is and the shapes standing on it (pixels). */
+export function sceneLayout(file: string, width: number, height: number) {
   const rnd = seeded(file)
   const a = hue(file)
-  const id = `sky-${file.replace(/\W/g, '')}`
   const horizon = height * (0.45 + rnd() * 0.15)
   const shapes = Array.from({ length: 7 }, (_, i) => ({
     x: rnd() * width * 0.85, w: width * (0.05 + rnd() * 0.12), h: height * (0.1 + rnd() * 0.3), fill: `hsl(${(a + i * 47) % 360} 45% ${35 + rnd() * 25}%)`, round: rnd() > 0.5,
   }))
+  return { a, horizon, shapes }
+}
+
+/** A generated scene (sky, ground, a few shapes) drawn in the coordinates of the image. Stands in for the real file. */
+export function SceneGraphics({ file, width, height }: { file: string; width: number; height: number }) {
+  const { a, horizon, shapes } = sceneLayout(file, width, height)
+  const id = `sky-${file.replace(/\W/g, '')}`
   return (
     <g>
       <defs>

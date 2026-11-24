@@ -12,7 +12,8 @@ import { SceneGraphics } from '../components/viewers/SceneGraphics'
 import type { Dataset } from '../mockData'
 import { KeypointsEditor } from './KeypointsEditor'
 import { PolygonCanvas, type Tool } from './PolygonCanvas'
-import { labelsOf, newPair, saveAnswer, useAnnotations, withLabel, type Answer, type AnnotationProject, type ImageObject, type Pt } from './store'
+import { labelsOf, newPair, useAnnotations, withLabel, commitAnswer, rejectProposal, type Answer, type Proposal, type AnnotationProject, type ImageObject, type Pt, withOrigin } from './store'
+import { ProposalBanner } from './ProposalBanner'
 import { color } from './ui'
 
 const uid = () => Math.random().toString(36).slice(2, 8)
@@ -20,7 +21,9 @@ const uid = () => Math.random().toString(36).slice(2, 8)
 /** Where one annotates images, one at a time: polygons for detection and segmentation, a label, or sentences. */
 export function ImageWorkspace({ dataset: d, project }: { dataset: Dataset; project: AnnotationProject }) {
   const { t } = useTranslation()
-  const saved = useAnnotations().answers[project.id]
+  const store = useAnnotations()
+  const saved = store.answers[project.id]
+  const proposed = store.proposals[project.id]
   const task = project.task
   const polygons = task === 'image_detection' || task === 'image_segmentation' || task === 'image_polyline'
   const kind = task === 'image_segmentation' ? 'segmentation' : task === 'image_polyline' ? 'polyline' : 'detection'
@@ -30,6 +33,7 @@ export function ImageWorkspace({ dataset: d, project }: { dataset: Dataset; proj
 
   const [idx, setIdx] = useState(0)
   const [draft, setDraft] = useState<Answer>(() => saved?.[0] ?? {})
+  const [proposal, setProposal] = useState<Proposal | null>(null)
   const [tool, setTool] = useState<Tool>('polygon')
   const [chosen, setChosen] = useState<string | null>(null)
   // The label used to draw: the one chosen, else the first of the task (a shape can never be left without a label).
@@ -42,11 +46,20 @@ export function ImageWorkspace({ dataset: d, project }: { dataset: Dataset; proj
   const labelName = (id: string) => project.labels.find((l) => l.id === id)?.name
   const doneCount = Object.keys(saved ?? {}).length
 
-  const go = (i: number) => { setIdx(i); setDraft(saved?.[i] ?? {}); setSelected(null); setDrawing([]) }
+  /** What an item starts from: the answer already given, else the proposal of the model if the task has one. */
+  const load = (i: number) => {
+    const pr = saved?.[i] ? null : (proposed?.[i] ?? null)
+    setProposal(pr)
+    setDraft(saved?.[i] ?? pr?.answer ?? {})
+  }
+  useEffect(() => { load(0) }, [project.id])
+  // A proposal can arrive while the item is on screen (the run is still going): take it if nothing was typed yet.
+  useEffect(() => { if (!proposal && !saved?.[idx] && proposed?.[idx] && Object.keys(draft).length === 0) load(idx) }, [proposed?.[idx]])
+  const go = (i: number) => { setIdx(i); load(i); setSelected(null); setDrawing([]) }
   const submit = () => {
     const clean: Answer = { ...draft, captions: draft.captions?.filter((c) => c.trim()) }
     if (task === 'image_vqa') clean.qa = pairs.filter((p) => p.question.trim() || p.answer.trim())
-    saveAnswer(project.id, idx, clean)
+    commitAnswer(project.id, idx, clean, proposal)
     go(Math.min(rows.length - 1, idx + 1))
   }
   const setObjects = (objs: ImageObject[]) => setDraft({ ...draft, objects: objs })
@@ -123,6 +136,8 @@ export function ImageWorkspace({ dataset: d, project }: { dataset: Dataset; proj
       <div className="mt-2 flex gap-1">
         {rows.map((_, i) => <button key={i} aria-label={`#${i}`} onClick={() => go(i)} className={cn('h-1.5 flex-1 rounded-full', saved?.[i] ? 'bg-primary' : 'bg-muted', i === idx && 'ring-2 ring-ring ring-offset-1')} />)}
       </div>
+
+      {proposal && <ProposalBanner proposal={proposal} edited={withOrigin(draft, proposal).origin === 'model_edited'} onAccept={submit} onReject={() => { rejectProposal(project.id, idx, proposal); setProposal(null); setDraft({}) }} />}
 
       {task === 'image_keypoints' ? (
         <KeypointsEditor file={file} W={W} H={H} project={project} draft={draft} setDraft={setDraft} footer={footer} />
