@@ -4,8 +4,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
+from app.models import ModelFile
 from app.repositories.models import ModelRow
-from app.schemas.dataset import Modality, Slug, Tag, Visibility, _distinct
+from app.schemas.dataset import Modality, Slug, Tag, UploadFileIn, Visibility, _distinct
+from app.services.model_versions import VersionView
 from app.services.models import ModelView
 
 # What a model can do: the kinds of annotation task, the same as the datasets have.
@@ -154,3 +156,117 @@ class MemberOut(BaseModel):
     role: Role
     added_by: str
     created_at: datetime
+
+
+class CodeIn(BaseModel):
+    """The code a version points to: a repository on an allowed host (GitHub, GitLab), and where to start in it. Only a
+    link: nothing is fetched or cloned when it is sent."""
+
+    url: str = Field(max_length=512, description="`https://github.com/{owner}/{repository}`")
+    ref: str | None = Field(None, max_length=255, description="A commit, a tag or a branch")
+    ref_kind: Literal["commit", "tag", "branch", "unknown"] | None = Field(
+        None, description="A commit is recognised by itself; a tag and a branch cannot be told apart"
+    )
+    path: str | None = Field(None, max_length=512, description="A folder of the repository")
+    entrypoint: str | None = Field(None, max_length=512, description="The file that runs the model, `src/predict.py`")
+
+
+class CodeOut(BaseModel):
+    """The code reference as it was written, and what a worker found of it."""
+
+    url: str
+    ref: str | None
+    ref_kind: str
+    path: str | None
+    entrypoint: str | None
+    # The commit it was pinned to, once it is: never changed afterwards (a new commit makes a new version).
+    sha: str | None
+    # `unresolved` (not looked at yet), `resolving`, `pinned`, `unverified` (private or not found), `failed`.
+    state: str
+    error: str | None
+
+
+class ModelUploadIn(BaseModel):
+    """The files of a version, announced before they are sent. `remove` takes paths out in the same version."""
+
+    files: list[UploadFileIn] = Field(default_factory=list)
+    remove: list[str] = Field(default_factory=list, max_length=1000)
+    message: str = Field("", max_length=500)
+    code: CodeIn | None = None
+
+
+class CodeVersionIn(BaseModel):
+    """A version that is only a link to the code."""
+
+    code: CodeIn
+    message: str = Field("", max_length=500)
+
+
+class ModelFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    path: str
+    size_bytes: int
+    # None until a worker has read a file that came in parts.
+    sha256: str | None
+    content_type: str
+
+
+class ModelVersionOut(BaseModel):
+    number: int
+    # `pending` until a worker has read the files, then `ready` (or `failed`, and `error` says why).
+    status: str
+    error: str | None
+    size_bytes: int
+    message: str
+    # Whether MLflow can serve it (it has a flavor): a model that is only files is stored and downloaded, not served.
+    servable: bool
+    # None for a version that has no code reference.
+    code: CodeOut | None
+    created_by: str
+    created_by_username: str
+    created_at: datetime
+    # The page of the version in MLflow. Not in the answer at all (not even null) unless the person may edit the model
+    # and MLflow knows the version.
+    mlflow_url: str | None = Field(None, exclude_if=lambda value: value is None)
+
+    @classmethod
+    def from_view(cls, view: VersionView) -> "ModelVersionOut":
+        version = view.version
+        code = (
+            CodeOut(
+                url=version.code_url,
+                ref=version.code_ref,
+                ref_kind=version.code_ref_kind,
+                path=version.code_path,
+                entrypoint=version.entrypoint,
+                sha=version.code_sha,
+                state=version.code_state,
+                error=version.code_error,
+            )
+            if version.code_url
+            else None
+        )
+        return cls(
+            number=version.number,
+            status=version.status,
+            error=version.error,
+            size_bytes=version.size_bytes,
+            message=version.message,
+            servable=version.servable,
+            code=code,
+            created_by=version.created_by,
+            created_by_username=version.created_by_username,
+            created_at=version.created_at,
+            mlflow_url=view.mlflow_url,
+        )
+
+
+class ModelVersionDetailOut(ModelVersionOut):
+    files: list[ModelFileOut]
+
+    @classmethod
+    def from_files(cls, view: VersionView, files: list[ModelFile]) -> "ModelVersionDetailOut":
+        return cls(
+            **ModelVersionOut.from_view(view).model_dump(), files=[ModelFileOut.model_validate(f) for f in files]
+        )

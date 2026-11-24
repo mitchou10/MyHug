@@ -9,7 +9,7 @@ from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
 from app.jobs import CeleryJobs, Jobs, NoJobs
-from app.registry import MlflowLinks, ModelRegistry, get_links, get_registry
+from app.registry import MlflowLinks, ModelRegistry, NoRegistry, get_links, get_registry
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -32,6 +32,8 @@ from app.services.factory import (
     build_dataset_versions,
     build_datasets,
     build_model_members,
+    build_model_uploads,
+    build_model_versions,
     build_models,
     build_storage_garbage,
 )
@@ -40,6 +42,8 @@ from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
 from app.services.messages import MessageService
 from app.services.model_members import ModelMemberService
+from app.services.model_uploads import ModelUploadService
+from app.services.model_versions import ModelVersionService
 from app.services.models import ModelService
 from app.services.notifications import NotificationService
 from app.services.profile import ProfileService
@@ -193,3 +197,23 @@ def get_model_member_service(db: DB) -> ModelMemberService:
 
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 ModelMemberServiceDep = Annotated[ModelMemberService, Depends(get_model_member_service)]
+
+
+def get_model_version_service(db: DB, store: Store, registry: RegistryDep, links: LinksDep) -> ModelVersionService:
+    return build_model_versions(db, store, registry, links)
+
+
+def get_model_upload_service(db: DB, store: Store, registry: RegistryDep, links: LinksDep) -> ModelUploadService:
+    return build_model_uploads(db, store, registry, links)
+
+
+ModelVersionServiceDep = Annotated[ModelVersionService, Depends(get_model_version_service)]
+ModelUploadServiceDep = Annotated[ModelUploadService, Depends(get_model_upload_service)]
+
+
+def get_model_upload_expiry(db: DB, store: Store) -> ModelUploadService:
+    """Giving up the uploads that took too long needs no MLflow."""
+    return build_model_uploads(db, store, NoRegistry(), MlflowLinks(""))  # ty: ignore[invalid-argument-type]
+
+
+ModelUploadExpiryDep = Annotated[ModelUploadService, Depends(get_model_upload_expiry)]

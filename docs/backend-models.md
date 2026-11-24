@@ -101,3 +101,77 @@ les routes des versions (#17), construit par le même `MlflowLinks`.
   laisse dans le seau sous `mlflow/` restent (limite connue, voir [mlflow.md](mlflow.md)).
 - `code_url` doit être en `https` sur un hôte de `MODEL_CODE_HOSTS` (`github.com`, `gitlab.com` par défaut), sans identifiants
   dans l'adresse. Elle n'est jamais lue.
+
+## Les versions et l'envoi des fichiers (issue #17)
+
+### Où sont les fichiers, et ce que MLflow en voit
+
+**Les poids restent dans notre stockage**, sous `models/{model_id}/files/{file_id}`: une clé par fichier envoyé, partagée
+par les versions qui le gardent (un fichier qui ne change pas d'une version à la suivante est stocké **une fois**). MLflow
+ne reçoit **qu'un manifeste** (`MANIFEST.json`: chemins, tailles, empreintes, lien vers le code) dans un run, et la version
+enregistrée est ce run. Pourquoi: MLflow n'enregistre une version que si ses fichiers sont dans les artefacts d'un run, ce
+qui obligerait à recopier chaque version entière et ferait perdre la déduplication. Les versions, les alias et l'interface
+de MLflow marchent; une copie complète pour **servir** un modèle ne sera faite qu'à la demande (#18). `servable` reste faux
+d'ici là.
+
+Un modèle n'existe dans MLflow qu'à sa première version avec des fichiers. Une version qui n'est que du code n'y est pas.
+
+### Routes
+
+| Route | Rôle |
+|---|---|
+| `POST /api/models/{o}/{n}/uploads` | annonce les fichiers (`files`, `remove`, `message`, `code`): les parties partent directement vers le stockage |
+| `GET /api/model-uploads/{id}` (`?parts=true`) | l'état, et ce qui est arrivé (pour reprendre) |
+| `POST /api/model-uploads/{id}/parts` | adresses signées des parties |
+| `POST /api/model-uploads/{id}/complete` | assemble, crée la version, l'enregistre dans MLflow (rejouer rend la même version) |
+| `DELETE /api/model-uploads/{id}` | abandonner |
+| `POST /api/models/{o}/{n}/versions` | une version qui n'est qu'un lien vers le code (aucun envoi) |
+| `GET …/versions`, `GET / DELETE …/versions/{number}` | historique, détail avec ses fichiers, suppression |
+| `GET …/files`, `GET …/files/{path}` | les fichiers d'une version; le second redirige (302) vers une adresse signée et compte un téléchargement |
+
+Seuls les éditeurs envoient et suppriment; tout lecteur du modèle liste et télécharge; un modèle privé est invisible (404).
+`mlflow_url` d'une version suit la même règle que celui du modèle: éditeurs seulement, clé absente sinon.
+
+### Ordre des appels
+
+`complete`: les parties sont vérifiées (toutes là, bonne taille), assemblées, puis **MLflow d'abord** (modèle enregistré si
+besoin, run, manifeste, version), **la base en dernier**. Si MLflow ne répond pas, ou si la base échoue, ce qui a été fait
+dans MLflow est défait, les objets assemblés sont supprimés, les parties non assemblées sont abandonnées et l'envoi est
+terminé (`aborted`): il faut le refaire. Un modèle enregistré qui avait déjà des versions n'est jamais supprimé par cette
+défausse. Les numéros se suivent: une version à la fois par modèle (verrou sur la ligne du modèle).
+Supprimer une version: MLflow d'abord (503 si muet, on peut recommencer), puis la base, puis les objets que **aucune autre
+version** ne garde. `model.version` et `size_bytes` suivent la dernière version restante.
+
+### Le code d'une version
+
+Une version est **des fichiers, un lien vers le code, ou les deux**; ni l'un ni l'autre: 422. Le code est écrit **sur la
+version** et n'est pas hérité de la précédente. Règles (`services/code_reference.py`), vérifiées avant tout envoi: `https`
+seulement, pas d'identifiants, hôte de `MODEL_CODE_HOSTS` (donc ni IP ni nom interne), port par défaut, chemin exactement
+`/{owner}/{dépôt}` (pas de `..`, de requête ni de fragment), `ref` sans `..`, `path` et `entrypoint` relatifs. Un commit
+(40 ou 64 caractères hexadécimaux) est reconnu; une branche et un tag ne se distinguent pas (`unknown`). L'adresse est gardée
+**telle qu'écrite**, en état `unresolved`; le worker l'épinglera à un commit (#27), et ce commit ne change plus. **L'API ne
+lit ni ne clone jamais** cette adresse.
+
+### Pourquoi `model_uploads` et pas une généralisation de `dataset_uploads`
+
+Même contrat, mais ce qui entoure l'envoi diffère (ici l'enregistrement dans MLflow et le lien vers le code, là le README et
+la lecture des lignes): un service commun aurait une condition par cas dans chaque méthode. Le service est donc une copie
+adaptée, et ce qui est vraiment commun est importé (`part_size_for`, `PlannedFile`, `clean_path` déplacé dans
+`services/paths.py`). L'expiration des envois abandonnés passe par la même route interne que les datasets
+(`POST /api/internal/dataset-uploads/expire` expire aussi ceux des modèles).
+
+### Ramasse-miettes
+
+Il connaît maintenant `models/`: une clé que pointe un `model_files`, ou un envoi de modèle encore ouvert, n'est pas du
+déchet; un envoi en parties que possède un envoi ouvert de modèle n'est pas abandonné; l'échantillon de vérification inclut
+les fichiers de modèles. Ce que MLflow garde sous `mlflow/` (manifestes, anciens runs) reste hors de sa portée.
+
+### Limites
+
+`MODEL_FILE_MAX_BYTES` (50 Gio), `MODEL_VERSION_MAX_FILES` (500), les parties et la durée d'une session comme les datasets.
+
+### Reste à faire pour fermer #17
+
+Le **worker** doit calculer le sha256 des fichiers envoyés en parties et comparer à l'annonce (une version `pending` passe
+`ready`, ou `failed` en nommant le fichier). D'ici là, les versions avec des fichiers restent `pending`, et la
+déduplication par empreinte ne joue pas encore (aucun fichier n'a d'empreinte calculée).

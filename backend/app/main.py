@@ -15,6 +15,8 @@ from app.routers import (
     feedback_references,
     health,
     internal,
+    model_uploads,
+    model_versions,
     models,
     notifications,
     profile,
@@ -50,4 +52,6 @@ app.include_router(emit.router)
 app.include_router(datasets.router)
 app.include_router(dataset_uploads.router)
 app.include_router(models.router)
+app.include_router(model_versions.router)
+app.include_router(model_uploads.router)
 app.include_router(internal.router)

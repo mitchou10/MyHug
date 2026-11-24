@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field
 
 from app.auth.worker import Worker
 from app.config import settings
-from app.routers.deps import DatasetDerivativesDep, DatasetProcessingDep, StorageGarbageDep, UploadExpiryDep
+from app.routers.deps import (
+    DatasetDerivativesDep,
+    DatasetProcessingDep,
+    ModelUploadExpiryDep,
+    StorageGarbageDep,
+    UploadExpiryDep,
+)
 from app.services import tables
 from app.services.dataset_processing import FileRead
 
@@ -104,8 +110,8 @@ class ExpiredOut(BaseModel):
 
 
 @router.post("/dataset-uploads/expire", summary="Give up the uploads that took too long and free their parts")
-async def expire_uploads(_: Worker, service: UploadExpiryDep) -> ExpiredOut:
-    return ExpiredOut(expired=await service.expire_stale())
+async def expire_uploads(_: Worker, datasets: UploadExpiryDep, models: ModelUploadExpiryDep) -> ExpiredOut:
+    return ExpiredOut(expired=await datasets.expire_stale() + await models.expire_stale())
 
 
 # ---- the copies of the files in Parquet

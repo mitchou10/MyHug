@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     DATASET_VERSION_MAX_FILES: int = 100
     # An upload goes straight from the browser to the storage, in parts, each one with its own signed address.
     DATASET_UPLOAD_MAX_BYTES: int = 50 * 1024**3
+    # The files of a model are weights: far bigger than the files of a dataset, and always sent in parts.
+    MODEL_FILE_MAX_BYTES: int = 50 * 1024**3
+    MODEL_VERSION_MAX_FILES: int = 500
     UPLOAD_PART_BYTES: int = 64 * 1024**2  # the size of a part, unless the file is so large that it needs bigger ones
     UPLOAD_SESSION_HOURS: int = 24  # how long an upload can take before it is given up
     SIGNED_ADDRESS_SECONDS: int = 3600

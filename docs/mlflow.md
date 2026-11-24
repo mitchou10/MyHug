@@ -148,3 +148,9 @@ walks the prefixes it owns). Cleaning them is a separate piece of work.
 ```bash
 MLFLOW_INTEGRATION_URL=http://localhost:5000 uv run pytest -m integration tests/registry/test_mlflow_integration.py
 ```
+
+## Ce que la plateforme enregistre dans MLflow
+
+Pour une version de modèle avec des fichiers: un modèle enregistré (une fois, à la première version), un run, un
+`MANIFEST.json` mis dans les artefacts du run (`ModelRegistry.log_artifact`) et une version dont la source est ce run. Les
+poids ne sont pas dans MLflow: ils restent dans le stockage de la plateforme (voir [backend-models.md](backend-models.md)).

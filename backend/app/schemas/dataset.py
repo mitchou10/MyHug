@@ -8,6 +8,7 @@ from app.repositories.datasets import DatasetRow
 from app.services.dataset_uploads import UploadView
 from app.services.dataset_versions import RowsPage, SplitInfo
 from app.services.datasets import DatasetView
+from app.services.model_uploads import ModelUploadView
 
 Modality = Literal["text", "image", "audio", "video", "tabular", "timeseries"]
 Visibility = Literal["public", "private"]
@@ -236,7 +237,7 @@ class UploadOut(BaseModel):
     files: list[UploadFileOut]
 
     @classmethod
-    def from_view(cls, view: "UploadView", version: int | None = None) -> "UploadOut":
+    def from_view(cls, view: "UploadView | ModelUploadView", version: int | None = None) -> "UploadOut":
         return cls(
             id=view.upload.id,
             status=view.upload.status,

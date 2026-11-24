@@ -325,3 +325,23 @@ def test_the_registry_comes_from_the_settings(monkeypatch: pytest.MonkeyPatch) -
     assert isinstance(get_registry(), MlflowRegistry)
     monkeypatch.setattr(settings, "MLFLOW_PUBLIC_URL", "http://localhost:5000")
     assert get_links().model("ada~m") == "http://localhost:5000/#/models/ada~m"
+
+
+# ---- small files in the artifacts of a run
+
+
+async def test_a_small_file_is_put_in_the_artifacts_of_a_run() -> None:
+    server = Server().say(httpx2.Response(200))
+    await registry(server).log_artifact(RUN, "/MANIFEST.json", b"{}")
+    assert (server.last.method, server.last.url.path) == (
+        "PUT",
+        f"/api/2.0/mlflow-artifacts/artifacts/{RUN.experiment_id}/{RUN.run_id}/artifacts/MANIFEST.json",
+    )
+    assert server.last.content == b"{}"
+
+
+async def test_a_file_that_cannot_be_put_in_the_artifacts_is_an_error() -> None:
+    with pytest.raises(RegistryUnavailable):
+        await registry(Server().say(httpx2.Response(500))).log_artifact(RUN, "a", b"x")
+    with pytest.raises(RegistryUnavailable):
+        await registry(Server().say(httpx2.ConnectError("down"))).log_artifact(RUN, "a", b"x")

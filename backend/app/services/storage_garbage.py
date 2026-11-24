@@ -8,7 +8,7 @@ from app.storage import ListedObject, ObjectStore
 logger = logging.getLogger(__name__)
 # The only places the collector walks. The bucket holds other things (avatars, attachments, the artifacts of MLflow...)
 # that it must never touch: a key outside these is never listed, and asking for it is a mistake of the code.
-PREFIXES = ("datasets/", "derived/")
+PREFIXES = ("datasets/", "derived/", "models/")
 CHECKED_KEYS_SHOWN = 20
 
 

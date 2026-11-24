@@ -19,7 +19,19 @@ from app.schemas.dataset import (
 from app.schemas.feedback import FeedbackChange, FeedbackOut, FeedbackSummaryOut
 from app.schemas.health import HealthOut
 from app.schemas.message import MessageOut, MessagesPageOut
-from app.schemas.model import MemberIn, MemberOut, ModelChange, ModelIn, ModelOut, ModelSummaryOut
+from app.schemas.model import (
+    CodeVersionIn,
+    MemberIn,
+    MemberOut,
+    ModelChange,
+    ModelFileOut,
+    ModelIn,
+    ModelOut,
+    ModelSummaryOut,
+    ModelUploadIn,
+    ModelVersionDetailOut,
+    ModelVersionOut,
+)
 from app.schemas.notification import (
     EmittedOut,
     MarkedReadOut,
@@ -41,6 +53,7 @@ from app.schemas.reference import (
 
 __all__ = [
     "AttachmentOut",
+    "CodeVersionIn",
     "ColumnOut",
     "DatasetChange",
     "DatasetIn",
@@ -68,9 +81,13 @@ __all__ = [
     "MessageOut",
     "MessagesPageOut",
     "ModelChange",
+    "ModelFileOut",
     "ModelIn",
     "ModelOut",
     "ModelSummaryOut",
+    "ModelUploadIn",
+    "ModelVersionDetailOut",
+    "ModelVersionOut",
     "NotificationIn",
     "NotificationOut",
     "NotificationRead",

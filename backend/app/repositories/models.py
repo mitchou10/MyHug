@@ -44,6 +44,10 @@ class ModelRepository(Repository):
         result = await self._db.execute(select(Model).where(Model.owner == owner, Model.name == name))
         return result.scalar_one_or_none()
 
+    async def lock(self, model_id: uuid.UUID) -> None:
+        """Waits for any other request that is changing the versions of this model, until the end of the transaction."""
+        await self._db.execute(select(Model.id).where(Model.id == model_id).with_for_update())
+
     async def delete(self, model: Model) -> None:
         """The members, the likes, the versions and their files go with it (the database cascades)."""
         await self._db.execute(delete(Model).where(Model.id == model.id))

@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import mimetypes
-import posixpath
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -29,6 +28,7 @@ from app.services.errors import (
     VersionNotFound,
     VersionNotReady,
 )
+from app.services.paths import clean_path
 from app.storage import ObjectStore
 
 logger = logging.getLogger(__name__)
@@ -61,17 +61,6 @@ class RowsPage:
     columns: list[tables.Column]
     rows: list[list[Any]]
     total: int
-
-
-def clean_path(path: str) -> str:
-    """A path inside a dataset: relative, with `/`, nothing like `..`. Raises InvalidFilePath."""
-    candidate = path.strip().replace("\\", "/").lstrip("/")
-    parts = candidate.split("/")
-    if not candidate or len(candidate) > 512 or any(part in ("", ".", "..") or len(part) > 255 for part in parts):
-        raise InvalidFilePath
-    if any(ord(char) < 32 for char in candidate):
-        raise InvalidFilePath
-    return posixpath.normpath(candidate)
 
 
 def splits_of(files: list[DatasetFile]) -> list[SplitInfo]:

@@ -11,6 +11,8 @@ from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
+from app.repositories.model_uploads import ModelUploadRepository
+from app.repositories.model_versions import ModelVersionRepository
 from app.repositories.models import ModelRepository
 from app.repositories.storage_references import StorageReferenceRepository
 from app.services.dataset_access import DatasetAccess
@@ -21,6 +23,8 @@ from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.model_access import ModelAccess
 from app.services.model_members import ModelMemberService
+from app.services.model_uploads import ModelUploadService
+from app.services.model_versions import ModelVersionService
 from app.services.models import ModelService
 from app.services.storage_garbage import StorageGarbage
 from app.storage import ObjectStore
@@ -116,3 +120,38 @@ def build_models(db: AsyncSession, store: ObjectStore, registry: ModelRegistry, 
 def build_model_members(db: AsyncSession) -> ModelMemberService:
     models = ModelRepository(db)
     return ModelMemberService(models, ModelAccess(models))
+
+
+def build_model_versions(
+    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks
+) -> ModelVersionService:
+    models = ModelRepository(db)
+    return ModelVersionService(
+        models,
+        ModelVersionRepository(db),
+        ModelAccess(models),
+        registry,
+        links,
+        store,
+        max_files=settings.MODEL_VERSION_MAX_FILES,
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+        code_hosts=settings.MODEL_CODE_HOSTS,
+    )
+
+
+def build_model_uploads(
+    db: AsyncSession, store: ObjectStore, registry: ModelRegistry, links: MlflowLinks
+) -> ModelUploadService:
+    models = ModelRepository(db)
+    return ModelUploadService(
+        models,
+        ModelUploadRepository(db),
+        build_model_versions(db, store, registry, links),
+        ModelAccess(models),
+        store,
+        max_bytes=settings.MODEL_FILE_MAX_BYTES,
+        max_files=settings.MODEL_VERSION_MAX_FILES,
+        part_bytes=settings.UPLOAD_PART_BYTES,
+        session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+    )
