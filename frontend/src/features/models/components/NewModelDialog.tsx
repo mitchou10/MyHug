@@ -35,7 +35,7 @@ export function NewModelDialog({ open, onOpenChange, taken }: { open: boolean; o
       id: `${CURRENT_USER}/${slug}`, owner: CURRENT_USER, name: slug, description: description.trim() || undefined, tasks: [task], inputs: [input],
       languages: languages.split(',').map((l) => l.trim()).filter(Boolean), license: license.trim() || 'other', tags: [], paramsM: 0, sizeMb: 0, downloads: 0, likes: 0,
       updatedAt: new Date().toISOString().slice(0, 10), version: '0.1.0', versions: [{ version: '0.1.0', date: new Date().toISOString().slice(0, 10), sizeMb: 0, changelog: 'first' }],
-      files: [{ path: 'README.md', sizeMb: 0.01 }], benchmarks: [], trainedOn: [], visibility: priv ? 'private' : 'public',
+      files: [{ path: 'README.md', sizeMb: 0.01 }], trainedOn: [], visibility: priv ? 'private' : 'public',
     }
     addModel(m); reset(); onOpenChange(false)
   }

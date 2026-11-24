@@ -71,4 +71,17 @@ describe('models screens', () => {
     await user.click(within(dialog).getByRole('button', { name: /créer|create/i }))
     expect(await screen.findByText('mitchou/my-model')).toBeTruthy()
   })
+
+  it('starts an evaluation, and shows only the metrics its author chose', async () => {
+    const user = userEvent.setup()
+    at('/models/lab/detector-v3')
+    await user.click(await screen.findByRole('tab', { name: /évaluation|evaluation/i }))
+    // Someone else's evaluation: the metrics they chose are shown, the others are announced as hidden.
+    expect((await screen.findAllByText(/masquées|hidden/)).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /lancer une évaluation|start an evaluation/i }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getAllByRole('checkbox').length).toBe(4) // every metric of the detection, only some are ticked
+    await user.click(within(dialog).getByRole('button', { name: /lancer l'évaluation|start the evaluation/i }))
+    expect((await screen.findAllByText(/en cours|running/)).length).toBeGreaterThan(0)
+  })
 })

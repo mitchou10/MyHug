@@ -1,11 +1,10 @@
 import { seeded } from '../datasets/components/viewers/seed'
 import { MODELS as ANNOTATION_MODELS } from '../datasets/annotation/models'
 import type { TaskType } from '../datasets/annotation/store'
-import { DATASETS, type Modality } from '../datasets/mockData'
+import type { Modality } from '../datasets/mockData'
 
 /** Temporary mock data: replaced by the API once the backend handles models. */
 export interface ModelVersion { version: string; date: string; sizeMb: number; changelog: 'first' | 'better' | 'faster' | 'latest' }
-export interface Benchmark { dataset: string; split: string; metric: string; value: number; /** `false` when a lower value is better (an error rate). */ higherIsBetter: boolean }
 
 export interface Model {
   id: string
@@ -28,7 +27,6 @@ export interface Model {
   version: string
   versions: ModelVersion[]
   files: { path: string; sizeMb: number }[]
-  benchmarks: Benchmark[]
   /** The datasets (`owner/name`) it was trained on. */
   trainedOn: string[]
   visibility: 'public' | 'private'
@@ -61,32 +59,13 @@ const ENTRIES: [string, string, Modality, string[], string, string[], string[]][
   ['forecaster-v1', 'lab', 'timeseries', [], 'apache-2.0', ['prévision', 'séries'], ['lab/sales-timeseries']],
 ]
 
-/** The metric a kind of model is judged on, and whether a higher value is better. */
-export function metricOf(task: TaskType): { name: string; higher: boolean } {
-  if (task === 'regression') return { name: 'MAE', higher: false }
-  if (task === 'audio_transcription') return { name: 'WER', higher: false }
-  if (task === 'image_detection' || task === 'image_polyline') return { name: 'mAP@50', higher: true }
-  if (task === 'image_segmentation') return { name: 'mIoU', higher: true }
-  if (task === 'image_keypoints') return { name: 'PCK', higher: true }
-  if (task === 'video_tracking') return { name: 'MOTA', higher: true }
-  if (task === 'image_caption' || task === 'audio_caption' || task === 'video_caption' || task === 'timeseries_caption') return { name: 'BLEU', higher: true }
-  if (/segments|ner|qa|cell_review/.test(task)) return { name: 'F1', higher: true }
-  return { name: 'Accuracy', higher: true }
-}
-
 function build([name, owner, input, languages, license, tags, trainedOn]: (typeof ENTRIES)[number]): Model {
   const rnd = seeded(name)
   const info = ANNOTATION_MODELS.find((m) => m.id === name)
   const tasks = info?.tasks ?? []
-  const quality = info?.quality ?? 0.7
   const sizeMb = Math.round(20 + rnd() * 900)
   const day = (n: number) => `2026-${String(11 - Math.floor(n / 30)).padStart(2, '0')}-${String(28 - (n % 28)).padStart(2, '0')}`
   const latest = `${1 + Math.floor(rnd() * 2)}.${Math.floor(rnd() * 4)}.0`
-  const metric = metricOf(tasks[0])
-  const benchmarks: Benchmark[] = DATASETS.filter((d) => d.modality === input).slice(0, 2).map((d, i) => ({
-    dataset: `${d.owner}/${d.name}`, split: 'test', metric: metric.name, higherIsBetter: metric.higher,
-    value: Number((metric.higher ? quality - 0.05 + rnd() * 0.1 - i * 0.04 : (1 - quality) * (0.4 + rnd() * 0.3) * 10).toFixed(2)),
-  }))
   return {
     id: `${owner}/${name}`, owner, name, tasks, inputs: [input], languages, license, tags, trainedOn,
     paramsM: Math.round(5 + rnd() * 300), sizeMb, downloads: Math.round(200 + rnd() * 9000), likes: Math.round(3 + rnd() * 180), updatedAt: day(Math.floor(rnd() * 60)),
@@ -97,7 +76,7 @@ function build([name, owner, input, languages, license, tags, trainedOn]: (typeo
       ...(latest === '1.1.0' ? [] : [{ version: latest, date: '2026-11-05', sizeMb, changelog: 'latest' as const }]),
     ],
     files: [{ path: 'README.md', sizeMb: 0.01 }, { path: 'config.json', sizeMb: 0.01 }, { path: 'model.safetensors', sizeMb }, { path: 'tokenizer.json', sizeMb: 2 }],
-    benchmarks, visibility: 'public',
+    visibility: 'public',
   }
 }
 

@@ -9,6 +9,7 @@ import { statsOf, useAnnotations } from '@/features/datasets/annotation/store'
 import { formatCount, formatSize } from '@/features/datasets/format'
 import { getDataset } from '@/features/datasets/mockData'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { EvaluationsSection } from '../components/EvaluationsSection'
 import { ModelWidget } from '../components/ModelWidget'
 import { describe } from '../describe'
 import { findModel, toggleLike, useModels } from '../store'
@@ -95,19 +96,7 @@ export function ModelDetailPage() {
           <TabsContent value="try" className="mt-4"><ModelWidget key={m.id} model={m} /></TabsContent>
 
           <TabsContent value="eval" className="mt-4 space-y-6">
-            <section className="space-y-2">
-              <h2 className="text-sm font-medium">{t('models.eval.benchmarks')}</h2>
-              {m.benchmarks.length ? (
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-left text-xs"><tr><th className="px-3 py-2 font-medium">{t('models.eval.dataset')}</th><th className="px-3 py-2 font-medium">{t('models.eval.split')}</th><th className="px-3 py-2 font-medium">{t('models.eval.metric')}</th><th className="px-3 py-2 font-medium">{t('models.eval.value')}</th></tr></thead>
-                    <tbody>{m.benchmarks.map((b) => (
-                      <tr key={b.dataset + b.metric} className="border-t"><td className="px-3 py-2"><Link className="underline-offset-2 hover:underline" to={`/datasets/${b.dataset}`}>{b.dataset}</Link></td><td className="px-3 py-2">{b.split}</td><td className="px-3 py-2">{b.metric}{!b.higherIsBetter && ' ↓'}</td><td className="px-3 py-2 font-mono">{b.value}</td></tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              ) : <p className="text-sm text-muted-foreground">{t('models.eval.none')}</p>}
-            </section>
+            <EvaluationsSection model={m} />
 
             <section className="space-y-2">
               <h2 className="flex items-center gap-1.5 text-sm font-medium"><Sparkles className="size-4 text-amber-600" />{t('models.eval.byHumans')}</h2>

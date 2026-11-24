@@ -784,7 +784,30 @@
       "noDecisions": "No proposal of this model has been validated or rejected yet.",
       "usedOn": "Used to pre-annotate:",
       "compatible": "Tasks it could pre-annotate",
-      "noCompatible": "No existing task matches this model."
+      "noCompatible": "No existing task matches this model.",
+      "all": "All",
+      "mainOnly": "Main one only",
+      "main": "main",
+      "higher": "Higher is better.",
+      "lower": "Lower is better.",
+      "start": {
+        "title": "Start an evaluation",
+        "hint": "The model is evaluated on a part of a dataset. Every metric of the task is computed.",
+        "task": "Task evaluated",
+        "metrics": "Metrics to show",
+        "metricsHint": "They are all computed and kept. You choose the ones the others will see, and you can change this choice later.",
+        "launch": "Start the evaluation"
+      },
+      "by": "started by {{user}}",
+      "show": "Show {{metric}} to the others",
+      "mineHint": "You see every metric. Tick the ones other people see.",
+      "hiddenBy": "{{n}} other metrics were computed but are not shown by {{user}}.",
+      "close": "Close",
+      "status": {
+        "running": "running",
+        "stopped": "stopped"
+      },
+      "moreMetrics": "+{{n}} hidden"
     },
     "versions": {
       "current": "current",
@@ -796,6 +819,42 @@
       }
     },
     "does": "Does:",
-    "allTasks": "All tasks"
+    "allTasks": "All tasks",
+    "metrics": {
+      "accuracy": "Share of the items correctly classified.",
+      "precision": "Of what the model announces, the share that is right.",
+      "recall": "Of what had to be found, the share that was found.",
+      "f1": "Balance between precision and recall.",
+      "auc": "Ability to tell the classes apart, whatever the threshold.",
+      "exact_match": "Share of answers identical to the reference, word for word.",
+      "mae": "Mean absolute error, in the unit of the value.",
+      "rmse": "Root of the mean squared error: punishes big errors.",
+      "r2": "Share of the variation explained by the model (1 = perfect).",
+      "mape": "Mean error as a percentage of the real value.",
+      "map50": "Mean precision of the boxes, with an overlap of at least 50%.",
+      "map50_95": "Mean precision with overlap thresholds from 50 to 95%: more demanding.",
+      "chamfer": "Mean gap between the predicted line and the real one.",
+      "miou": "Mean overlap between predicted and real regions.",
+      "dice": "Overlap of regions, like IoU but more lenient.",
+      "pixel_accuracy": "Share of the pixels correctly labelled.",
+      "boundary_f1": "Quality of the outlines of the regions.",
+      "pck": "Share of the keypoints placed close enough to the right spot.",
+      "oks_ap": "Mean precision according to the similarity of the keypoints.",
+      "mpjpe": "Mean distance between predicted and real points, in pixels.",
+      "bleu": "Overlap of words with the reference descriptions.",
+      "rouge_l": "Longest run of words shared with the reference.",
+      "cider": "Agreement with several references, weighing rare words.",
+      "meteor": "Like BLEU, but accounts for synonyms and stems.",
+      "vqa_accuracy": "Share of answers judged correct by the reference annotators.",
+      "iou_temporal": "Overlap between predicted and real stretches in time.",
+      "boundary_error": "Mean gap between predicted and real bounds.",
+      "wer": "Word error rate: words replaced, missed and added.",
+      "cer": "Character error rate.",
+      "ser": "Share of sentences with at least one error.",
+      "mota": "Tracking accuracy: misses, false detections and identity switches.",
+      "idf1": "Quality of the identity kept for each tracked object.",
+      "hota": "Balance between detecting and associating objects.",
+      "id_switches": "Number of times an object changes identity."
+    }
   }
 }

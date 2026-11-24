@@ -784,7 +784,30 @@
       "noDecisions": "Aucune proposition de ce modèle n'a encore été validée ou rejetée.",
       "usedOn": "Utilisé pour pré-annoter :",
       "compatible": "Tâches qu'il pourrait pré-annoter",
-      "noCompatible": "Aucune tâche existante ne correspond à ce modèle."
+      "noCompatible": "Aucune tâche existante ne correspond à ce modèle.",
+      "all": "Toutes",
+      "mainOnly": "La principale seulement",
+      "main": "principale",
+      "higher": "Plus haut = mieux.",
+      "lower": "Plus bas = mieux.",
+      "start": {
+        "title": "Lancer une évaluation",
+        "hint": "Le modèle est évalué sur une partie d'un dataset. Toutes les mesures de la tâche sont calculées.",
+        "task": "Tâche évaluée",
+        "metrics": "Mesures à afficher",
+        "metricsHint": "Elles sont toutes calculées et conservées. Vous choisissez celles que les autres verront, et vous pourrez changer ce choix plus tard.",
+        "launch": "Lancer l'évaluation"
+      },
+      "by": "lancée par {{user}}",
+      "show": "Afficher {{metric}} aux autres",
+      "mineHint": "Vous voyez toutes les mesures. Cochez celles que les autres personnes voient.",
+      "hiddenBy": "{{n}} autres mesures ont été calculées mais ne sont pas affichées par {{user}}.",
+      "close": "Fermer",
+      "status": {
+        "running": "en cours",
+        "stopped": "arrêtée"
+      },
+      "moreMetrics": "+{{n}} masquées"
     },
     "versions": {
       "current": "actuelle",
@@ -796,6 +819,42 @@
       }
     },
     "does": "Fait :",
-    "allTasks": "Toutes les tâches"
+    "allTasks": "Toutes les tâches",
+    "metrics": {
+      "accuracy": "Part des éléments bien classés.",
+      "precision": "Parmi ce que le modèle annonce, la part qui est juste.",
+      "recall": "Parmi ce qu'il fallait trouver, la part trouvée.",
+      "f1": "Compromis entre précision et rappel.",
+      "auc": "Capacité à séparer les classes, quel que soit le seuil.",
+      "exact_match": "Part des réponses identiques à la référence, mot pour mot.",
+      "mae": "Erreur absolue moyenne, dans l'unité de la valeur.",
+      "rmse": "Racine de l'erreur quadratique moyenne : pénalise les grosses erreurs.",
+      "r2": "Part de la variation expliquée par le modèle (1 = parfait).",
+      "mape": "Erreur moyenne en pourcentage de la valeur réelle.",
+      "map50": "Précision moyenne des boîtes, avec un recouvrement d'au moins 50 %.",
+      "map50_95": "Précision moyenne, avec des seuils de recouvrement de 50 à 95 % : plus exigeante.",
+      "chamfer": "Écart moyen entre la ligne prédite et la ligne réelle.",
+      "miou": "Recouvrement moyen entre régions prédites et réelles.",
+      "dice": "Recouvrement des régions, comme l'IoU mais plus indulgent.",
+      "pixel_accuracy": "Part des pixels bien étiquetés.",
+      "boundary_f1": "Qualité des contours des régions.",
+      "pck": "Part des points clés placés assez près du bon endroit.",
+      "oks_ap": "Précision moyenne selon la similarité des points clés.",
+      "mpjpe": "Distance moyenne entre points prédits et réels, en pixels.",
+      "bleu": "Recouvrement des mots avec les descriptions de référence.",
+      "rouge_l": "Plus longue suite de mots communs avec la référence.",
+      "cider": "Accord avec plusieurs références, qui pèse les mots rares.",
+      "meteor": "Comme BLEU, mais tient compte des synonymes et des racines.",
+      "vqa_accuracy": "Part des réponses jugées correctes par les annotateurs de référence.",
+      "iou_temporal": "Recouvrement entre passages prédits et réels dans le temps.",
+      "boundary_error": "Écart moyen entre les bornes prédites et réelles.",
+      "wer": "Taux d'erreur de mots : mots remplacés, oubliés et ajoutés.",
+      "cer": "Taux d'erreur de caractères.",
+      "ser": "Part des phrases contenant au moins une erreur.",
+      "mota": "Précision du suivi : manques, fausses détections et changements d'identité.",
+      "idf1": "Qualité de l'identité gardée pour chaque objet suivi.",
+      "hota": "Équilibre entre détection et association des objets.",
+      "id_switches": "Nombre de fois où un objet change d'identité."
+    }
   }
 }
