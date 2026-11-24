@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/mitchou10/MyHug/compare/backend-v0.5.0...backend-v0.6.0) (2026-11-24)
+
+
+### Features
+
+* **backend:** collect the objects of the storage that nothing points to ([c8c6390](https://github.com/mitchou10/MyHug/commit/c8c63907f98c7eead9f814cf50f52407637f55ac))
+* **worker:** convert tabular files to Parquet as a derived cache ([caaaf36](https://github.com/mitchou10/MyHug/commit/caaaf3697fb21d411aa3035f5320cbe89ae7a37e))
+
 ## [0.5.0](https://github.com/mitchou10/MyHug/compare/backend-v0.4.1...backend-v0.5.0) (2026-11-24)
 
 
