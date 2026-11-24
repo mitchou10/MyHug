@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import CurrentUser
 from app.config import settings
 from app.db import get_db
+from app.repositories.dataset_versions import DatasetVersionRepository
+from app.repositories.datasets import DatasetRepository
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -18,6 +20,9 @@ from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
+from app.services.dataset_access import DatasetAccess
+from app.services.dataset_versions import DatasetVersionService
+from app.services.datasets import DatasetService
 from app.services.feedback import FeedbackService
 from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
@@ -109,3 +114,24 @@ def get_notification_service(db: DB) -> NotificationService:
 
 
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
+
+
+def get_dataset_service(db: DB, store: Store) -> DatasetService:
+    datasets = DatasetRepository(db)
+    return DatasetService(datasets, DatasetAccess(datasets), DatasetVersionRepository(db), store)
+
+
+def get_dataset_version_service(db: DB, store: Store) -> DatasetVersionService:
+    datasets = DatasetRepository(db)
+    return DatasetVersionService(
+        datasets,
+        DatasetVersionRepository(db),
+        DatasetAccess(datasets),
+        store,
+        max_bytes=settings.DATASET_FILE_MAX_BYTES,
+        max_files=settings.DATASET_VERSION_MAX_FILES,
+    )
+
+
+DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
+DatasetVersionServiceDep = Annotated[DatasetVersionService, Depends(get_dataset_version_service)]
