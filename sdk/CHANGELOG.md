@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/mitchou10/MyHug/compare/sdk-v0.3.0...sdk-v0.4.0) (2026-11-25)
+
+
+### Features
+
+* **sdk:** evaluations from code ([07885fc](https://github.com/mitchou10/MyHug/commit/07885fcd50865bbb114fb583f9b1bd3dba7c0442))
+
 ## [0.3.0](https://github.com/mitchou10/MyHug/compare/sdk-v0.2.0...sdk-v0.3.0) (2026-11-25)
 
 
