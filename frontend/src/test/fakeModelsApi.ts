@@ -4,7 +4,7 @@
  * the upload in parts (announce, sign, send to the storage, complete, resume, give up). The screens are tested against
  * it, the real backend against its own tests.
  */
-import type { WireFile, WireMember, WireModel, WirePage, WireUpload, WireVersion } from '@/features/models/api/wire'
+import type { WireEvaluation, WireFile, WireMember, WireModel, WirePage, WireTaskMetrics, WireUpload, WireVersion } from '@/features/models/api/wire'
 import { Reply, type FakeUser } from './fakeFeedbackApi'
 
 const T = '2026-11-01T09:00:00Z'
@@ -12,11 +12,47 @@ const fail = (status: number, detail: string) => new Reply(status, { detail })
 
 export type SeedModel = Partial<WireModel> & Pick<WireModel, 'owner' | 'name'>
 
+/** What a test puts in a model: the evaluation as the server holds it (every metric in `results`). */
+export type SeedEvaluation = Partial<WireEvaluation> & Pick<WireEvaluation, 'task' | 'results'>
+
 interface Stored {
   model: WireModel
   versions: (WireVersion & { files: WireFile[] })[]
   members: WireMember[]
+  evaluations: WireEvaluation[]
 }
+
+/** The metrics of a few tasks, as `GET /api/metrics` lists them (the platform defines them all, in one place). */
+export const METRICS: WireTaskMetrics[] = [
+  {
+    task: 'classification',
+    metrics: [
+      { id: 'accuracy', name: 'Accuracy', higher: true, primary: true },
+      { id: 'precision', name: 'Precision', higher: true, primary: false },
+      { id: 'recall', name: 'Recall', higher: true, primary: false },
+      { id: 'f1', name: 'F1', higher: true, primary: false },
+      { id: 'auc', name: 'AUC', higher: true, primary: false },
+    ],
+    default_shown: ['accuracy', 'precision'],
+  },
+  {
+    task: 'regression',
+    metrics: [
+      { id: 'mae', name: 'MAE', higher: false, primary: true },
+      { id: 'rmse', name: 'RMSE', higher: false, primary: false },
+      { id: 'r2', name: 'R²', higher: true, primary: false },
+    ],
+    default_shown: ['mae', 'rmse'],
+  },
+  {
+    task: 'ner',
+    metrics: [
+      { id: 'f1', name: 'F1', higher: true, primary: true },
+      { id: 'exact_match', name: 'Exact match', higher: true, primary: false },
+    ],
+    default_shown: ['f1', 'exact_match'],
+  },
+]
 
 interface StoredUpload {
   upload: WireUpload
@@ -30,6 +66,10 @@ export interface FakeModelsApi {
   handle: (url: string, init?: RequestInit) => Reply | undefined
   models: Stored[]
   uploads: StoredUpload[]
+  /** Answers a call instead of the server (a failure, a slow call...): nothing, and the server answers as it should. */
+  intercept: ((url: string, init?: RequestInit) => Reply | undefined) | null
+  /** Puts an evaluation in a model, as the server would hold it. */
+  addEvaluation: (address: string, seed: SeedEvaluation) => WireEvaluation
   /** The next `count` parts sent to the storage are refused. */
   refuseParts: (count: number) => void
   /** How the relay answers (default: two labels for a text). */
@@ -49,14 +89,31 @@ const build = (seed: SeedModel): WireModel => ({
   ...seed,
 })
 
+/** What a person is given of an evaluation: the people who can edit the model see every metric, the others the chosen ones. */
+function evaluationView(e: WireEvaluation, editor: boolean): WireEvaluation {
+  const results = Object.fromEntries(Object.entries(e.results).filter(([k]) => editor || e.shown.includes(k)))
+  return { ...e, results, hidden: Object.keys(e.results).length - Object.keys(results).length, can_edit: editor }
+}
+
 export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [], options: { partSize?: number } = {}): FakeModelsApi {
-  const models: Stored[] = seed.map((s) => ({ model: build(s), versions: [], members: [] }))
+  const models: Stored[] = seed.map((s) => ({ model: build(s), versions: [], members: [], evaluations: [] }))
   const uploads: StoredUpload[] = []
   const sentParts: string[] = []
   let refused = 0
   const partSize = options.partSize ?? 4
   const api: FakeModelsApi = {
-    handle, models, uploads, sentParts, announcement: null,
+    handle, models, uploads, sentParts, announcement: null, intercept: null,
+    addEvaluation: (address, seed) => {
+      const [owner, name] = address.split('/')
+      const stored = find(owner, name)!
+      const evaluation: WireEvaluation = {
+        id: `evaluation-${++counter}`, version: 1, dataset: null, dataset_version: null, split: null, input_column: null, target_column: null,
+        items: null, source: 'submitted', status: 'done', error: null, hidden: 0, shown: [], note: '', created_by_username: 'ada',
+        created_at: '2026-11-02T09:00:00Z', finished_at: '2026-11-02T09:00:00Z', can_edit: false, ...seed,
+      }
+      stored.evaluations.push(evaluation)
+      return evaluation
+    },
     refuseParts: (count) => { refused = count },
     predict: () => [{ label: 'positive', score: 0.8 }, { label: 'negative', score: 0.2 }],
   }
@@ -77,6 +134,8 @@ export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [
   const withoutFiles = ({ files: _files, ...v }: WireVersion & { files: WireFile[] }): WireVersion => (void _files, v)
 
   function handle(url: string, init: RequestInit = {}): Reply | undefined {
+    const instead = api.intercept?.(url, init)
+    if (instead) return instead
     const method = (init.method ?? 'GET').toUpperCase()
     const [path, query = ''] = url.split('?')
     const params = new URLSearchParams(query)
@@ -94,6 +153,7 @@ export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [
       stored.received.set(fileId, parts)
       return new Reply(200)
     }
+    if (path === '/api/metrics') return user ? new Reply(200, METRICS) : fail(401, 'Not authenticated')
     if (!path.startsWith('/api/models') && !path.startsWith('/api/model-uploads')) return undefined
     if (!user && method !== 'GET') return fail(401, 'Not authenticated')
 
@@ -147,7 +207,7 @@ export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [
     if (path === '/api/models' && method === 'POST') {
       const data = body()
       if (find(user!.username, data.name)) return fail(409, 'A model with this name already exists')
-      const stored: Stored = { model: build({ ...data, owner: user!.username, name: data.name } as SeedModel), versions: [], members: [] }
+      const stored: Stored = { model: build({ ...data, owner: user!.username, name: data.name } as SeedModel), versions: [], members: [], evaluations: [] }
       models.push(stored)
       return new Reply(201, view(stored))
     }
@@ -166,6 +226,25 @@ export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [
         return new Reply(204)
       }
       return new Reply(200, view(stored))
+    }
+    if (rest === '/evaluations' && method === 'GET') {
+      return new Reply(200, [...stored.evaluations].reverse().map((e) => evaluationView(e, canEdit(stored))))
+    }
+    const evaluation = rest.match(/^\/evaluations\/([^/]+)(\/shown)?$/)
+    if (evaluation) {
+      const found = stored.evaluations.find((e) => e.id === evaluation[1])
+      if (!found) return fail(404, 'This evaluation does not exist')
+      if (!canEdit(stored)) return method === 'GET' ? new Reply(200, evaluationView(found, false)) : fail(403, 'You cannot change this model')
+      if (method === 'DELETE') {
+        stored.evaluations.splice(stored.evaluations.indexOf(found), 1)
+        return new Reply(204)
+      }
+      if (method === 'PUT') {
+        const { shown } = body() as { shown: string[] }
+        if (shown.some((m) => !(m in found.results))) return fail(422, `${shown[0]} cannot be shown: the result has no such metric`)
+        found.shown = shown
+      }
+      return new Reply(200, evaluationView(found, true))
     }
     if (rest === '/like') {
       if (!user) return fail(401, 'Not authenticated')

@@ -790,8 +790,6 @@
       "benchmarks": "Evaluations",
       "dataset": "Dataset",
       "split": "Split",
-      "metric": "Metric",
-      "value": "Value",
       "none": "Not evaluated yet.",
       "byHumans": "Judged by annotators",
       "decisions": "{{n}} decisions",
@@ -801,29 +799,32 @@
       "usedOn": "Used to pre-annotate:",
       "compatible": "Tasks it could pre-annotate",
       "noCompatible": "No existing task matches this model.",
-      "all": "All",
-      "mainOnly": "Main one only",
       "main": "main",
-      "higher": "Higher is better.",
-      "lower": "Lower is better.",
-      "start": {
-        "title": "Start an evaluation",
-        "hint": "The model is evaluated on a part of a dataset. Every metric of the task is computed.",
-        "task": "Task evaluated",
-        "metrics": "Metrics to show",
-        "metricsHint": "They are all computed and kept. You choose the ones the others will see, and you can change this choice later.",
-        "launch": "Start the evaluation"
-      },
-      "by": "started by {{user}}",
       "show": "Show {{metric}} to the others",
       "mineHint": "You see every metric. Tick the ones other people see.",
-      "hiddenBy": "{{n}} other metrics were computed but are not shown by {{user}}.",
       "close": "Close",
-      "status": {
-        "running": "running",
-        "stopped": "stopped"
+      "moreMetrics": "+{{n}} hidden",
+      "source": {
+        "submitted": "Sent",
+        "measured": "Measured"
       },
-      "moreMetrics": "+{{n}} hidden"
+      "submittedHint": "Computed outside the platform and sent by {{user}}: the platform did not measure it.",
+      "measuredHint": "Measured by the platform, started by {{user}}.",
+      "origin": "Origin",
+      "noDatasetHint": "No dataset, or one you may not read",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "target": "Target column: {{column}}",
+      "hiddenBy_one": "{{count}} other metric was computed but is not shown by {{user}}.",
+      "hiddenBy_other": "{{count}} other metrics were computed but are not shown by {{user}}.",
+      "delete": "Delete",
+      "confirmDelete": "Delete for good",
+      "status": {
+        "pending": "waiting",
+        "running": "running",
+        "failed": "failed",
+        "stopped": "stopped"
+      }
     },
     "versions": {
       "current": "current",

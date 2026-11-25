@@ -790,8 +790,6 @@
       "benchmarks": "Évaluations",
       "dataset": "Dataset",
       "split": "Partie",
-      "metric": "Mesure",
-      "value": "Valeur",
       "none": "Pas encore évalué.",
       "byHumans": "Jugé par les annotateurs",
       "decisions": "{{n}} décisions",
@@ -801,29 +799,32 @@
       "usedOn": "Utilisé pour pré-annoter :",
       "compatible": "Tâches qu'il pourrait pré-annoter",
       "noCompatible": "Aucune tâche existante ne correspond à ce modèle.",
-      "all": "Toutes",
-      "mainOnly": "La principale seulement",
       "main": "principale",
-      "higher": "Plus haut = mieux.",
-      "lower": "Plus bas = mieux.",
-      "start": {
-        "title": "Lancer une évaluation",
-        "hint": "Le modèle est évalué sur une partie d'un dataset. Toutes les mesures de la tâche sont calculées.",
-        "task": "Tâche évaluée",
-        "metrics": "Mesures à afficher",
-        "metricsHint": "Elles sont toutes calculées et conservées. Vous choisissez celles que les autres verront, et vous pourrez changer ce choix plus tard.",
-        "launch": "Lancer l'évaluation"
-      },
-      "by": "lancée par {{user}}",
       "show": "Afficher {{metric}} aux autres",
       "mineHint": "Vous voyez toutes les mesures. Cochez celles que les autres personnes voient.",
-      "hiddenBy": "{{n}} autres mesures ont été calculées mais ne sont pas affichées par {{user}}.",
       "close": "Fermer",
-      "status": {
-        "running": "en cours",
-        "stopped": "arrêtée"
+      "moreMetrics": "+{{n}} masquées",
+      "source": {
+        "submitted": "Envoyé",
+        "measured": "Mesuré"
       },
-      "moreMetrics": "+{{n}} masquées"
+      "submittedHint": "Calculé hors de la plateforme et envoyé par {{user}} : la plateforme ne l'a pas mesuré.",
+      "measuredHint": "Mesuré par la plateforme, lancé par {{user}}.",
+      "origin": "Origine",
+      "noDatasetHint": "Pas de dataset, ou un dataset que vous ne pouvez pas lire",
+      "items_one": "{{count}} élément",
+      "items_other": "{{count}} éléments",
+      "target": "Colonne cible : {{column}}",
+      "hiddenBy_one": "{{count}} autre métrique a été calculée mais n'est pas montrée par {{user}}.",
+      "hiddenBy_other": "{{count}} autres métriques ont été calculées mais ne sont pas montrées par {{user}}.",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer pour de bon",
+      "status": {
+        "pending": "en attente",
+        "running": "en cours",
+        "failed": "échec",
+        "stopped": "arrêtée"
+      }
     },
     "versions": {
       "current": "actuelle",
