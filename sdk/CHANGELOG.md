@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/mitchou10/MyHug/compare/sdk-v0.6.0...sdk-v0.7.0) (2026-11-25)
+
+
+### Features
+
+* **annotation:** tasks, labels and answers of text classification ([558071d](https://github.com/mitchou10/MyHug/commit/558071d8344846a5adf9623da73676a40d32c4ee)), closes [#81](https://github.com/mitchou10/MyHug/issues/81)
+
 ## [0.6.0](https://github.com/mitchou10/MyHug/compare/sdk-v0.5.0...sdk-v0.6.0) (2026-11-25)
 
 
