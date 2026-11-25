@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/mitchou10/MyHug/compare/v0.26.0...v0.27.0) (2026-11-25)
+
+
+### Features
+
+* **models:** evaluate a model from the predictions that are sent ([73a6398](https://github.com/mitchou10/MyHug/commit/73a6398fafe60b09dd1550feac9f0b9397b9e4e5))
+
 ## [0.26.0](https://github.com/mitchou10/MyHug/compare/v0.25.0...v0.26.0) (2026-11-25)
 
 
