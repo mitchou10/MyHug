@@ -94,6 +94,20 @@
       "component": "frontend",
       "include-component-in-tag": true,
       "initial-version": "0.1.0"
+    },
+    "sdk": {
+      "release-type": "python",
+      "package-name": "myhug",
+      "component": "sdk",
+      "include-component-in-tag": true,
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='myhug')].version"
+        }
+      ]
     }
   }
 }

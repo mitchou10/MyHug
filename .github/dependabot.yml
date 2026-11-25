@@ -20,6 +20,16 @@ updates:
     groups:
       python:
         patterns: ["*"]
+  - package-ecosystem: uv
+    directory: /sdk
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    groups:
+      python:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /frontend
     target-branch: dev

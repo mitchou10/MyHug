@@ -407,6 +407,10 @@ tagged with the global version.
 
 Attribution is by file path, not by commit scope: a commit appears in the changelog of every service whose folder it touches, and always in the global one.
 
+## The SDK
+
+`sdk/` is the Python client of the API for programs (`Client(url, token)`, not published anywhere: it is installed from the repository): see [sdk/README.md](sdk/README.md). Its models are generated from `openapi.json`, so a change of a route regenerates three things: `openapi.json`, the frontend types and the SDK models (CI fails for each one that is stale).
+
 ## The worker
 
 `worker/` is a service of its own (its own `pyproject.toml`, image, tests and releases, `worker-vX.Y.Z`). It has no
