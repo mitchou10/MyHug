@@ -45,14 +45,24 @@ it('lists the evaluations by task, with the metrics the platform defines and onl
   expect(within(regression).getByRole('columnheader', { name: /MAE/ })).toHaveTextContent('MAE ↓') // lower is better
 })
 
-it('says that a result somebody sent was sent, and not measured', async () => {
+it('says where the predictions come from: the platform computed the metrics in every case', async () => {
   await open('lab/ner-fr-v1', [
-    { task: 'classification', results: RESULTS, shown: ['accuracy'], source: 'submitted', created_by_username: 'ada' },
-    { task: 'classification', results: RESULTS, shown: ['accuracy'], source: 'measured', created_by_username: 'bob' },
+    { task: 'classification', results: RESULTS, shown: ['accuracy'], source: 'predictions', created_by_username: 'ada' },
+    { task: 'classification', results: RESULTS, shown: ['accuracy'], source: 'inference', created_by_username: 'bob' },
   ])
-  const sent = await screen.findByText('Sent')
-  expect(sent).toHaveAttribute('title', expect.stringContaining('the platform did not measure it'))
-  expect(screen.getByText('Measured')).toHaveAttribute('title', expect.stringContaining('Measured by the platform'))
+  const sent = await screen.findByText('Predictions sent')
+  expect(sent).toHaveAttribute('title', expect.stringContaining('it did not run the model'))
+  expect(sent).toHaveAttribute('title', expect.stringContaining('computed by the platform'))
+  expect(screen.getByText('Ran the model')).toHaveAttribute('title', expect.stringContaining('which it ran itself'))
+})
+
+it('shows an evaluation whose predictions are still arriving or waiting for a worker, with no metric yet', async () => {
+  await open('lab/ner-fr-v1', [
+    { task: 'classification', results: {}, shown: [], status: 'uploading' },
+    { task: 'classification', results: {}, shown: [], status: 'pending' },
+  ])
+  expect(await screen.findByText('receiving the predictions')).toBeInTheDocument()
+  expect(screen.getByText('waiting for a worker')).toBeInTheDocument()
 })
 
 it('does not give the address of a dataset the person may not read', async () => {
@@ -135,4 +145,47 @@ it('says what went wrong when the evaluations cannot be read', async () => {
 it('keeps what people did with proposals, which is not an evaluation of the platform', async () => {
   await open('lab/ner-fr-v1')
   expect(await screen.findByText('Judged by annotators')).toBeInTheDocument()
+})
+
+// ---- how the predictions were made
+
+const INFERENCE = {
+  seconds: 12.5,
+  ms_per_item: 12.5,
+  origin: 'declared' as const,
+  hardware: { device: 'gpu' as const, cpu: 'AMD EPYC', cpu_cores: 16, ram_gb: 64, gpus: [{ name: 'NVIDIA A100', memory_gb: 40 }], os: 'Linux 6.8', runtime: 'onnxruntime 1.20' },
+}
+
+it('tells how long the predictions took and on what, and that the author said it', async () => {
+  await open('lab/ner-fr-v1', [{ task: 'classification', results: RESULTS, shown: ['accuracy'], inference: INFERENCE }])
+  await userEvent.click(await screen.findByText('0.912'))
+  const section = within(await screen.findByRole('dialog')).getByRole('region', { name: 'How the predictions were made' })
+  for (const line of ['12.5 s in all', '12.5 ms per item', 'On a graphics card', 'AMD EPYC · 16 cores', '64 GB of memory', 'NVIDIA A100 · 40 GB', 'Linux 6.8', 'onnxruntime 1.20']) {
+    expect(within(section).getByText(line)).toBeInTheDocument()
+  }
+  expect(within(section).getByText('Declared')).toHaveAttribute('title', expect.stringContaining('the platform cannot check it'))
+})
+
+it('says measured when the platform ran the model itself', async () => {
+  await open('lab/ner-fr-v1', [{ task: 'classification', results: RESULTS, shown: ['accuracy'], source: 'inference', inference: { ...INFERENCE, origin: 'measured' } }])
+  await userEvent.click(await screen.findByText('0.912'))
+  const section = within(await screen.findByRole('dialog')).getByRole('region', { name: 'How the predictions were made' })
+  expect(within(section).getByText('Measured')).toHaveAttribute('title', expect.stringContaining('Measured by the platform'))
+})
+
+it('says only what is known, and nothing when there is nothing', async () => {
+  await open('lab/ner-fr-v1', [
+    { task: 'classification', results: RESULTS, shown: ['accuracy'], inference: { seconds: 3, ms_per_item: null, hardware: null, origin: 'declared' } },
+  ])
+  await userEvent.click(await screen.findByText('0.912'))
+  const dialog = await screen.findByRole('dialog')
+  const section = within(dialog).getByRole('region', { name: 'How the predictions were made' })
+  expect(within(section).getByText('3 s in all')).toBeInTheDocument()
+  expect(within(section).queryByText(/per item|memory|cores/)).not.toBeInTheDocument()
+})
+
+it('has no section when nothing was said of how the predictions were made', async () => {
+  await open('lab/ner-fr-v1', [{ task: 'classification', results: RESULTS, shown: ['accuracy'], inference: null }])
+  await userEvent.click(await screen.findByText('0.912'))
+  expect(within(await screen.findByRole('dialog')).queryByRole('region')).not.toBeInTheDocument()
 })

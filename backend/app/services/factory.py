@@ -5,7 +5,7 @@ from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.jobs import Jobs
+from app.jobs import Jobs, NoJobs
 from app.registry import MlflowLinks, ModelRegistry
 from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
@@ -49,10 +49,21 @@ def build_dataset_members(db: AsyncSession) -> DatasetMemberService:
     return DatasetMemberService(datasets, DatasetAccess(datasets))
 
 
-def build_model_evaluations(db: AsyncSession) -> ModelEvaluationService:
+def build_model_evaluations(db: AsyncSession, store: ObjectStore, jobs: Jobs | None = None) -> ModelEvaluationService:
     models, datasets = ModelRepository(db), DatasetRepository(db)
     return ModelEvaluationService(
-        ModelAccess(models), ModelEvaluationRepository(db), ModelVersionRepository(db), DatasetAccess(datasets)
+        ModelAccess(models),
+        ModelEvaluationRepository(db),
+        ModelVersionRepository(db),
+        DatasetAccess(datasets),
+        DatasetVersionRepository(db),
+        store,
+        jobs or NoJobs(),
+        max_bytes=settings.EVALUATION_PREDICTIONS_MAX_BYTES,
+        part_bytes=settings.UPLOAD_PART_BYTES,
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
+        session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
+        max_open=settings.EVALUATIONS_MAX_OPEN,
     )
 
 

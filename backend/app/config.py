@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     SERVING_RATE_PER_MINUTE: int = 30  # per person, over all the models
     # Access tokens (programs acting as a person): the calls one token may make a minute, and how many one person may
     # hold at once.
+    # The predictions of an evaluation: the largest file, and how many evaluations of a model may wait or run.
+    EVALUATION_PREDICTIONS_MAX_BYTES: int = 2 * 1024**3
+    EVALUATIONS_MAX_OPEN: int = 20
     TOKEN_RATE_PER_MINUTE: int = 600
     TOKENS_MAX_ACTIVE: int = 20
 

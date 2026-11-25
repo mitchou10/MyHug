@@ -15,6 +15,7 @@ STATUS_CODES: dict[type[errors.ServiceError], int] = {
     errors.TokenNotFound: status.HTTP_404_NOT_FOUND,
     errors.EvaluationNotFound: status.HTTP_404_NOT_FOUND,
     errors.InvalidEvaluation: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    errors.TooManyEvaluations: status.HTTP_409_CONFLICT,
     errors.TooManyTokens: status.HTTP_409_CONFLICT,
     errors.InvalidToken: status.HTTP_401_UNAUTHORIZED,
     errors.DatasetNotFound: status.HTTP_404_NOT_FOUND,

@@ -218,8 +218,8 @@ def get_dataset_member_service(db: DB) -> DatasetMemberService:
 DatasetMemberServiceDep = Annotated[DatasetMemberService, Depends(get_dataset_member_service)]
 
 
-def get_model_evaluation_service(db: DB) -> ModelEvaluationService:
-    return build_model_evaluations(db)
+def get_model_evaluation_service(db: DB, store: Store, jobs: JobsDep) -> ModelEvaluationService:
+    return build_model_evaluations(db, store, jobs)
 
 
 ModelEvaluationServiceDep = Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)]
@@ -255,6 +255,14 @@ def get_model_upload_expiry(db: DB, store: Store) -> ModelUploadService:
 
 
 ModelUploadExpiryDep = Annotated[ModelUploadService, Depends(get_model_upload_expiry)]
+
+
+def get_evaluation_expiry(db: DB, store: Store) -> ModelEvaluationService:
+    """For the sweep: giving up the predictions that did not arrive in time touches the storage, not a person."""
+    return build_model_evaluations(db, store)
+
+
+EvaluationExpiryDep = Annotated[ModelEvaluationService, Depends(get_evaluation_expiry)]
 
 
 def get_model_processing(db: DB, store: Store) -> ModelProcessing:

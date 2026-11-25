@@ -16,6 +16,7 @@ PROCESS_VERSION = "datasets.process_version"
 CONVERT_FILE = "datasets.convert_file"
 PROCESS_MODEL_VERSION = "models.process_version"
 RESOLVE_CODE = "models.resolve_code"
+EVALUATE = "models.evaluate"
 QUEUE = "datasets"
 
 
@@ -36,6 +37,10 @@ class Jobs(Protocol):
         """A version of a model points to code: its reference is to be pinned to a commit."""
         ...
 
+    async def evaluate(self, evaluation_id: uuid.UUID) -> None:
+        """The predictions of an evaluation arrived: its metrics are to be computed."""
+        ...
+
 
 class NoJobs:
     """Nothing is queued (tests, scripts): the versions wait until something reads them."""
@@ -50,6 +55,9 @@ class NoJobs:
         return None
 
     async def resolve_code(self, version_id: uuid.UUID) -> None:
+        return None
+
+    async def evaluate(self, evaluation_id: uuid.UUID) -> None:
         return None
 
 
@@ -82,3 +90,6 @@ class CeleryJobs:
 
     async def resolve_code(self, version_id: uuid.UUID) -> None:
         await self._send(RESOLVE_CODE, version_id)
+
+    async def evaluate(self, evaluation_id: uuid.UUID) -> None:
+        await self._send(EVALUATE, evaluation_id)

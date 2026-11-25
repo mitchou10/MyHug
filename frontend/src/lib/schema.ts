@@ -948,10 +948,10 @@ export interface paths {
         get: operations["list_evaluations_api_models__owner___name__evaluations_get"];
         put?: never;
         /**
-         * Send the result of an evaluation computed elsewhere (the people who can edit the model)
-         * @description It is kept and shown as **submitted**: nothing says the platform measured it.
+         * Start an evaluation: the predictions of a model on a split of a dataset are about to be sent
+         * @description Only the people who can edit the model. The platform computes the metrics, always: what is sent is the file of **predictions**, straight to the storage in parts (see `…/upload`); when it is all there, a worker computes. Nothing that is a metric can be sent.
          */
-        post: operations["submit_evaluation_api_models__owner___name__evaluations_post"];
+        post: operations["start_evaluation_api_models__owner___name__evaluations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -969,8 +969,59 @@ export interface paths {
         get: operations["get_evaluation_api_models__owner___name__evaluations__evaluation_id__get"];
         put?: never;
         post?: never;
-        /** Delete an evaluation */
+        /** Delete an evaluation, or give up the predictions that were being sent */
         delete: operations["delete_evaluation_api_models__owner___name__evaluations__evaluation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where the predictions are going, and with `parts` what arrived */
+        get: operations["get_upload_api_models__owner___name__evaluations__evaluation_id__upload_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Signed addresses to send parts of the predictions to */
+        post: operations["sign_parts_api_models__owner___name__evaluations__evaluation_id__upload_parts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put the parts together: a worker computes the metrics */
+        post: operations["complete_upload_api_models__owner___name__evaluations__evaluation_id__upload_complete_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1573,55 +1624,6 @@ export interface components {
              */
             updated_at: string;
         };
-        /**
-         * EvaluationIn
-         * @description The result of an evaluation that was computed somewhere else. It is kept as **sent**, never as measured.
-         */
-        EvaluationIn: {
-            /**
-             * Version
-             * @description The number of the version of the model that was evaluated
-             */
-            version: number;
-            /** Task */
-            task: string;
-            /**
-             * Results
-             * @description `{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers
-             */
-            results: {
-                [key: string]: number;
-            };
-            /**
-             * Shown
-             * @description The metrics the others see. Empty: the main metric and the next one
-             */
-            shown?: string[] | null;
-            /**
-             * Dataset
-             * @description `owner/name` of a dataset you can read
-             */
-            dataset?: string | null;
-            /** Dataset Version */
-            dataset_version?: number | null;
-            /** Split */
-            split?: string | null;
-            /** Input Column */
-            input_column?: string | null;
-            /** Target Column */
-            target_column?: string | null;
-            /**
-             * Items
-             * @description How many items it was computed on
-             */
-            items?: number | null;
-            /**
-             * Note
-             * @description How it was obtained
-             * @default
-             */
-            note: string;
-        };
         /** EvaluationOut */
         EvaluationOut: {
             /**
@@ -1649,12 +1651,20 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "measured" | "submitted";
+            source: "predictions" | "endpoint" | "inference";
             /**
              * Status
              * @enum {string}
              */
-            status: "pending" | "running" | "done" | "failed" | "stopped";
+            status: "uploading" | "pending" | "running" | "done" | "failed" | "stopped";
+            /** Predictions Format */
+            predictions_format: string | null;
+            /** Predictions Size */
+            predictions_size: number | null;
+            /** Key Column */
+            key_column: string | null;
+            /** Prediction Column */
+            prediction_column: string;
             /** Error */
             error: string | null;
             /** Results */
@@ -1667,6 +1677,7 @@ export interface components {
             shown: string[];
             /** Note */
             note: string;
+            inference: components["schemas"]["InferenceOut"] | null;
             /** Created By Username */
             created_by_username: string;
             /**
@@ -1678,6 +1689,74 @@ export interface components {
             finished_at: string | null;
             /** Can Edit */
             can_edit: boolean;
+        };
+        /**
+         * EvaluationStartIn
+         * @description An evaluation to start: which model version, on which part of which dataset, and the predictions that will be
+         *     sent to compare with it. The platform computes the metrics; a person never sends one.
+         */
+        EvaluationStartIn: {
+            /**
+             * Version
+             * @description The number of the version of the model that was evaluated
+             */
+            version: number;
+            /** Task */
+            task: string;
+            /**
+             * Dataset
+             * @description `owner/name` of a dataset you can read: what the predictions are compared to
+             */
+            dataset: string;
+            /**
+             * Dataset Version
+             * @description Empty: the latest version
+             */
+            dataset_version?: number | null;
+            /**
+             * Split
+             * @description `train`, `test`... one of the splits of the dataset
+             */
+            split: string;
+            /**
+             * Target Column
+             * @description The column of the dataset that holds the right answer
+             */
+            target_column: string;
+            /**
+             * Key Column
+             * @description A column of the dataset that identifies each item, also in the file of predictions. Empty: the line of the file is the position of the item in the split, from 0
+             */
+            key_column?: string | null;
+            /**
+             * Input Column
+             * @description The column the model read, for the record
+             */
+            input_column?: string | null;
+            /**
+             * Prediction Column
+             * @description The column of the file with the prediction
+             * @default prediction
+             */
+            prediction_column: string;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "jsonl" | "csv" | "parquet";
+            /**
+             * Size
+             * @description The size of the file of predictions, in bytes
+             */
+            size: number;
+            /**
+             * Note
+             * @description How the predictions were obtained
+             * @default
+             */
+            note: string;
+            /** @description How long it took and on what: what you say, not checked */
+            inference?: components["schemas"]["InferenceIn"] | null;
         };
         /**
          * FeedbackChange
@@ -1920,15 +1999,106 @@ export interface components {
              */
             columnar: boolean;
         };
+        /** GpuIn */
+        GpuIn: {
+            /** Name */
+            name: string;
+            /** Memory Gb */
+            memory_gb?: number | null;
+        };
+        /** GpuOut */
+        GpuOut: {
+            /** Name */
+            name: string;
+            /** Memory Gb */
+            memory_gb: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * HardwareIn
+         * @description What the predictions were made on. For predictions a person sent: what they say, the platform cannot check.
+         */
+        HardwareIn: {
+            /**
+             * Device
+             * @enum {string}
+             */
+            device: "cpu" | "gpu" | "tpu" | "other";
+            /**
+             * Cpu
+             * @description The model of the processor
+             */
+            cpu?: string | null;
+            /** Cpu Cores */
+            cpu_cores?: number | null;
+            /** Ram Gb */
+            ram_gb?: number | null;
+            /** Gpus */
+            gpus?: components["schemas"]["GpuIn"][];
+            /** Os */
+            os?: string | null;
+            /**
+             * Runtime
+             * @description What ran the model: `onnxruntime 1.20, python 3.13`
+             */
+            runtime?: string | null;
+        };
+        /**
+         * HardwareOut
+         * @description What the predictions were made on (plain values: what was checked going in is not checked again).
+         */
+        HardwareOut: {
+            /**
+             * Device
+             * @enum {string}
+             */
+            device: "cpu" | "gpu" | "tpu" | "other";
+            /** Cpu */
+            cpu: string | null;
+            /** Cpu Cores */
+            cpu_cores: number | null;
+            /** Ram Gb */
+            ram_gb: number | null;
+            /** Gpus */
+            gpus: components["schemas"]["GpuOut"][];
+            /** Os */
+            os: string | null;
+            /** Runtime */
+            runtime: string | null;
+        };
         /** HealthOut */
         HealthOut: {
             /** Status */
             status: string;
+        };
+        /**
+         * InferenceIn
+         * @description How the predictions were made: how long it took, and on what.
+         */
+        InferenceIn: {
+            /**
+             * Seconds
+             * @description The time the model took to make all the predictions
+             */
+            seconds?: number | null;
+            hardware?: components["schemas"]["HardwareIn"] | null;
+        };
+        /** InferenceOut */
+        InferenceOut: {
+            /** Seconds */
+            seconds: number | null;
+            /** Ms Per Item */
+            ms_per_item: number | null;
+            hardware: components["schemas"]["HardwareOut"] | null;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "declared" | "measured";
         };
         /** LikeOut */
         LikeOut: {
@@ -2617,6 +2787,24 @@ export interface components {
             files: components["schemas"]["UploadFileOut"][];
         };
         /**
+         * UploadStateOut
+         * @description Where the predictions are going.
+         */
+        UploadStateOut: {
+            /** Status */
+            status: string;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /** Part Size */
+            part_size: number | null;
+            /** Parts Count */
+            parts_count: number | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Received */
+            received?: components["schemas"]["PartOut"][] | null;
+        };
+        /**
          * UserOut
          * @description The logged-in user, as the frontend sees them. Never the tokens.
          */
@@ -2674,6 +2862,14 @@ export interface components {
             created_at: string;
             /** Columns */
             columns: components["schemas"]["ColumnOut"][];
+        };
+        /** PartsRequest */
+        app__schemas__evaluation__PartsRequest: {
+            /**
+             * Numbers
+             * @description The numbers of the parts, from 1
+             */
+            numbers: number[];
         };
     };
     responses: never;
@@ -5106,7 +5302,7 @@ export interface operations {
             };
         };
     };
-    submit_evaluation_api_models__owner___name__evaluations_post: {
+    start_evaluation_api_models__owner___name__evaluations_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5118,7 +5314,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EvaluationIn"];
+                "application/json": components["schemas"]["EvaluationStartIn"];
             };
         };
         responses: {
@@ -5194,6 +5390,112 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_api_models__owner___name__evaluations__evaluation_id__upload_get: {
+        parameters: {
+            query?: {
+                /** @description Also what reached the storage, to resume */
+                parts?: boolean;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_parts_api_models__owner___name__evaluations__evaluation_id__upload_parts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__schemas__evaluation__PartsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_models__owner___name__evaluations__evaluation_id__upload_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
             };
             /** @description Validation Error */
             422: {

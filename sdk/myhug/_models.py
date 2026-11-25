@@ -7,14 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    StringConstraints,
-)
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
 
 
 class Scope(StrEnum):
@@ -439,105 +432,14 @@ class EndpointOut(BaseModel):
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
 
 
-class ShownItem(RootModel[str]):
-    root: Annotated[str, Field(pattern="^[a-z0-9_]{1,40}$")]
-
-
-class Shown(RootModel[list[ShownItem]]):
-    root: Annotated[
-        list[ShownItem],
-        Field(
-            description="The metrics the others see. Empty: the main metric and the next one",
-            max_length=50,
-            title="Shown",
-        ),
-    ]
-
-
-class Dataset(RootModel[str]):
-    root: Annotated[
-        str,
-        Field(
-            description="`owner/name` of a dataset you can read",
-            max_length=201,
-            pattern="^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
-            title="Dataset",
-        ),
-    ]
-
-
-class DatasetVersion(RootModel[int]):
-    root: Annotated[int, Field(ge=1, title="Dataset Version")]
-
-
-class Split(RootModel[str]):
-    root: Annotated[str, Field(max_length=50, title="Split")]
-
-
-class InputColumn(RootModel[str]):
-    root: Annotated[str, Field(max_length=255, title="Input Column")]
-
-
-class TargetColumn(RootModel[str]):
-    root: Annotated[str, Field(max_length=255, title="Target Column")]
-
-
-class Items(RootModel[int]):
-    root: Annotated[
-        int, Field(description="How many items it was computed on", ge=0, title="Items")
-    ]
-
-
-class EvaluationIn(BaseModel):
-    version: Annotated[
-        int,
-        Field(
-            description="The number of the version of the model that was evaluated",
-            ge=1,
-            title="Version",
-        ),
-    ]
-    task: Annotated[str, Field(max_length=40, title="Task")]
-    results: Annotated[
-        dict[Annotated[str, StringConstraints(pattern=r"^[a-z0-9_]{1,40}$")], float],
-        Field(
-            description="`{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers",
-            title="Results",
-        ),
-    ]
-    shown: Annotated[
-        Shown | None,
-        Field(
-            description="The metrics the others see. Empty: the main metric and the next one",
-            title="Shown",
-        ),
-    ] = None
-    dataset: Annotated[
-        Dataset | None,
-        Field(description="`owner/name` of a dataset you can read", title="Dataset"),
-    ] = None
-    dataset_version: Annotated[
-        DatasetVersion | None, Field(title="Dataset Version")
-    ] = None
-    split: Annotated[Split | None, Field(title="Split")] = None
-    input_column: Annotated[InputColumn | None, Field(title="Input Column")] = None
-    target_column: Annotated[TargetColumn | None, Field(title="Target Column")] = None
-    items: Annotated[
-        Items | None,
-        Field(description="How many items it was computed on", title="Items"),
-    ] = None
-    note: Annotated[
-        str | None,
-        Field(description="How it was obtained", max_length=1000, title="Note"),
-    ] = ""
-
-
 class Source(StrEnum):
-    measured = "measured"
-    submitted = "submitted"
+    predictions = "predictions"
+    endpoint = "endpoint"
+    inference = "inference"
 
 
 class Status(StrEnum):
+    uploading = "uploading"
     pending = "pending"
     running = "running"
     done = "done"
@@ -545,27 +447,39 @@ class Status(StrEnum):
     stopped = "stopped"
 
 
-class EvaluationOut(BaseModel):
-    id: Annotated[UUID, Field(title="Id")]
-    version: Annotated[int, Field(title="Version")]
-    task: Annotated[str, Field(title="Task")]
-    dataset: Annotated[str | None, Field(title="Dataset")]
-    dataset_version: Annotated[int | None, Field(title="Dataset Version")]
-    split: Annotated[str | None, Field(title="Split")]
-    input_column: Annotated[str | None, Field(title="Input Column")]
-    target_column: Annotated[str | None, Field(title="Target Column")]
-    items: Annotated[int | None, Field(title="Items")]
-    source: Annotated[Source, Field(title="Source")]
-    status: Annotated[Status, Field(title="Status")]
-    error: Annotated[str | None, Field(title="Error")]
-    results: Annotated[dict[str, float], Field(title="Results")]
-    hidden: Annotated[int, Field(title="Hidden")]
-    shown: Annotated[list[str], Field(title="Shown")]
-    note: Annotated[str, Field(title="Note")]
-    created_by_username: Annotated[str, Field(title="Created By Username")]
-    created_at: Annotated[AwareDatetime, Field(title="Created At")]
-    finished_at: Annotated[AwareDatetime | None, Field(title="Finished At")]
-    can_edit: Annotated[bool, Field(title="Can Edit")]
+class DatasetVersion(RootModel[int]):
+    root: Annotated[
+        int,
+        Field(description="Empty: the latest version", ge=1, title="Dataset Version"),
+    ]
+
+
+class KeyColumn(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="A column of the dataset that identifies each item, also in the file of predictions. Empty: the line of the file is the position of the item in the split, from 0",
+            max_length=255,
+            title="Key Column",
+        ),
+    ]
+
+
+class InputColumn(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="The column the model read, for the record",
+            max_length=255,
+            title="Input Column",
+        ),
+    ]
+
+
+class Format(StrEnum):
+    jsonl = "jsonl"
+    csv = "csv"
+    parquet = "parquet"
 
 
 class FeedbackChange(BaseModel):
@@ -686,8 +600,131 @@ class FileOut(BaseModel):
     columnar: Annotated[bool | None, Field(title="Columnar")] = False
 
 
+class MemoryGb(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0, le=100000.0, title="Memory Gb")]
+
+
+class GpuIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[str, Field(max_length=200, min_length=1, title="Name")]
+    memory_gb: Annotated[MemoryGb | None, Field(title="Memory Gb")] = None
+
+
+class GpuOut(BaseModel):
+    name: Annotated[str, Field(title="Name")]
+    memory_gb: Annotated[float | None, Field(title="Memory Gb")]
+
+
+class Device(StrEnum):
+    cpu = "cpu"
+    gpu = "gpu"
+    tpu = "tpu"
+    other = "other"
+
+
+class Cpu(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(description="The model of the processor", max_length=200, title="Cpu"),
+    ]
+
+
+class CpuCores(RootModel[int]):
+    root: Annotated[int, Field(ge=1, le=4096, title="Cpu Cores")]
+
+
+class RamGb(RootModel[float]):
+    root: Annotated[float, Field(ge=0.0, le=1000000.0, title="Ram Gb")]
+
+
+class Os(RootModel[str]):
+    root: Annotated[str, Field(max_length=100, title="Os")]
+
+
+class Runtime(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="What ran the model: `onnxruntime 1.20, python 3.13`",
+            max_length=300,
+            title="Runtime",
+        ),
+    ]
+
+
+class HardwareIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    device: Annotated[Device, Field(title="Device")]
+    cpu: Annotated[
+        Cpu | None, Field(description="The model of the processor", title="Cpu")
+    ] = None
+    cpu_cores: Annotated[CpuCores | None, Field(title="Cpu Cores")] = None
+    ram_gb: Annotated[RamGb | None, Field(title="Ram Gb")] = None
+    gpus: Annotated[list[GpuIn] | None, Field(max_length=16, title="Gpus")] = None
+    os: Annotated[Os | None, Field(title="Os")] = None
+    runtime: Annotated[
+        Runtime | None,
+        Field(
+            description="What ran the model: `onnxruntime 1.20, python 3.13`",
+            title="Runtime",
+        ),
+    ] = None
+
+
+class HardwareOut(BaseModel):
+    device: Annotated[Device, Field(title="Device")]
+    cpu: Annotated[str | None, Field(title="Cpu")]
+    cpu_cores: Annotated[int | None, Field(title="Cpu Cores")]
+    ram_gb: Annotated[float | None, Field(title="Ram Gb")]
+    gpus: Annotated[list[GpuOut], Field(title="Gpus")]
+    os: Annotated[str | None, Field(title="Os")]
+    runtime: Annotated[str | None, Field(title="Runtime")]
+
+
 class HealthOut(BaseModel):
     status: Annotated[str, Field(title="Status")]
+
+
+class Seconds(RootModel[float]):
+    root: Annotated[
+        float,
+        Field(
+            description="The time the model took to make all the predictions",
+            ge=0.0,
+            le=10000000.0,
+            title="Seconds",
+        ),
+    ]
+
+
+class InferenceIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    seconds: Annotated[
+        Seconds | None,
+        Field(
+            description="The time the model took to make all the predictions",
+            title="Seconds",
+        ),
+    ] = None
+    hardware: HardwareIn | None = None
+
+
+class Origin(StrEnum):
+    declared = "declared"
+    measured = "measured"
+
+
+class InferenceOut(BaseModel):
+    seconds: Annotated[float | None, Field(title="Seconds")]
+    ms_per_item: Annotated[float | None, Field(title="Ms Per Item")]
+    hardware: HardwareOut | None
+    origin: Annotated[Origin, Field(title="Origin")]
 
 
 class LikeOut(BaseModel):
@@ -1062,6 +1099,10 @@ class ServingOut(BaseModel):
     output: Annotated[Output, Field(title="Output")]
 
 
+class ShownItem(RootModel[str]):
+    root: Annotated[str, Field(pattern="^[a-z0-9_]{1,40}$")]
+
+
 class ShownIn(BaseModel):
     shown: Annotated[list[ShownItem], Field(max_length=50, title="Shown")]
 
@@ -1142,6 +1183,15 @@ class UploadOut(BaseModel):
     files: Annotated[list[UploadFileOut], Field(title="Files")]
 
 
+class UploadStateOut(BaseModel):
+    status: Annotated[str, Field(title="Status")]
+    size_bytes: Annotated[int | None, Field(title="Size Bytes")]
+    part_size: Annotated[int | None, Field(title="Part Size")]
+    parts_count: Annotated[int | None, Field(title="Parts Count")]
+    expires_at: Annotated[AwareDatetime | None, Field(title="Expires At")]
+    received: Annotated[list[PartOut] | None, Field(title="Received")] = None
+
+
 class UserOut(BaseModel):
     user_id: Annotated[str, Field(title="User Id")]
     email: Annotated[str, Field(title="Email")]
@@ -1173,6 +1223,18 @@ class VersionOut(BaseModel):
     columns: Annotated[list[ColumnOut], Field(title="Columns")]
 
 
+class AppSchemasEvaluationPartsRequest(BaseModel):
+    numbers: Annotated[
+        list[int],
+        Field(
+            description="The numbers of the parts, from 1",
+            max_length=100,
+            min_length=1,
+            title="Numbers",
+        ),
+    ]
+
+
 class DatasetOut(BaseModel):
     id: Annotated[UUID, Field(title="Id")]
     owner: Annotated[str, Field(title="Owner")]
@@ -1198,6 +1260,118 @@ class DatasetOut(BaseModel):
     processing: Annotated[str | None, Field(title="Processing")] = None
     splits: Annotated[list[SplitOut] | None, Field(title="Splits")] = None
     columns: Annotated[list[ColumnOut] | None, Field(title="Columns")] = None
+
+
+class EvaluationOut(BaseModel):
+    id: Annotated[UUID, Field(title="Id")]
+    version: Annotated[int, Field(title="Version")]
+    task: Annotated[str, Field(title="Task")]
+    dataset: Annotated[str | None, Field(title="Dataset")]
+    dataset_version: Annotated[int | None, Field(title="Dataset Version")]
+    split: Annotated[str | None, Field(title="Split")]
+    input_column: Annotated[str | None, Field(title="Input Column")]
+    target_column: Annotated[str | None, Field(title="Target Column")]
+    items: Annotated[int | None, Field(title="Items")]
+    source: Annotated[Source, Field(title="Source")]
+    status: Annotated[Status, Field(title="Status")]
+    predictions_format: Annotated[str | None, Field(title="Predictions Format")]
+    predictions_size: Annotated[int | None, Field(title="Predictions Size")]
+    key_column: Annotated[str | None, Field(title="Key Column")]
+    prediction_column: Annotated[str, Field(title="Prediction Column")]
+    error: Annotated[str | None, Field(title="Error")]
+    results: Annotated[dict[str, float], Field(title="Results")]
+    hidden: Annotated[int, Field(title="Hidden")]
+    shown: Annotated[list[str], Field(title="Shown")]
+    note: Annotated[str, Field(title="Note")]
+    inference: InferenceOut | None
+    created_by_username: Annotated[str, Field(title="Created By Username")]
+    created_at: Annotated[AwareDatetime, Field(title="Created At")]
+    finished_at: Annotated[AwareDatetime | None, Field(title="Finished At")]
+    can_edit: Annotated[bool, Field(title="Can Edit")]
+
+
+class EvaluationStartIn(BaseModel):
+    version: Annotated[
+        int,
+        Field(
+            description="The number of the version of the model that was evaluated",
+            ge=1,
+            title="Version",
+        ),
+    ]
+    task: Annotated[str, Field(max_length=40, title="Task")]
+    dataset: Annotated[
+        str,
+        Field(
+            description="`owner/name` of a dataset you can read: what the predictions are compared to",
+            max_length=201,
+            pattern="^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+            title="Dataset",
+        ),
+    ]
+    dataset_version: Annotated[
+        DatasetVersion | None,
+        Field(description="Empty: the latest version", title="Dataset Version"),
+    ] = None
+    split: Annotated[
+        str,
+        Field(
+            description="`train`, `test`... one of the splits of the dataset",
+            max_length=50,
+            title="Split",
+        ),
+    ]
+    target_column: Annotated[
+        str,
+        Field(
+            description="The column of the dataset that holds the right answer",
+            max_length=255,
+            title="Target Column",
+        ),
+    ]
+    key_column: Annotated[
+        KeyColumn | None,
+        Field(
+            description="A column of the dataset that identifies each item, also in the file of predictions. Empty: the line of the file is the position of the item in the split, from 0",
+            title="Key Column",
+        ),
+    ] = None
+    input_column: Annotated[
+        InputColumn | None,
+        Field(
+            description="The column the model read, for the record",
+            title="Input Column",
+        ),
+    ] = None
+    prediction_column: Annotated[
+        str | None,
+        Field(
+            description="The column of the file with the prediction",
+            max_length=255,
+            title="Prediction Column",
+        ),
+    ] = "prediction"
+    format: Annotated[Format, Field(title="Format")]
+    size: Annotated[
+        int,
+        Field(
+            description="The size of the file of predictions, in bytes",
+            gt=0,
+            title="Size",
+        ),
+    ]
+    note: Annotated[
+        str | None,
+        Field(
+            description="How the predictions were obtained",
+            max_length=1000,
+            title="Note",
+        ),
+    ] = ""
+    inference: Annotated[
+        InferenceIn | None,
+        Field(description="How long it took and on what: what you say, not checked"),
+    ] = None
 
 
 class HTTPValidationError(BaseModel):

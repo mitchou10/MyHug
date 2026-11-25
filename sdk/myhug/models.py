@@ -1,12 +1,13 @@
 """A model, as a program uses it: look at it, change it, send versions (files, code, or both), download them, try it."""
 
-from collections.abc import Iterator, Mapping, Sequence
+import math
+from collections.abc import Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Self
 from uuid import UUID
 
-from myhug import _evaluations, _plan
+from myhug import _plan, _predictions
 from myhug._download import download
 from myhug._models import (
     CodeIn,
@@ -24,9 +25,35 @@ from myhug._transfer import PARALLEL, LocalFile, ProgressCallback, cache_folder
 from myhug._upload import Routes, upload
 from myhug.client import Client
 from myhug.datasets import DONE, POLL_SECONDS, split_address
-from myhug.errors import VersionFailed, WaitTimeout
+from myhug.errors import ConnectionFailed, EvaluationFailed, MyHugError, UploadError, VersionFailed, WaitTimeout
+from myhug.hardware import detect
 
 EVALUATIONS_PAGE = 50
+
+
+def _start_body(**given: Any) -> dict[str, Any]:
+    """What starts an evaluation: only what is given, the platform has a default for the rest."""
+    return {key: value for key, value in given.items() if value is not None}
+
+
+def _inference(seconds: float | None, hardware: dict[str, Any] | bool | None) -> dict[str, Any] | None:
+    """How the predictions were made, as it is sent: the time, and the hardware (read from this machine for `True`)."""
+    if seconds is not None and (
+        isinstance(seconds, bool) or not isinstance(seconds, int | float) or not math.isfinite(seconds) or seconds < 0
+    ):
+        raise ValueError(f"The time of the inference must be a number of seconds, not {seconds!r}")
+    described = detect() if hardware is True else (hardware or None)
+    given = {"seconds": float(seconds) if seconds is not None else None, "hardware": described}
+    return {key: value for key, value in given.items() if value is not None} or None
+
+
+def interrupted(error: MyHugError, evaluation_id: UUID) -> MyHugError:
+    """The same error, saying which evaluation to go on with: its id is all that is needed to send the rest."""
+    return type(error)(
+        f"{error} (evaluation {evaluation_id}: `model.send_predictions('{evaluation_id}', predictions)`)"
+    )
+
+
 Code = CodeIn | dict[str, Any]
 
 
@@ -284,43 +311,101 @@ class Model:
     def evaluation(self, evaluation_id: str | UUID) -> EvaluationOut:
         return EvaluationOut.model_validate(self._client.json("GET", f"{self._base}/evaluations/{evaluation_id}"))
 
-    def submit_evaluation(
+    def evaluate(
         self,
         task: str,
-        results: Mapping[str, float],
+        predictions: str | Path | Iterable[Any],
         *,
+        dataset: str,
+        split: str,
+        target_column: str,
         version: int | None = None,
-        shown: Sequence[str] | None = None,
-        dataset: str | None = None,
         dataset_version: int | None = None,
-        split: str | None = None,
+        key_column: str | None = None,
         input_column: str | None = None,
-        target_column: str | None = None,
-        items: int | None = None,
+        prediction_column: str = "prediction",
         note: str = "",
+        inference_seconds: float | None = None,
+        hardware: dict[str, Any] | bool | None = None,
+        wait: bool = False,
+        timeout: float = 600.0,
+        progress: ProgressCallback | None = None,
     ) -> EvaluationOut:
-        """Sends the result of an evaluation you computed (a notebook, a training job): `results` is
-        `{metric id: value}` with the metrics of the task (`client.metrics.ids(task)`). It is kept and shown as
-        **sent**, never as measured. Only the people who can edit the model may send one. `version` is the latest
-        one unless you say; `shown` the metrics the others see (the main one and the next by default); `dataset` an
-        `owner/name` you can read; `note` how you obtained it."""
-        checked = _evaluations.checked_results(results)  # before anything is asked of the platform
-        sent = _evaluations.body(
-            version=version or self._latest(),
-            task=task,
-            results=checked,
-            shown=shown,
-            dataset=dataset,
-            dataset_version=dataset_version,
-            split=split,
-            input_column=input_column,
-            target_column=target_column,
-            items=items,
-            note=note,
-        )
-        return EvaluationOut.model_validate(
-            self._client.json("POST", f"{self._base}/evaluations", json=sent, retry=False)
-        )
+        """Evaluates a version of the model on a split of a dataset from the **predictions** you made with it.
+
+        The platform computes the metrics, always (a worker does): you send what the model answered, never a score.
+        `predictions` is a `.jsonl`, `.csv` or `.parquet` file, or a list with one value (or one object) for each item
+        of the split, in its order. They are compared to `target_column` of `dataset` (`owner/name`, a dataset you can
+        read); `key_column`, a column of the dataset that identifies each item, says which item a line is about
+        (empty: the position of the line). Only the people who can edit the model may do it; the version is the latest
+        one unless you say. The predictions go straight to the storage in parts: if it is interrupted,
+        `model.send_predictions(evaluation.id, predictions)` goes on. With `wait=True` it waits for the metrics
+        (`EvaluationFailed` if the predictions do not match the split).
+
+        `inference_seconds` is the time your model took to make them (`with myhug.Stopwatch() as watch: ...`), and
+        `hardware` what it ran on: a dict (see `myhug.hardware.detect()`), or `True` to read this machine. Both are
+        shown with the evaluation as **declared by you**: the platform cannot check them."""
+        inference = _inference(inference_seconds, hardware)  # before anything is asked of the platform
+        with _predictions.prepare(predictions, folder=self._client.cache_dir, column=prediction_column) as prepared:
+            started = EvaluationOut.model_validate(
+                self._client.json(
+                    "POST",
+                    f"{self._base}/evaluations",
+                    json=_start_body(
+                        version=self._latest() if version is None else version,
+                        task=task,
+                        dataset=dataset,
+                        dataset_version=dataset_version,
+                        split=split,
+                        target_column=target_column,
+                        key_column=key_column,
+                        input_column=input_column,
+                        prediction_column=prediction_column,
+                        format=prepared.format,
+                        size=prepared.path.stat().st_size,
+                        note=note,
+                        inference=inference,
+                    ),
+                    retry=False,
+                )
+            )
+            try:
+                sent = self._send(started.id, prepared.path, progress)
+            except (UploadError, ConnectionFailed) as error:
+                raise interrupted(error, started.id) from None
+        return self.wait_evaluation(sent.id, timeout=timeout) if wait else sent
+
+    def send_predictions(
+        self,
+        evaluation_id: str | UUID,
+        predictions: str | Path | Iterable[Any],
+        *,
+        prediction_column: str = "prediction",
+        progress: ProgressCallback | None = None,
+    ) -> EvaluationOut:
+        """Sends the predictions of an evaluation that was started (again, after an interruption): only the parts that
+        are not in the storage go. The file must be the one that was announced."""
+        with _predictions.prepare(predictions, folder=self._client.cache_dir, column=prediction_column) as prepared:
+            return self._send(evaluation_id, prepared.path, progress)
+
+    def _send(self, evaluation_id: str | UUID, path: Path, progress: ProgressCallback | None) -> EvaluationOut:
+        base = f"{self._base}/evaluations/{evaluation_id}"
+        done = _predictions.send(self._client, base, path, progress=progress)
+        return EvaluationOut.model_validate(done)
+
+    def wait_evaluation(self, evaluation_id: str | UUID, *, timeout: float = 600.0) -> EvaluationOut:
+        """Waits until a worker has computed the metrics: `done`, or it raises `EvaluationFailed` (or `WaitTimeout`)."""
+        waited = 0.0
+        while True:
+            found = self.evaluation(evaluation_id)
+            if found.status in ("done", "stopped"):
+                return found
+            if found.status == "failed":
+                raise EvaluationFailed(str(evaluation_id), found.error)
+            if waited >= timeout:
+                raise WaitTimeout(f"The evaluation {evaluation_id} is still {found.status} after {timeout:.0f} s")
+            self._client._sleep(POLL_SECONDS)
+            waited += POLL_SECONDS
 
     def set_shown(self, evaluation_id: str | UUID, shown: Sequence[str]) -> EvaluationOut:
         """Chooses the metrics the others see (the result keeps all of them)."""

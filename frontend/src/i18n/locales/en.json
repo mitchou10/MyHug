@@ -806,10 +806,11 @@
       "moreMetrics": "+{{n}} hidden",
       "source": {
         "submitted": "Sent",
-        "measured": "Measured"
+        "measured": "Measured",
+        "predictions": "Predictions sent",
+        "endpoint": "Called the model",
+        "inference": "Ran the model"
       },
-      "submittedHint": "Computed outside the platform and sent by {{user}}: the platform did not measure it.",
-      "measuredHint": "Measured by the platform, started by {{user}}.",
       "origin": "Origin",
       "noDatasetHint": "No dataset, or one you may not read",
       "items_one": "{{count}} item",
@@ -820,10 +821,38 @@
       "delete": "Delete",
       "confirmDelete": "Delete for good",
       "status": {
-        "pending": "waiting",
+        "pending": "waiting for a worker",
         "running": "running",
         "failed": "failed",
-        "stopped": "stopped"
+        "stopped": "stopped",
+        "uploading": "receiving the predictions"
+      },
+      "hint": {
+        "predictions": "Metrics computed by the platform from the predictions that {{user}} sent: it did not run the model.",
+        "endpoint": "Metrics computed by the platform from the answers of the model, which it called.",
+        "inference": "Metrics computed by the platform from the answers of the model, which it ran itself."
+      },
+      "inference": {
+        "title": "How the predictions were made",
+        "time": "{{seconds}} s in all",
+        "perItem": "{{ms}} ms per item",
+        "cores_one": "{{count}} core",
+        "cores_other": "{{count}} cores",
+        "ram": "{{gb}} GB of memory",
+        "device": {
+          "cpu": "On a processor",
+          "gpu": "On a graphics card",
+          "tpu": "On a TPU",
+          "other": "On other hardware"
+        },
+        "origin": {
+          "declared": "Declared",
+          "measured": "Measured"
+        },
+        "hint": {
+          "declared": "What the person who sent the predictions says: the platform cannot check it.",
+          "measured": "Measured by the platform when it ran the model."
+        }
       }
     },
     "versions": {

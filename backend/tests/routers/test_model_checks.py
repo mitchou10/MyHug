@@ -42,6 +42,9 @@ class RecordedJobs:
     async def resolve_code(self, version_id: uuid.UUID) -> None:
         self.codes.append(version_id)
 
+    async def evaluate(self, evaluation_id: uuid.UUID) -> None:
+        return None
+
 
 @pytest.fixture(autouse=True)
 def _setup(registry: MemoryRegistry, monkeypatch: pytest.MonkeyPatch) -> MemoryRegistry:

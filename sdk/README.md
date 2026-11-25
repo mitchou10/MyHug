@@ -85,35 +85,51 @@ A version is files, a reference to code, or both. The reference is only a link: 
 
 ## Evaluations
 
-A model trained in a notebook is evaluated there; its result can be sent to the page of the model.
+The platform publishes **no number it did not compute**. You run your model where you like and send its **predictions**;
+a worker of the platform computes the metrics against the ground truth of the dataset.
 
 ```python
 # The platform defines the metrics of each task: ['accuracy', 'precision', 'recall', 'f1', 'auc'].
 client.metrics.ids("classification")
 
 model = client.models.get("me/ner")
-model.submit_evaluation(
+predictions = [my_model(text) for text in test_texts]  # one for each item of the split, in its order
+
+evaluation = model.evaluate(
     "classification",
-    {"accuracy": 0.91, "f1": 0.8},  # the metrics of the task, finite numbers
+    predictions,  # or the path of a .jsonl, .csv or .parquet file
     dataset="me/reviews",
     split="test",
-    items=1200,
-    target_column="label",
-    shown=["accuracy"],  # what the others see; the result keeps all of them
-    note="5-fold cross-validation",  # how you got it
+    target_column="label",  # the column of the dataset with the right answer
+    key_column="id",  # a column that says which item a prediction is about (empty: the position)
+    note="my model, temperature 0",
+    inference_seconds=watch.seconds,  # with myhug.Stopwatch() as watch: predictions = [...]
+    hardware=True,  # read this machine
+    wait=True,  # until the worker has computed the metrics
 )
+evaluation.results  # {'accuracy': 0.91, ...}: what you are allowed to see, see below
 
 # The newest first. Also: model.evaluation(id), model.set_shown(id, [...]), model.delete_evaluation(id).
 model.evaluations(task="classification")
 ```
 
-- Only the people who can edit the model send a result (`PermissionDenied` for the others), for any of its versions (the
-  latest unless `version=`).
-- It is kept and shown as **sent**, never as measured: nothing says how it was obtained but your `note`.
-- A value that is not a finite number (a boolean, a text, `nan`) is refused here, before anything is sent; a metric the
-  task does not have, or a dataset you cannot read, is refused by the platform (`Invalid`).
-- A POST is never repeated by itself: if the answer is lost, look at `model.evaluations()` before sending it again.
-- A reader of the model gets only the metrics that were chosen, and `hidden` says how many are left out.
+- **How long it took, and on what.** Say how long your model took and where it ran, so that models can be compared on
+  their cost too: `inference_seconds=` (`with myhug.Stopwatch() as watch: predictions = [...]`, then `watch.seconds`) and
+  `hardware=True` to read this machine (processor, cores, memory, NVIDIA cards, system; `myhug.hardware.detect()` shows
+  what would be sent), or a dict of your own. Nothing about the machine is sent unless you ask. The page shows it as
+  **declared**: the platform cannot check it, unlike the time and the energy it measures when it runs a model itself.
+- Only the people who can edit the model start an evaluation (`PermissionDenied` for the others), on any of its versions
+  (the latest unless `version=`), against a dataset they can read.
+- The predictions go **straight to the storage in parts**, like the files of a version. If it is interrupted, the error
+  names the evaluation: `model.send_predictions(evaluation_id, predictions)` sends only the parts that are not there
+  (the file must be the one that was announced, else `FileChanged`). `progress=` is called with the bytes sent.
+- `wait=True` (or `model.wait_evaluation(id)`) waits for the worker: `EvaluationFailed` with its reason if the
+  predictions do not match the split, `WaitTimeout` if it takes longer than `timeout`.
+- Nothing you send is a metric, so a result cannot be made up; but nothing proves the predictions come from the model.
+  The `source` of an evaluation says where they come from: `predictions` (you sent them), later `endpoint` and
+  `inference` (the platform called or ran the model).
+- A POST is never repeated by itself: if the answer is lost, look at `model.evaluations()` before starting again.
+- A reader of the model gets only the metrics that were chosen (`shown`), and `hidden` says how many are left out.
 
 ## What the core does
 

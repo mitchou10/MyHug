@@ -6,6 +6,7 @@ from myhug.adatasets import AsyncDataset, AsyncVersionBuilder
 from myhug.amodels import AsyncModel
 from myhug.client import Client
 from myhug.datasets import Dataset, VersionBuilder
+from myhug.hardware import Stopwatch
 from myhug.models import Model
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "Client",
     "Dataset",
     "Model",
+    "Stopwatch",
     "VersionBuilder",
     "errors",
 ]

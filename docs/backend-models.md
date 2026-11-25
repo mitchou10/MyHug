@@ -363,8 +363,10 @@ Les pages `/models` et `/models/:owner/:name` lisent l'API: plus aucune donnée 
   (`RUSTFS_CORS_ALLOWED_ORIGINS`, voir [backend-datasets.md](backend-datasets.md)).
 - **Évaluations** (`api/evaluations.ts`, `components/EvaluationsSection.tsx`, `EvaluationDialog.tsx`): l'onglet lit
   `GET …/evaluations` et les métriques de `GET /api/metrics` (le frontend n'en garde plus la liste). Le tableau est par
-  tâche; ses colonnes sont les métriques que l'un des résultats montre; chaque ligne dit son **origine** (« Envoyé » ou
-  « Mesuré », avec l'explication en infobulle: un résultat envoyé n'a pas été mesuré par la plateforme). Un lecteur voit
+  tâche; ses colonnes sont les métriques que l'un des résultats montre; chaque ligne dit l'**origine des prédictions**
+  (« Prédictions envoyées », « Modèle appelé », « Modèle exécuté », avec l'explication en infobulle: la plateforme a
+  calculé les métriques dans les trois cas), et une évaluation qui n'est pas finie dit son état (réception des
+  prédictions, en attente d'un worker). Un lecteur voit
   « +N masquées »; ceux qui peuvent modifier le modèle ouvrent le résultat, voient toutes les métriques, cochent celles que
   les autres voient (`PUT …/shown`) et le suppriment (second clic). L'adresse d'un dataset qu'on ne peut pas lire n'est pas
   donnée: la cellule est vide. Plus de bouton « Lancer une évaluation »: mesurer, c'est #19.
@@ -372,11 +374,16 @@ Les pages `/models` et `/models/:owner/:name` lisent l'API: plus aucune donnée 
 - Les types de l'API sont écrits à la main (`api/wire.ts`) à côté du client: le projet ne génère pas de types depuis OpenAPI.
 
 
-## Les évaluations (issue #49)
+## Les évaluations (issues #49 et #74)
 
 Une **évaluation** dit comment une version d'un modèle se comporte sur une partie d'un dataset, pour une de ses tâches.
 Table `model_evaluations`; elle part avec sa version et son modèle (cascade), et reste lisible si le dataset est supprimé
 (son adresse est gardée).
+
+**La plateforme ne publie aucun chiffre qu'elle n'a pas calculé.** Une personne qui peut modifier le modèle le fait
+tourner où elle veut et envoie ses **prédictions**; un worker (#19) calcule les métriques face à la vérité terrain du
+dataset. Il n'existe aucune route qui prenne des valeurs: un corps qui en porte (`results`, `shown`, `status`, `source`)
+n'est pas lu, et la base refuse ce qui n'a pas de sens (`done` sans résultat, une source inconnue, `uploading` sans envoi).
 
 - **Les métriques sont définies à un seul endroit**, `app/metrics.py`, et listées par `GET /api/metrics` (connecté): pour
   chaque tâche, ses métriques (`id`, nom, `higher`: plus haut = mieux, `primary`: la principale) et celles montrées par
@@ -384,29 +391,51 @@ Table `model_evaluations`; elle part avec sa version et son modèle (cascade), e
 - Une évaluation garde **toutes** les métriques de sa tâche (`results`); `shown` est la liste de celles que son auteur
   montre aux autres. Un lecteur du modèle ne voit que celles-là (`hidden` dit combien manquent); ceux qui peuvent
   modifier le modèle voient tout.
-- **`source`**: `measured` (la plateforme l'a calculée, voir #19) ou `submitted` (quelqu'un l'a envoyée). Un résultat
-  envoyé est toujours présenté comme tel: rien ne dit comment il a été obtenu (le champ `note` est ses mots à lui).
-  La base impose qu'un résultat envoyé soit terminé (`status = done`) et qu'une évaluation terminée ait des résultats.
+- **`source`**: d'où viennent les prédictions. `predictions` (une personne les a envoyées), `endpoint` (la plateforme a
+  appelé le modèle servi, #75), `inference` (elle l'a exécuté elle-même, #76). Dans les trois cas c'est elle qui calcule.
+  Elle ne prouve donc pas que des prédictions envoyées viennent du modèle: quelqu'un qui lit les étiquettes d'un split
+  pourrait envoyer les bonnes réponses. Le résultat qu'on ne peut pas tricher est celui où la plateforme a fait tourner le
+  modèle, d'où l'étiquette d'origine, toujours affichée.
+- **`status`**: `uploading` (les prédictions arrivent), `pending` (un worker doit calculer), `running`, `done`, `failed`
+  (avec sa raison), `stopped`.
+
+**Le parcours**
+1. `POST …/evaluations` (qui peut modifier le modèle): la version, la tâche, le dataset (`owner/name`, qu'on peut lire),
+   son split, la colonne cible, éventuellement une colonne clé (qui dit de quel élément parle une ligne; sinon c'est la
+   position de la ligne dans le split), le format du fichier (`jsonl`, `csv`, `parquet`) et sa taille. Tout ce qui peut
+   être faux est dit **avant** que rien ne soit stocké: version, tâche, dataset, version du dataset, split, colonnes.
+   L'évaluation est créée `uploading`, avec un envoi en parties sous `evaluations/{id}/predictions.{format}`.
+2. `GET …/{id}/upload?parts=true`, `POST …/{id}/upload/parts` (adresses signées), les parties vont **directement au
+   stockage**, `POST …/{id}/upload/complete` assemble, vérifie la taille, passe à `pending` et met le job
+   `models.evaluate` dans Redis (le worker qui le lit est #19). Rejouer `complete` ne change rien.
+3. Les envois abandonnés sont rendus après `UPLOAD_SESSION_HOURS` (la route de balayage `dataset-uploads/expire` du
+   worker), avec leurs parties; le ramasse-miettes connaît le préfixe `evaluations/`. `DELETE …/{id}` supprime
+   l'évaluation et ce qu'elle gardait (les prédictions, ou les parties reçues).
 
 | Route | Qui |
 |---|---|
 | `GET /api/models/{owner}/{name}/evaluations?task=&version=` | qui lit le modèle (une page, les plus récentes d'abord) |
 | `GET …/evaluations/{id}` | idem |
-| `POST …/evaluations` | **qui peut modifier le modèle** (créateur, mainteneurs, admins): envoie un résultat |
-| `PUT …/evaluations/{id}/shown` | idem: choisit les métriques montrées |
-| `DELETE …/evaluations/{id}` | idem |
+| `POST …/evaluations`, `…/{id}/upload[/parts\|/complete]`, `PUT …/{id}/shown`, `DELETE …/{id}` | **qui peut modifier le modèle** (créateur, mainteneurs, admins) |
 
-**Ce qui est refusé** (422): une version, une tâche que le modèle n'a pas, une métrique que la tâche n'a pas, une valeur
-qui n'est pas un nombre fini (texte, booléen, `nan`, `infinity`), plus de 50 métriques, une métrique à montrer que le
-résultat n'a pas, un dataset qu'on ne peut pas lire. Ce dernier cas donne **la même réponse** qu'un dataset qui n'existe
-pas, pour qu'on ne s'en serve pas pour savoir quels datasets privés existent.
+`EVALUATION_PREDICTIONS_MAX_BYTES` (2 Gio) borne le fichier, `EVALUATIONS_MAX_OPEN` (20) les évaluations d'un modèle qui
+attendent ou tournent (409 au-delà).
+
+**Le temps et le matériel** (`inference`, facultatif au départ): combien de temps le modèle a mis pour toutes les
+prédictions (`seconds`) et sur quoi il a tourné (`hardware`: `device` `cpu`/`gpu`/`tpu`/`other`, le processeur et ses
+cœurs, la mémoire, les cartes graphiques avec leur mémoire, le système, ce qui a fait tourner le modèle). Les valeurs sont
+bornées et un champ inconnu est refusé. La réponse dit aussi `ms_per_item` (le temps d'un élément, dès que le worker a
+compté les éléments) et surtout l'**origine**: `declared` pour des prédictions envoyées (ce que dit la personne, la
+plateforme ne peut pas le vérifier) et `measured` quand c'est la plateforme qui a exécuté le modèle (#76, qui y ajoutera la
+consommation d'énergie mesurée par CodeCarbon). Un lecteur le voit, comme le reste de l'évaluation.
 
 **Le dataset**: son adresse n'est dite qu'à ceux qui peuvent le lire (les autres voient le reste de l'évaluation: split,
-tâche, résultats choisis). Un dataset supprimé laisse l'évaluation, et son adresse n'est plus dite qu'à ceux qui peuvent
-modifier le modèle (les autres n'ont peut-être jamais eu le droit de le lire).
+tâche, résultats choisis). Un dataset qu'on ne peut pas lire est refusé comme un dataset qui n'existe pas, pour qu'on ne
+s'en serve pas pour savoir quels datasets privés existent. Un dataset supprimé laisse l'évaluation, et son adresse n'est
+plus dite qu'à ceux qui peuvent modifier le modèle (les autres n'ont peut-être jamais eu le droit de le lire).
 
-Une requête qui n'est pas valide répond maintenant `422` avec `type`, `loc` et `msg` de chaque problème, **sans la
-valeur envoyée** (FastAPI la renvoyait; un `nan` ne se laisse pas écrire en JSON et faisait une erreur 500).
+Une requête qui n'est pas valide répond `422` avec `type`, `loc` et `msg` de chaque problème, **sans la valeur envoyée**
+(FastAPI la renvoyait; un `nan` ne se laisse pas écrire en JSON et faisait une erreur 500).
 
-**Pas ici**: mesurer (le worker qui appelle le modèle, arrêter un traitement): #19. Les pré-annotations: une issue à part,
-après le backend d'annotation.
+**Pas ici**: le calcul des métriques par le worker (#19), l'appel du modèle déclaré (#75), l'exécution du modèle sur CPU avec
+la consommation d'énergie (#76). Les pré-annotations: #67, après le backend d'annotation.

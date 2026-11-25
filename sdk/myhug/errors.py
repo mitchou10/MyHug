@@ -93,3 +93,12 @@ class MissingDependency(MyHugError):
 
 class UnreadableRows(MyHugError):
     """A file does not hold what its name says (not UTF-8, a line that is not a JSON object...)."""
+
+
+class EvaluationFailed(MyHugError):
+    """The worker could not compute an evaluation (`reason` says why: the predictions do not match the split...)."""
+
+    def __init__(self, evaluation_id: str, reason: str | None) -> None:
+        super().__init__(f"The evaluation {evaluation_id} failed: {reason or 'no reason given'}")
+        self.evaluation_id = evaluation_id
+        self.reason = reason

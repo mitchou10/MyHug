@@ -4124,9 +4124,9 @@
         "tags": [
           "model evaluations"
         ],
-        "summary": "Send the result of an evaluation computed elsewhere (the people who can edit the model)",
-        "description": "It is kept and shown as **submitted**: nothing says the platform measured it.",
-        "operationId": "submit_evaluation_api_models__owner___name__evaluations_post",
+        "summary": "Start an evaluation: the predictions of a model on a split of a dataset are about to be sent",
+        "description": "Only the people who can edit the model. The platform computes the metrics, always: what is sent is the file of **predictions**, straight to the storage in parts (see `…/upload`); when it is all there, a worker computes. Nothing that is a metric can be sent.",
+        "operationId": "start_evaluation_api_models__owner___name__evaluations_post",
         "parameters": [
           {
             "name": "owner",
@@ -4152,7 +4152,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EvaluationIn"
+                "$ref": "#/components/schemas/EvaluationStartIn"
               }
             }
           }
@@ -4245,7 +4245,7 @@
         "tags": [
           "model evaluations"
         ],
-        "summary": "Delete an evaluation",
+        "summary": "Delete an evaluation, or give up the predictions that were being sent",
         "operationId": "delete_evaluation_api_models__owner___name__evaluations__evaluation_id__delete",
         "parameters": [
           {
@@ -4280,6 +4280,211 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload": {
+      "get": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Where the predictions are going, and with `parts` what arrived",
+        "operationId": "get_upload_api_models__owner___name__evaluations__evaluation_id__upload_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          },
+          {
+            "name": "parts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also what reached the storage, to resume",
+              "default": false,
+              "title": "Parts"
+            },
+            "description": "Also what reached the storage, to resume"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload/parts": {
+      "post": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Signed addresses to send parts of the predictions to",
+        "operationId": "sign_parts_api_models__owner___name__evaluations__evaluation_id__upload_parts_post",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__schemas__evaluation__PartsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/upload/complete": {
+      "post": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Put the parts together: a worker computes the metrics",
+        "operationId": "complete_upload_api_models__owner___name__evaluations__evaluation_id__upload_complete_post",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationOut"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5748,138 +5953,6 @@
         "title": "EndpointOut",
         "description": "For the editors. The value of the login is never here."
       },
-      "EvaluationIn": {
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Version",
-            "description": "The number of the version of the model that was evaluated"
-          },
-          "task": {
-            "type": "string",
-            "maxLength": 40,
-            "title": "Task"
-          },
-          "results": {
-            "patternProperties": {
-              "^[a-z0-9_]{1,40}$": {
-                "type": "number"
-              }
-            },
-            "type": "object",
-            "title": "Results",
-            "description": "`{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers"
-          },
-          "shown": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9_]{1,40}$"
-                },
-                "type": "array",
-                "maxItems": 50
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Shown",
-            "description": "The metrics the others see. Empty: the main metric and the next one"
-          },
-          "dataset": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 201,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dataset",
-            "description": "`owner/name` of a dataset you can read"
-          },
-          "dataset_version": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dataset Version"
-          },
-          "split": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 50
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Split"
-          },
-          "input_column": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Input Column"
-          },
-          "target_column": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Column"
-          },
-          "items": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Items",
-            "description": "How many items it was computed on"
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 1000,
-            "title": "Note",
-            "description": "How it was obtained",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "version",
-          "task",
-          "results"
-        ],
-        "title": "EvaluationIn",
-        "description": "The result of an evaluation that was computed somewhere else. It is kept as **sent**, never as measured."
-      },
       "EvaluationOut": {
         "properties": {
           "id": {
@@ -5964,14 +6037,16 @@
           "source": {
             "type": "string",
             "enum": [
-              "measured",
-              "submitted"
+              "predictions",
+              "endpoint",
+              "inference"
             ],
             "title": "Source"
           },
           "status": {
             "type": "string",
             "enum": [
+              "uploading",
               "pending",
               "running",
               "done",
@@ -5979,6 +6054,43 @@
               "stopped"
             ],
             "title": "Status"
+          },
+          "predictions_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictions Format"
+          },
+          "predictions_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predictions Size"
+          },
+          "key_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Column"
+          },
+          "prediction_column": {
+            "type": "string",
+            "title": "Prediction Column"
           },
           "error": {
             "anyOf": [
@@ -6012,6 +6124,16 @@
           "note": {
             "type": "string",
             "title": "Note"
+          },
+          "inference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_by_username": {
             "type": "string",
@@ -6052,17 +6174,147 @@
           "items",
           "source",
           "status",
+          "predictions_format",
+          "predictions_size",
+          "key_column",
+          "prediction_column",
           "error",
           "results",
           "hidden",
           "shown",
           "note",
+          "inference",
           "created_by_username",
           "created_at",
           "finished_at",
           "can_edit"
         ],
         "title": "EvaluationOut"
+      },
+      "EvaluationStartIn": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "The number of the version of the model that was evaluated"
+          },
+          "task": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Task"
+          },
+          "dataset": {
+            "type": "string",
+            "maxLength": 201,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Dataset",
+            "description": "`owner/name` of a dataset you can read: what the predictions are compared to"
+          },
+          "dataset_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Version",
+            "description": "Empty: the latest version"
+          },
+          "split": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Split",
+            "description": "`train`, `test`... one of the splits of the dataset"
+          },
+          "target_column": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Target Column",
+            "description": "The column of the dataset that holds the right answer"
+          },
+          "key_column": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Column",
+            "description": "A column of the dataset that identifies each item, also in the file of predictions. Empty: the line of the file is the position of the item in the split, from 0"
+          },
+          "input_column": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Column",
+            "description": "The column the model read, for the record"
+          },
+          "prediction_column": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Prediction Column",
+            "description": "The column of the file with the prediction",
+            "default": "prediction"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "jsonl",
+              "csv",
+              "parquet"
+            ],
+            "title": "Format"
+          },
+          "size": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "description": "The size of the file of predictions, in bytes"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Note",
+            "description": "How the predictions were obtained",
+            "default": ""
+          },
+          "inference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceIn"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How long it took and on what: what you say, not checked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "task",
+          "dataset",
+          "split",
+          "target_column",
+          "format",
+          "size"
+        ],
+        "title": "EvaluationStartIn",
+        "description": "An evaluation to start: which model version, on which part of which dataset, and the predictions that will be\nsent to compare with it. The platform computes the metrics; a person never sends one."
       },
       "FeedbackChange": {
         "properties": {
@@ -6698,6 +6950,60 @@
         ],
         "title": "FileOut"
       },
+      "GpuIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "memory_gb": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Gb"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "GpuIn"
+      },
+      "GpuOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "memory_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Gb"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "memory_gb"
+        ],
+        "title": "GpuOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6711,6 +7017,187 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HardwareIn": {
+        "properties": {
+          "device": {
+            "type": "string",
+            "enum": [
+              "cpu",
+              "gpu",
+              "tpu",
+              "other"
+            ],
+            "title": "Device"
+          },
+          "cpu": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu",
+            "description": "The model of the processor"
+          },
+          "cpu_cores": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4096.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Cores"
+          },
+          "ram_gb": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ram Gb"
+          },
+          "gpus": {
+            "items": {
+              "$ref": "#/components/schemas/GpuIn"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Gpus"
+          },
+          "os": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime",
+            "description": "What ran the model: `onnxruntime 1.20, python 3.13`"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device"
+        ],
+        "title": "HardwareIn",
+        "description": "What the predictions were made on. For predictions a person sent: what they say, the platform cannot check."
+      },
+      "HardwareOut": {
+        "properties": {
+          "device": {
+            "type": "string",
+            "enum": [
+              "cpu",
+              "gpu",
+              "tpu",
+              "other"
+            ],
+            "title": "Device"
+          },
+          "cpu": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu"
+          },
+          "cpu_cores": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Cores"
+          },
+          "ram_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ram Gb"
+          },
+          "gpus": {
+            "items": {
+              "$ref": "#/components/schemas/GpuOut"
+            },
+            "type": "array",
+            "title": "Gpus"
+          },
+          "os": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device",
+          "cpu",
+          "cpu_cores",
+          "ram_gb",
+          "gpus",
+          "os",
+          "runtime"
+        ],
+        "title": "HardwareOut",
+        "description": "What the predictions were made on (plain values: what was checked going in is not checked again)."
+      },
       "HealthOut": {
         "properties": {
           "status": {
@@ -6723,6 +7210,90 @@
           "status"
         ],
         "title": "HealthOut"
+      },
+      "InferenceIn": {
+        "properties": {
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds",
+            "description": "The time the model took to make all the predictions"
+          },
+          "hardware": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HardwareIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "InferenceIn",
+        "description": "How the predictions were made: how long it took, and on what."
+      },
+      "InferenceOut": {
+        "properties": {
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "ms_per_item": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ms Per Item"
+          },
+          "hardware": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HardwareOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "declared",
+              "measured"
+            ],
+            "title": "Origin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seconds",
+          "ms_per_item",
+          "hardware",
+          "origin"
+        ],
+        "title": "InferenceOut"
       },
       "LikeOut": {
         "properties": {
@@ -8589,6 +9160,83 @@
         ],
         "title": "UploadOut"
       },
+      "UploadStateOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "part_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Size"
+          },
+          "parts_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parts Count"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "received": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PartOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "size_bytes",
+          "part_size",
+          "parts_count",
+          "expires_at"
+        ],
+        "title": "UploadStateOut",
+        "description": "Where the predictions are going."
+      },
       "UserOut": {
         "properties": {
           "user_id": {
@@ -8754,6 +9402,25 @@
           "columns"
         ],
         "title": "VersionOut"
+      },
+      "app__schemas__evaluation__PartsRequest": {
+        "properties": {
+          "numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Numbers",
+            "description": "The numbers of the parts, from 1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numbers"
+        ],
+        "title": "PartsRequest"
       }
     }
   }
