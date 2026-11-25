@@ -10,11 +10,23 @@ import { DatasetCard } from '@/features/datasets/components/DatasetCard'
 import { formatCount } from '@/features/datasets/format'
 import { getDataset } from '@/features/datasets/mockData'
 import { ModelCard } from '@/features/models/components/ModelCard'
-import { findModel, useModels } from '@/features/models/store'
+import { useModel } from '@/features/models/api/models'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { AddItemsDialog } from '../components/AddItemsDialog'
 import { NewCollectionDialog } from '../components/NewCollectionDialog'
 import { canSee, deleteCollection, findCollection, isMine, moveItem, removeItem, setNote, toggleLike, useCollections } from '../store'
+
+function Missing({ reference }: { reference: string }) {
+  const { t } = useTranslation()
+  return <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{reference} · {t('collections.missing')}</div>
+}
+
+/** A model of a collection, asked of the API: one that is private (or gone) is shown as missing, never as forbidden. */
+function ModelItem({ owner, name, reference }: { owner: string; name: string; reference: string }) {
+  const model = useModel(owner, name)
+  if (model.data) return <ModelCard model={model.data} />
+  return model.isPending ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : <Missing reference={reference} />
+}
 
 /** One collection: what its author gathered and why. The author can edit it, reorder it and write a note on each item. */
 export function CollectionDetailPage() {
@@ -22,7 +34,6 @@ export function CollectionDetailPage() {
   const navigate = useNavigate()
   const { owner, slug } = useParams()
   const { collections, liked } = useCollections()
-  const { models } = useModels()
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -64,10 +75,9 @@ export function CollectionDetailPage() {
         {c.items.map((item, i) => {
           const [o, n] = item.ref.split('/')
           const dataset = item.type === 'dataset' ? getDataset(o, n) : undefined
-          const model = item.type === 'model' ? findModel(models, o, n) : undefined
           return (
             <div key={`${item.type}:${item.ref}`} className="space-y-2">
-              {dataset ? <DatasetCard dataset={dataset} /> : model ? <ModelCard model={model} /> : <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{item.ref} · {t('collections.missing')}</div>}
+              {dataset ? <DatasetCard dataset={dataset} /> : item.type === 'model' ? <ModelItem owner={o} name={n} reference={item.ref} /> : <Missing reference={item.ref} />}
               {mine ? (
                 <div className="flex items-center gap-1">
                   <Input className="h-8" aria-label={t('collections.note')} placeholder={t('collections.note')} defaultValue={item.note ?? ''} onBlur={(e) => setNote(c.id, item.type, item.ref, e.target.value.trim())} />

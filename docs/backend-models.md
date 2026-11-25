@@ -331,3 +331,36 @@ suivie. L'en-tête d'authentification ne peut pas être `Host`, `Content-Length`
    (le nom est celui du modèle enregistré, voir [mlflow.md](mlflow.md)), puis **ajouter son origine à
    `MODEL_SERVING_ORIGINS`** (`["http://mlflow-serving:5001"]`) et le déclarer: `PUT …/endpoint` avec `kind: "mlflow"`.
 4. Le serveur MLflow n'a pas de login: il ne doit jamais être publié, seulement joignable par le backend.
+
+## Le frontend des modèles (issue #20)
+
+Les pages `/models` et `/models/:owner/:name` lisent l'API: plus aucune donnée en dur. Le code est dans
+`frontend/src/features/models/` (`api/` pour les appels, `components/` et `pages/` pour l'écran).
+
+- **Liste**: la recherche, le type de donnée, la tâche et le tri sont **ceux du serveur** (`q`, `modality`, `task`,
+  `sort`); la liste se lit par pages de 12 (« Afficher N de plus »). La recherche part une fois la frappe posée.
+- **Modèle privé qui n'est pas à soi**: l'API répond 404, la page dit « introuvable ». Elle ne dit jamais « interdit »
+  (un 403 sur la lecture est traité de la même façon).
+- **Lien MLflow**: affiché seulement quand l'API donne `mlflow_url` (donc aux seules personnes qui peuvent modifier le
+  modèle), dans un nouvel onglet avec `rel="noopener noreferrer"`. Pour les autres, rien n'est dessiné: l'adresse n'est
+  même pas dans la page.
+- **Version**: `pending`/`processing` s'affichent « vérification » (la liste se relit toutes les 3 s tant qu'une version
+  attend un worker), `failed` donne la raison. La référence de code est un lien vers l'arbre exact
+  (`tree_url`) **seulement une fois épinglée**; avant, un badge « non épinglé » ou « non vérifié » et la branche écrite en
+  texte, jamais un lien qui ferait croire à une version fixe.
+- **« Essayer »**: l'onglet n'existe que si l'API donne `serving`. Un texte part tel quel; pour les autres types
+  de données l'entrée est un JSON écrit à la main (aucun fichier n'est envoyé d'ici). Chaque code d'erreur du relais (409,
+  413, 422, 429, 502, 503, 504) a sa phrase.
+- **Envoi d'une version** (`api/upload.ts`, `api/useUpload.ts`, `components/UploadDialog.tsx`): annoncer les fichiers, puis
+  envoyer chaque partie **directement à son adresse signée** (3 à la fois, une nouvelle adresse à chaque essai, 3 essais
+  par partie), puis `complete`. La progression se compte en octets arrivés. **Reprise**: l'identifiant de l'envoi est gardé
+  dans le navigateur (`localStorage`, par modèle) tant qu'il est ouvert; après un rechargement, la boîte le retrouve
+  (`GET /api/model-uploads/{id}?parts=true`), on **rechoisit les mêmes fichiers** (le navigateur ne garde pas leur contenu)
+  et seules les parties absentes ou de mauvaise taille sont renvoyées. Un fichier d'une autre taille que celui annoncé est
+  refusé avant tout envoi. « Annuler » arrête l'envoi et l'abandonne côté serveur. Une version peut n'être qu'un lien vers du
+  code.
+- **Stockage**: le navigateur parle au stockage, donc le bucket doit autoriser l'origine du frontend en CORS
+  (`RUSTFS_CORS_ALLOWED_ORIGINS`, voir [backend-datasets.md](backend-datasets.md)).
+- **Pas encore branché**: les évaluations (#19) restent locales au navigateur et vides au départ; la pré-annotation affiche
+  encore le nom des modèles du catalogue sans lien vers leur page.
+- Les types de l'API sont écrits à la main (`api/wire.ts`) à côté du client: le projet ne génère pas de types depuis OpenAPI.

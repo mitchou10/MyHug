@@ -285,9 +285,11 @@ et répond par une **redirection** vers une adresse signée de courte durée (`S
 - Le backend parle au stockage à `AWS_ENDPOINT_URL` (dans Docker, `http://rustfs:9000`), adresse que le navigateur ne voit
   pas. `AWS_PUBLIC_ENDPOINT_URL` est l'adresse du même stockage **telle que le navigateur y accède**, utilisée pour signer
   (`http://localhost:9000` en développement, déjà réglée dans `docker-compose.yaml`).
-- **CORS sur le bucket**: autoriser l'origine du frontend, les méthodes `PUT` et `GET`, les en-têtes de la requête, et
-  **exposer l'en-tête `ETag`** (le navigateur n'a pas besoin de le lire, mais c'est la pratique usuelle pour reprendre).
-  Le réglage dépend du stockage: **à vérifier sur RustFS** (les tests couvrent le comportement S3 avec `moto`).
+- **CORS sur le bucket**: autoriser l'origine du frontend, les méthodes `PUT` et `GET` et les en-têtes de la requête. Le
+  navigateur n'a pas besoin de lire l'`ETag`: le backend demande lui-même au stockage les parties reçues. **Sur RustFS**,
+  c'est `RUSTFS_CORS_ALLOWED_ORIGINS` (l'origine du frontend, réglée dans `docker-compose.yaml`) : sans elle, le
+  stockage ne donne aucun en-tête CORS et le navigateur refuse l'envoi, alors que `curl` passe (vérifié: une autre
+  origine reste refusée). Les tests couvrent le comportement S3 avec `moto`.
 - En production: TLS, et une règle de cycle de vie du bucket qui abandonne les envois incomplets après quelques jours,
   en plus du job `expire_stale`.
 

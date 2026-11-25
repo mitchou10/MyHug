@@ -8,16 +8,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { cn } from '@/lib/utils'
 import type { Dataset } from '../mockData'
 import { itemCount } from './preannotate'
-import { MODEL_HUB } from '@/features/models/mockData'
 import { getDataset } from '../mockData'
 import { modelsFor } from './models'
 import { deleteRun, resumeRun, startRun, stopRun } from './runs'
 import { statsOf, useAnnotations, type AnnotationProject, type PreRun } from './store'
 
-/** A model's name, linking to its page when the model is in the catalogue. */
-function ModelLink({ name, label, className }: { name: string; label?: string; className?: string }) {
-  const m = MODEL_HUB.find((x) => x.name === name)
-  return m ? <Link to={`/models/${m.owner}/${m.name}`} className={className}>{label ?? name}</Link> : <span className={className}>{label ? '' : name}</span>
+/** A model's name (it will link to the page of the model once the pre-annotation runs real models). */
+function ModelLink({ name, className }: { name: string; className?: string }) {
+  return <span className={className}>{name}</span>
 }
 
 /** Decisions needed before a model can be compared with the others. */
@@ -71,7 +69,6 @@ export function PreannotationDialog({ project, dataset, open, onOpenChange }: { 
             <p className="text-xs text-muted-foreground">
               {available.length ? t(`datasets.annotation.pre.models.${model}`, { defaultValue: '' }) : t('datasets.annotation.pre.dialog.noModel')}
               {available.length > 0 && ` ${t('datasets.annotation.pre.dialog.compatible', { task: t(`datasets.annotation.tasks.${project.task}.title`) })}`}
-              {available.length > 0 && <> <ModelLink name={model} label={t('datasets.annotation.pre.dialog.seeModel')} className="underline underline-offset-2" /></>}
             </p>
           </section>
 

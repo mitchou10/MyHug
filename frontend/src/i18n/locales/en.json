@@ -718,7 +718,7 @@
     "count_one": "{{count}} model",
     "count_other": "{{count}} models",
     "new": "New model",
-    "newHint": "Declare a model: what it reads, what it does, its licence. The files will come with the backend.",
+    "newHint": "Declare a model: what it reads, what it does, its licence. Its files come with its versions.",
     "search": "Search models…",
     "none": "No model matches.",
     "reads": "Reads:",
@@ -752,7 +752,8 @@
       "params": "Parameters",
       "size": "Size",
       "version": "Version",
-      "updated": "Updated"
+      "updated": "Updated",
+      "library": "Library"
     },
     "card": {
       "does": "What it does",
@@ -760,16 +761,29 @@
       "unknownData": "Not stated.",
       "limits": "Limits and uses",
       "limitsText": "A model's proposals are aids, not truths: read them again before relying on them, especially on data unlike the training data.",
-      "usage": "Usage"
+      "usage": "Usage",
+      "code": "Code"
     },
     "widget": {
-      "hint": "Give the model an input and see its answer.",
+      "hint": "Give the model a text and see its answer.",
       "input": "Text to analyse",
-      "example": "Example {{n}}",
-      "noSample": "No example available for this kind of data.",
       "run": "Run",
       "result": "Result",
-      "simulated": "Simulated answer: a real model will answer once the backend is connected."
+      "hintJson": "Give the model an input, written as JSON, and see its answer.",
+      "inputJson": "Input (JSON)",
+      "took": "Answered in {{ms}} ms.",
+      "notJson": "This is not valid JSON.",
+      "errors": {
+        "notServed": "This model is not served any more.",
+        "tooLarge": "This input is too large.",
+        "rejected": "The model cannot take this input.",
+        "tooMany": "Too many tries: wait a moment.",
+        "badAnswer": "The model answered something that cannot be read.",
+        "down": "The server of the model does not answer.",
+        "slow": "The model took too long to answer.",
+        "failed": "Something went wrong. Try again.",
+        "network": "The server cannot be reached. Try again."
+      }
     },
     "eval": {
       "benchmarks": "Evaluations",
@@ -812,12 +826,14 @@
     },
     "versions": {
       "current": "current",
-      "changelog": {
-        "first": "First published version.",
-        "better": "Better accuracy on short texts and rare cases.",
-        "faster": "Faster, same accuracy.",
-        "latest": "Fixes and retraining on new data."
-      }
+      "none": "No version yet.",
+      "status": {
+        "ready": "ready",
+        "checking": "checking",
+        "failed": "failed"
+      },
+      "delete": "Delete version {{n}}",
+      "confirmDelete": "Delete this version"
     },
     "does": "Does:",
     "allTasks": "All tasks",
@@ -856,6 +872,70 @@
       "idf1": "Quality of the identity kept for each tracked object.",
       "hota": "Balance between detecting and associating objects.",
       "id_switches": "Number of times an object changes identity."
+    },
+    "loading": "Loading...",
+    "noVersion": "no version",
+    "downloads": "Downloads",
+    "likes": "Likes",
+    "more": "Show {{count}} more",
+    "openMlflow": "Open in MLflow",
+    "newVersion": "New version",
+    "delete": "Delete",
+    "confirmDelete": "Delete for good",
+    "files": {
+      "none": "No version yet, so no file.",
+      "noneInVersion": "This version holds no file: it is only a link to code.",
+      "version": "Version",
+      "download": "Download {{path}}"
+    },
+    "code": {
+      "pinned": "pinned",
+      "unresolved": "not pinned",
+      "resolving": "not pinned",
+      "unverified": "not verified",
+      "failed": "not pinned"
+    },
+    "members": {
+      "title": "Access",
+      "hint": "People who can see this model besides you. A maintainer can also change it.",
+      "none": "Nobody else has access.",
+      "user": "User id",
+      "newRole": "Role of the new member",
+      "role": "Role of {{user}}",
+      "remove": "Take away the access of {{user}}",
+      "add": "Give access",
+      "roles": {
+        "reader": "Reader",
+        "maintainer": "Maintainer"
+      }
+    },
+    "upload": {
+      "title": "New version",
+      "hint": "Files go straight to the storage, in parts. A version can hold files, a link to the code, or both.",
+      "files": "Files",
+      "choose": "Choose files",
+      "remove": "Remove {{path}}",
+      "code": "Code",
+      "codeHint": "Only a link: nothing is downloaded. It is pinned to its exact commit afterwards.",
+      "codeUrl": "Address of the repository",
+      "codeRef": "Branch, tag or commit",
+      "codePath": "Folder",
+      "codeEntrypoint": "Entry file",
+      "message": "What changed",
+      "send": "Send",
+      "cancel": "Cancel the upload",
+      "close": "Close",
+      "progress": "Upload progress",
+      "sent": "{{sent}} of {{total}} ({{percent}} %)",
+      "completing": "Putting the files together…",
+      "done": "Version {{n}} was created. Its files are being checked.",
+      "interrupted_one": "An upload of {{count}} file was interrupted.",
+      "interrupted_other": "An upload of {{count}} files was interrupted.",
+      "chooseAgain": "Choose the same files again to go on from where it stopped.",
+      "resume": "Go on",
+      "giveUp": "Give up",
+      "partFailed": "Part {{number}} of {{path}} did not reach the storage. Try again: what arrived is kept.",
+      "wrongFile": "{{path}} is not the file that was announced."
     }
   },
   "collections": {

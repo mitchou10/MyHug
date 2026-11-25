@@ -718,7 +718,7 @@
     "count_one": "{{count}} modèle",
     "count_other": "{{count}} modèles",
     "new": "Nouveau modèle",
-    "newHint": "Déclarez un modèle : ce qu'il lit, ce qu'il fait, sa licence. Les fichiers viendront avec le backend.",
+    "newHint": "Déclarez un modèle : ce qu'il lit, ce qu'il fait, sa licence. Ses fichiers viennent avec ses versions.",
     "search": "Rechercher un modèle…",
     "none": "Aucun modèle ne correspond.",
     "reads": "Lit :",
@@ -752,7 +752,8 @@
       "params": "Paramètres",
       "size": "Taille",
       "version": "Version",
-      "updated": "Mis à jour"
+      "updated": "Mis à jour",
+      "library": "Bibliothèque"
     },
     "card": {
       "does": "Ce qu'il fait",
@@ -760,16 +761,29 @@
       "unknownData": "Non renseignées.",
       "limits": "Limites et usages",
       "limitsText": "Les propositions d'un modèle sont des aides, pas des vérités : relisez-les avant de vous y fier, surtout sur des données différentes de celles de l'entraînement.",
-      "usage": "Utilisation"
+      "usage": "Utilisation",
+      "code": "Code"
     },
     "widget": {
-      "hint": "Donnez une entrée au modèle et regardez sa réponse.",
+      "hint": "Donnez un texte au modèle et regardez sa réponse.",
       "input": "Texte à analyser",
-      "example": "Exemple {{n}}",
-      "noSample": "Aucun exemple disponible pour ce type de données.",
       "run": "Lancer",
       "result": "Résultat",
-      "simulated": "Réponse simulée : un vrai modèle répondra quand le backend sera branché."
+      "hintJson": "Donnez une entrée au modèle, écrite en JSON, et regardez sa réponse.",
+      "inputJson": "Entrée (JSON)",
+      "took": "Réponse en {{ms}} ms.",
+      "notJson": "Ce JSON n'est pas valide.",
+      "errors": {
+        "notServed": "Ce modèle n'est plus servi.",
+        "tooLarge": "Cette entrée est trop grande.",
+        "rejected": "Le modèle ne peut pas prendre cette entrée.",
+        "tooMany": "Trop d'essais : patientez un instant.",
+        "badAnswer": "Le modèle a répondu quelque chose d'illisible.",
+        "down": "Le serveur du modèle ne répond pas.",
+        "slow": "Le modèle a mis trop de temps à répondre.",
+        "failed": "Une erreur est survenue. Réessayez.",
+        "network": "Le serveur est injoignable. Réessayez."
+      }
     },
     "eval": {
       "benchmarks": "Évaluations",
@@ -812,12 +826,14 @@
     },
     "versions": {
       "current": "actuelle",
-      "changelog": {
-        "first": "Première version publiée.",
-        "better": "Meilleure précision sur les textes courts et les cas rares.",
-        "faster": "Plus rapide, même précision.",
-        "latest": "Corrections et réentraînement sur de nouvelles données."
-      }
+      "none": "Aucune version pour l'instant.",
+      "status": {
+        "ready": "prête",
+        "checking": "vérification",
+        "failed": "échec"
+      },
+      "delete": "Supprimer la version {{n}}",
+      "confirmDelete": "Supprimer cette version"
     },
     "does": "Fait :",
     "allTasks": "Toutes les tâches",
@@ -856,6 +872,70 @@
       "idf1": "Qualité de l'identité gardée pour chaque objet suivi.",
       "hota": "Équilibre entre détection et association des objets.",
       "id_switches": "Nombre de fois où un objet change d'identité."
+    },
+    "loading": "Chargement…",
+    "noVersion": "aucune version",
+    "downloads": "Téléchargements",
+    "likes": "J'aime",
+    "more": "Afficher {{count}} de plus",
+    "openMlflow": "Ouvrir dans MLflow",
+    "newVersion": "Nouvelle version",
+    "delete": "Supprimer",
+    "confirmDelete": "Supprimer pour de bon",
+    "files": {
+      "none": "Aucune version, donc aucun fichier.",
+      "noneInVersion": "Cette version ne contient aucun fichier : c'est seulement un lien vers du code.",
+      "version": "Version",
+      "download": "Télécharger {{path}}"
+    },
+    "code": {
+      "pinned": "épinglé",
+      "unresolved": "non épinglé",
+      "resolving": "non épinglé",
+      "unverified": "non vérifié",
+      "failed": "non épinglé"
+    },
+    "members": {
+      "title": "Accès",
+      "hint": "Les personnes qui voient ce modèle en plus de vous. Un mainteneur peut aussi le modifier.",
+      "none": "Personne d'autre n'y a accès.",
+      "user": "Identifiant de l'utilisateur",
+      "newRole": "Rôle du nouveau membre",
+      "role": "Rôle de {{user}}",
+      "remove": "Retirer l'accès de {{user}}",
+      "add": "Donner l'accès",
+      "roles": {
+        "reader": "Lecteur",
+        "maintainer": "Mainteneur"
+      }
+    },
+    "upload": {
+      "title": "Nouvelle version",
+      "hint": "Les fichiers vont directement dans le stockage, par morceaux. Une version peut contenir des fichiers, un lien vers du code, ou les deux.",
+      "files": "Fichiers",
+      "choose": "Choisir des fichiers",
+      "remove": "Retirer {{path}}",
+      "code": "Code",
+      "codeHint": "Un simple lien : rien n'est téléchargé. Il est ensuite épinglé à son commit exact.",
+      "codeUrl": "Adresse du dépôt",
+      "codeRef": "Branche, tag ou commit",
+      "codePath": "Dossier",
+      "codeEntrypoint": "Fichier d'entrée",
+      "message": "Ce qui a changé",
+      "send": "Envoyer",
+      "cancel": "Annuler l'envoi",
+      "close": "Fermer",
+      "progress": "Progression de l'envoi",
+      "sent": "{{sent}} sur {{total}} ({{percent}} %)",
+      "completing": "Assemblage des fichiers…",
+      "done": "La version {{n}} est créée. Ses fichiers sont en cours de vérification.",
+      "interrupted_one": "L'envoi de {{count}} fichier a été interrompu.",
+      "interrupted_other": "L'envoi de {{count}} fichiers a été interrompu.",
+      "chooseAgain": "Choisissez de nouveau les mêmes fichiers pour reprendre là où il s'est arrêté.",
+      "resume": "Reprendre",
+      "giveUp": "Abandonner",
+      "partFailed": "Le morceau {{number}} de {{path}} n'est pas arrivé. Réessayez : ce qui est arrivé est gardé.",
+      "wrongFile": "{{path}} n'est pas le fichier annoncé."
     }
   },
   "collections": {

@@ -5,17 +5,17 @@ import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { metricsFor } from '../metrics'
-import type { Model } from '../mockData'
-import { useModels, type Evaluation } from '../store'
+import { useEvaluations, type Evaluation } from '../store'
+import type { Model } from '../types'
 import { EvaluationDialog, StartEvaluationDialog } from './EvaluationDialogs'
 
 /** The evaluations of a model, task by task, with the metrics their authors chose to show. */
 export function EvaluationsSection({ model: m }: { model: Model }) {
   const { t, i18n } = useTranslation()
-  const { evaluations } = useModels()
+  const { evaluations } = useEvaluations()
   const [starting, setStarting] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
-  const mine = evaluations.filter((e) => e.modelId === m.id)
+  const mine = evaluations.filter((e) => e.modelId === m.address)
   const opened = mine.find((e) => e.id === open)
 
   return (

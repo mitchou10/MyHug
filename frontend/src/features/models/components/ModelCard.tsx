@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatCount, formatSize } from '@/features/datasets/format'
-import { describe, mainTask } from '../describe'
-import type { Model } from '../mockData'
+import { formatCount } from '@/features/datasets/format'
+import { mainTask } from '../describe'
+import { formatBytes } from '../format'
+import type { Model } from '../types'
 
 export function ModelCard({ model: m }: { model: Model }) {
   const { t } = useTranslation()
@@ -15,9 +16,9 @@ export function ModelCard({ model: m }: { model: Model }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 break-all">
             <Box className="size-4 shrink-0 text-muted-foreground" />
-            {m.owner}/{m.name}
+            {m.address}
           </CardTitle>
-          <CardDescription className="line-clamp-2 min-h-8">{describe(m, t)}</CardDescription>
+          <CardDescription className="line-clamp-2 min-h-8">{m.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
@@ -26,11 +27,11 @@ export function ModelCard({ model: m }: { model: Model }) {
             {m.visibility === 'private' && <Badge variant="outline">{t('models.private')}</Badge>}
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>v{m.version}</span>
-            <span>{m.paramsM} M</span>
-            <span>{formatSize(m.sizeMb)}</span>
-            <span className="ml-auto flex items-center gap-1"><Download className="size-3" />{formatCount(m.downloads)}</span>
-            <span className="flex items-center gap-1"><Heart className="size-3" />{formatCount(m.likes)}</span>
+            <span>{m.version ? `v${m.version}` : t('models.noVersion')}</span>
+            {m.parameters ? <span>{formatCount(m.parameters)}</span> : null}
+            {m.sizeBytes ? <span>{formatBytes(m.sizeBytes)}</span> : null}
+            <span className="ml-auto flex items-center gap-1" title={t('models.downloads')}><Download className="size-3" />{formatCount(m.downloads)}</span>
+            <span className="flex items-center gap-1" title={t('models.likes')}><Heart className="size-3" />{formatCount(m.likes)}</span>
           </div>
         </CardContent>
       </Card>
