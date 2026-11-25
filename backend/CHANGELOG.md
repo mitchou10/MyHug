@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/mitchou10/MyHug/compare/backend-v0.19.0...backend-v0.20.0) (2026-11-25)
+
+
+### Features
+
+* **worker:** compute the metrics of an evaluation from the predictions ([37d420a](https://github.com/mitchou10/MyHug/commit/37d420ad2c66027c9606b3c49fadce261dc93a0d))
+
 ## [0.19.0](https://github.com/mitchou10/MyHug/compare/backend-v0.18.0...backend-v0.19.0) (2026-11-25)
 
 
