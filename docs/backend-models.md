@@ -361,8 +361,14 @@ Les pages `/models` et `/models/:owner/:name` lisent l'API: plus aucune donnée 
   code.
 - **Stockage**: le navigateur parle au stockage, donc le bucket doit autoriser l'origine du frontend en CORS
   (`RUSTFS_CORS_ALLOWED_ORIGINS`, voir [backend-datasets.md](backend-datasets.md)).
-- **Pas encore branché**: les évaluations (#19) restent locales au navigateur et vides au départ; la pré-annotation affiche
-  encore le nom des modèles du catalogue sans lien vers leur page.
+- **Évaluations** (`api/evaluations.ts`, `components/EvaluationsSection.tsx`, `EvaluationDialog.tsx`): l'onglet lit
+  `GET …/evaluations` et les métriques de `GET /api/metrics` (le frontend n'en garde plus la liste). Le tableau est par
+  tâche; ses colonnes sont les métriques que l'un des résultats montre; chaque ligne dit son **origine** (« Envoyé » ou
+  « Mesuré », avec l'explication en infobulle: un résultat envoyé n'a pas été mesuré par la plateforme). Un lecteur voit
+  « +N masquées »; ceux qui peuvent modifier le modèle ouvrent le résultat, voient toutes les métriques, cochent celles que
+  les autres voient (`PUT …/shown`) et le suppriment (second clic). L'adresse d'un dataset qu'on ne peut pas lire n'est pas
+  donnée: la cellule est vide. Plus de bouton « Lancer une évaluation »: mesurer, c'est #19.
+- **Pas encore branché**: la pré-annotation affiche encore le nom des modèles du catalogue sans lien vers leur page (#67).
 - Les types de l'API sont écrits à la main (`api/wire.ts`) à côté du client: le projet ne génère pas de types depuis OpenAPI.
 
 

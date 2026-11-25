@@ -101,3 +101,44 @@ export interface ModelFilters {
 }
 
 export const NO_FILTERS: ModelFilters = { q: '', modality: null, task: null, sort: 'downloads' }
+
+/** One metric of a task, as the platform defines it (`GET /api/metrics`). */
+export interface Metric {
+  id: string
+  name: string
+  /** Whether a higher value is better (an error is not). */
+  higher: boolean
+  primary: boolean
+}
+
+export type EvaluationStatus = 'pending' | 'running' | 'done' | 'failed' | 'stopped'
+
+/**
+ * How a version of a model performs on a part of a dataset. `source` says where the numbers come from: the platform
+ * measured them, or a person sent them (and then nothing says how they were obtained).
+ */
+export interface Evaluation {
+  id: string
+  version: number
+  task: TaskType
+  /** `owner/name`, only if the person who looks may read the dataset. */
+  dataset: string | null
+  datasetVersion: number | null
+  split: string | null
+  inputColumn: string | null
+  targetColumn: string | null
+  items: number | null
+  source: 'measured' | 'submitted'
+  status: EvaluationStatus
+  error: string | null
+  /** The metrics this person sees: all of them for the people who can edit the model, the chosen ones for the others. */
+  results: Record<string, number>
+  hidden: number
+  /** The metrics shown to the others. */
+  shown: string[]
+  note: string
+  createdByUsername: string
+  createdAt: string
+  finishedAt: string | null
+  canEdit: boolean
+}

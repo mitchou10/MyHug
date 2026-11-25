@@ -9,6 +9,8 @@ export const keys = {
   versions: (owner: string, name: string) => ['models', 'versions', owner, name] as const,
   version: (owner: string, name: string, number: number) => ['models', 'version', owner, name, number] as const,
   members: (owner: string, name: string) => ['models', 'members', owner, name] as const,
+  evaluations: (owner: string, name: string) => ['models', 'evaluations', owner, name] as const,
+  metrics: ['metrics'] as const,
 }
 
 export const base = (owner: string, name: string) => `/api/models/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`
