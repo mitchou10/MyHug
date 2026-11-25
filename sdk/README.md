@@ -14,11 +14,74 @@ with Client("https://myhug.example", token="mh_...") as client:  # or MYHUG_URL 
         print(model.owner, model.name, model.version)
 ```
 
-`AsyncClient` is the same for asyncio (`async with AsyncClient(...)`, `async for ... in client.datasets.list()`).
+`AsyncClient` is the same for asyncio: `async with AsyncClient(...) as client`, `await client.datasets.get(...)`,
+`async for row in dataset.iter_rows()`, `async with dataset.new_version() as v`. Everything below exists in both.
 
 A token is made on the *Access tokens* page of the app. It acts as you, with your rights on the data, `read` or
 `write`, never as an administrator. It is sent over HTTPS only (or to `localhost`): `allow_insecure=True` is for a
 network you trust.
+
+## Datasets
+
+```python
+dataset = client.datasets.get("ada/sentiment")  # or client.datasets.create("reviews", modality="text")
+dataset.splits  # ['test', 'train']
+dataset.files(split="train")  # the files of a split, with their fingerprints
+
+# The raw files, with the path they have in the dataset (by default in ~/.cache/myhug).
+dataset.download("data/", split="train")  # a split; or path="data/train.csv"; or everything
+for row in dataset.iter_rows("train"):  # one dict by row, file after file
+    ...
+for row in dataset.iter_rows("train", streaming=True):  # read from the storage as it arrives, kept nowhere
+    ...
+```
+
+`iter_rows` reads csv, tsv and jsonl, and Parquet with `pip install "myhug[parquet]"`. Cells are typed as the platform's
+preview types them (a csv cell is the integer, the float or the boolean it looks like, an empty one is `None`).
+
+- By default each file is downloaded first (and kept, so the next read is from disk).
+- With `streaming=True` nothing is kept on disk. A table the platform has made a **copy in Parquet** of (the files with
+  `columnar=True` in `dataset.files()`) is read from that copy by ranges, one group of rows at a time: the memory is a
+  group, a file of any size works, and stopping early costs only what was read. Without a copy, a csv, tsv or jsonl file
+  is read as text while it arrives. The copy is typed from every row of the file, so a column that mixes types is text
+  there (the same as the preview of the platform).
+- A Parquet file is read by ranges too when streaming, and downloaded first otherwise.
+
+Who has access: `dataset.members()`, `dataset.set_member("user-id", "annotator")` (`reader`, `annotator`, `maintainer`),
+`dataset.remove_member("user-id")`: only for the people who can edit the dataset.
+
+A dataset is **never changed in place**: changing it makes a new version, which keeps everything the one before had
+except what you add, replace or remove.
+
+```python
+with dataset.new_version(message="fix labels") as version:  # nothing is sent if the block raises
+    version.add("train.csv", "data/train.csv")  # a file, and the path it will have
+    version.remove("data/old.csv")
+dataset.upload_file("README.md")  # one file, one version
+dataset.upload_folder("my-data/", delete=True, wait=True)  # what the folder holds: only the difference is sent
+dataset.wait()  # until the platform has read the files (VersionFailed if not)
+```
+
+`upload_folder` sends what is new or changed (same SHA-256 means the same file), takes out what the folder no longer has
+only with `delete=True`, and makes **no version** when nothing changes (it returns `None`). `prefix="images"` keeps it to
+one folder of the dataset. A `.git`, `.DS_Store`, `__pycache__` and `*.part` are not sent (`ignore=` changes that).
+
+## Models
+
+```python
+model = client.models.create("ner", tasks=["ner"], inputs=["text"])
+model.upload_version(
+    ["model.safetensors"], code={"url": "https://github.com/me/ner", "ref": "main"}, message="v1", wait=True
+)
+model.upload_version(folder="checkpoint/")  # or only code=..., or remove=[...]
+model.versions()
+model.files()
+model.download("out/")  # the latest version by default; version=3, path="config.json"
+model.predict("Le tribunal de Lyon...")  # only if the model is served
+```
+
+A version is files, a reference to code, or both. The reference is only a link: the platform pins it to its exact commit
+(`version.code.sha`, `version.code.state`).
 
 ## What the core does
 

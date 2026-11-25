@@ -2,6 +2,20 @@
 
 from myhug import errors
 from myhug.aclient import AsyncClient
+from myhug.adatasets import AsyncDataset, AsyncVersionBuilder
+from myhug.amodels import AsyncModel
 from myhug.client import Client
+from myhug.datasets import Dataset, VersionBuilder
+from myhug.models import Model
 
-__all__ = ["AsyncClient", "Client", "errors"]
+__all__ = [
+    "AsyncClient",
+    "AsyncDataset",
+    "AsyncModel",
+    "AsyncVersionBuilder",
+    "Client",
+    "Dataset",
+    "Model",
+    "VersionBuilder",
+    "errors",
+]
