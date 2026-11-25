@@ -1,33 +1,53 @@
-import { ArrowLeft, Download, FileText, Heart, Sparkles } from 'lucide-react'
+import { ArrowLeft, Download, ExternalLink, Heart, Plus, Sparkles, Trash2, Users } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ErrorNotice } from '@/components/ErrorNotice'
 import { Container } from '@/components/Container'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { statsOf, useAnnotations } from '@/features/datasets/annotation/store'
-import { formatCount, formatSize } from '@/features/datasets/format'
+import { formatCount } from '@/features/datasets/format'
 import { getDataset } from '@/features/datasets/mockData'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { EvaluationsSection } from '../components/EvaluationsSection'
 import { AddToCollection } from '@/features/collections/components/AddToCollection'
 import { InCollections } from '@/features/collections/components/InCollections'
+import { ApiError } from '@/lib/api'
+import { NotFoundPage } from '@/pages/NotFoundPage'
+import { useDeleteModel, useLike, useModel } from '../api/models'
+import { EvaluationsSection } from '../components/EvaluationsSection'
+import { FilesTab } from '../components/FilesTab'
+import { MembersDialog } from '../components/MembersDialog'
 import { ModelWidget } from '../components/ModelWidget'
-import { describe } from '../describe'
-import { findModel, toggleLike, useModels } from '../store'
+import { UploadDialog } from '../components/UploadDialog'
+import { VersionsTab } from '../components/VersionsTab'
+import { formatBytes } from '../format'
+import type { Model } from '../types'
 
 const pct = (x: number) => `${Math.round(x * 100)} %`
 
-/** One model: its card, a place to try it, its versions, how it performs, its files. */
+/** One model: its card, a place to try it (when it is served), its versions, how it performs, its files. */
 export function ModelDetailPage() {
-  const { t } = useTranslation()
   const { owner, name } = useParams()
-  const { models, liked } = useModels()
-  const { projects, runs, decisions } = useAnnotations()
-  const m = findModel(models, owner, name)
-  if (!m) return <NotFoundPage />
+  const model = useModel(owner, name)
+  if (model.isPending) return <Container className="max-w-6xl py-6"><Skeleton className="h-10 w-64" /></Container>
+  // A model that is private and not mine answers 404, like one that does not exist: it is never "forbidden".
+  if (model.error instanceof ApiError && (model.error.status === 404 || model.error.status === 403)) return <NotFoundPage />
+  if (model.isError) return <Container className="max-w-6xl py-6"><ErrorNotice error={model.error} /></Container>
+  return <Detail m={model.data} />
+}
 
-  const isLiked = liked.has(m.id)
+function Detail({ m }: { m: Model }) {
+  const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
+  const { projects, runs, decisions } = useAnnotations()
+  const like = useLike(m)
+  const remove = useDeleteModel(m)
+  const [uploading, setUploading] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+
   const mine = decisions.filter((d) => d.model === m.name)
   const st = statsOf(mine)
   const used = [...new Set(runs.filter((r) => r.model === m.name).map((r) => r.projectId))].map((id) => projects.find((p) => p.id === id)).filter((p) => !!p)
@@ -37,11 +57,12 @@ export function ModelDetailPage() {
   const meta: [string, string][] = [
     [t('models.meta.reads'), m.inputs.map((i) => t(`datasets.modalities.${i}`)).join(', ')],
     [t('models.meta.languages'), m.languages.join(', ') || '—'],
-    [t('models.meta.license'), m.license],
-    [t('models.meta.params'), m.paramsM ? `${m.paramsM} M` : '—'],
-    [t('models.meta.size'), m.sizeMb ? formatSize(m.sizeMb) : '—'],
-    [t('models.meta.version'), `v${m.version}`],
-    [t('models.meta.updated'), m.updatedAt],
+    [t('models.meta.license'), m.license || '—'],
+    [t('models.meta.library'), m.library || '—'],
+    [t('models.meta.params'), m.parameters ? formatCount(m.parameters) : '—'],
+    [t('models.meta.size'), m.sizeBytes ? formatBytes(m.sizeBytes) : '—'],
+    [t('models.meta.version'), m.version ? `v${m.version}` : '—'],
+    [t('models.meta.updated'), new Date(m.updatedAt).toLocaleDateString(i18n.language)],
   ]
 
   return (
@@ -49,32 +70,49 @@ export function ModelDetailPage() {
       <Link to="/models" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{t('models.back')}</Link>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold break-all">{m.owner}/{m.name}</h1>
+          <h1 className="text-2xl font-semibold break-all">{m.address}</h1>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {m.tasks.map((k) => <Badge key={k} variant="secondary">{t(`datasets.annotation.tasks.${k}.title`)}</Badge>)}
             {m.tags.map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}
             {m.visibility === 'private' && <Badge variant="outline">{t('models.private')}</Badge>}
           </div>
         </div>
-        <div className="flex gap-2">
-          <AddToCollection type="model" reference={m.id} />
-          <Button variant={isLiked ? 'default' : 'outline'} aria-pressed={isLiked} onClick={() => toggleLike(m.id)}><Heart />{formatCount(m.likes + (isLiked ? 1 : 0))}</Button>
-          <Button variant="outline" disabled><Download />{formatCount(m.downloads)}</Button>
+        <div className="flex flex-wrap gap-2">
+          <AddToCollection type="model" reference={m.address} />
+          <Button variant={m.liked ? 'default' : 'outline'} aria-pressed={m.liked} disabled={like.isPending} onClick={() => like.mutate(!m.liked)}><Heart />{formatCount(m.likes)}</Button>
+          <Button variant="outline" disabled title={t('models.downloads')}><Download />{formatCount(m.downloads)}</Button>
+          {/* Only the people who can edit the model are given the address: nothing is rendered for the others. */}
+          {m.mlflowUrl && (
+            <a href={m.mlflowUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'outline' })}>
+              <ExternalLink />{t('models.openMlflow')}
+            </a>
+          )}
         </div>
       </div>
+      {m.canEdit && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setUploading(true)}><Plus />{t('models.newVersion')}</Button>
+          <Button size="sm" variant="outline" onClick={() => setSharing(true)}><Users />{t('models.members.title')}</Button>
+          {confirming
+            ? <Button size="sm" variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate(undefined, { onSuccess: () => void navigate('/models') })}>{t('models.confirmDelete')}</Button>
+            : <Button size="sm" variant="ghost" onClick={() => setConfirming(true)} onBlur={() => setConfirming(false)}><Trash2 />{t('models.delete')}</Button>}
+          <ErrorNotice error={remove.error ?? like.error} />
+        </div>
+      )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_16rem]">
         <Tabs defaultValue="card">
           <TabsList>
             <TabsTrigger value="card">{t('models.tabs.card')}</TabsTrigger>
-            <TabsTrigger value="try">{t('models.tabs.try')}</TabsTrigger>
+            {m.serving && <TabsTrigger value="try">{t('models.tabs.try')}</TabsTrigger>}
             <TabsTrigger value="eval">{t('models.tabs.eval')}</TabsTrigger>
             <TabsTrigger value="versions">{t('models.tabs.versions')}</TabsTrigger>
             <TabsTrigger value="files">{t('models.tabs.files')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="card" className="mt-4 space-y-5">
-            <p>{describe(m, t) || t('models.noDescription')}</p>
+            <p>{m.description || t('models.noDescription')}</p>
+            {m.card && <div className="rounded-lg border p-3 text-sm whitespace-pre-wrap">{m.card}</div>}
             <section className="space-y-2">
               <h2 className="text-sm font-medium">{t('models.card.does')}</h2>
               <ul className="space-y-1.5">
@@ -86,17 +124,25 @@ export function ModelDetailPage() {
               <h2 className="text-sm font-medium">{t('models.card.trainedOn')}</h2>
               {m.trainedOn.length ? <ul className="flex flex-wrap gap-1.5">{m.trainedOn.map((k) => <li key={k}><Link className="rounded-full border px-2.5 py-1 text-xs hover:bg-muted" to={`/datasets/${k}`}>{k}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">{t('models.card.unknownData')}</p>}
             </section>
+            {m.codeUrl && (
+              <section className="space-y-2">
+                <h2 className="text-sm font-medium">{t('models.card.code')}</h2>
+                <a href={m.codeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm break-all underline-offset-2 hover:underline">{m.codeUrl}<ExternalLink className="size-3" /></a>
+              </section>
+            )}
             <section className="space-y-2">
               <h2 className="text-sm font-medium">{t('models.card.limits')}</h2>
               <p className="text-sm text-muted-foreground">{t('models.card.limitsText')}</p>
             </section>
-            <section className="space-y-2">
-              <h2 className="text-sm font-medium">{t('models.card.usage')}</h2>
-              <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">{`POST /api/models/${m.owner}/${m.name}/predict\n{ "items": [ { "ref": "…" } ] }`}</pre>
-            </section>
+            {m.serving && (
+              <section className="space-y-2">
+                <h2 className="text-sm font-medium">{t('models.card.usage')}</h2>
+                <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">{`POST /api/models/${m.address}/predict\n{ "input": … }`}</pre>
+              </section>
+            )}
           </TabsContent>
 
-          <TabsContent value="try" className="mt-4"><ModelWidget key={m.id} model={m} /></TabsContent>
+          {m.serving && <TabsContent value="try" className="mt-4"><ModelWidget key={m.id} model={m} serving={m.serving} /></TabsContent>}
 
           <TabsContent value="eval" className="mt-4 space-y-6">
             <EvaluationsSection model={m} />
@@ -124,33 +170,17 @@ export function ModelDetailPage() {
             </section>
           </TabsContent>
 
-          <TabsContent value="versions" className="mt-4 divide-y rounded-lg border">
-            {[...m.versions].reverse().map((v) => (
-              <div key={v.version} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                <span className="font-mono font-medium">v{v.version}</span>
-                {v.version === m.version && <Badge>{t('models.versions.current')}</Badge>}
-                <span className="flex-1 text-muted-foreground">{t(`models.versions.changelog.${v.changelog}`)}</span>
-                <span className="text-xs text-muted-foreground">{v.sizeMb ? formatSize(v.sizeMb) : ''} · {v.date}</span>
-              </div>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="files" className="mt-4 divide-y rounded-lg border">
-            {m.files.map((f) => (
-              <div key={f.path} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                <FileText className="size-4 text-muted-foreground" />
-                <span className="flex-1 break-all">{f.path}</span>
-                <span className="text-muted-foreground">{formatSize(f.sizeMb)}</span>
-              </div>
-            ))}
-          </TabsContent>
+          <TabsContent value="versions" className="mt-4"><VersionsTab model={m} /></TabsContent>
+          <TabsContent value="files" className="mt-4"><FilesTab model={m} /></TabsContent>
         </Tabs>
 
         <aside className="h-fit space-y-2 rounded-lg border p-4 text-sm">
           {meta.map(([k, v]) => <div key={k} className="flex justify-between gap-2"><span className="text-muted-foreground">{k}</span><span className="text-right font-medium">{v}</span></div>)}
-          <InCollections type="model" reference={m.id} />
+          <InCollections type="model" reference={m.address} />
         </aside>
       </div>
+      {uploading && <UploadDialog model={m} open onOpenChange={(o) => !o && setUploading(false)} />}
+      {sharing && <MembersDialog model={m} open onOpenChange={(o) => !o && setSharing(false)} />}
     </Container>
   )
 }

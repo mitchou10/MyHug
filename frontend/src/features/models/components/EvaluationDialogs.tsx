@@ -9,8 +9,8 @@ import { DATASETS } from '@/features/datasets/mockData'
 import { cn } from '@/lib/utils'
 import { deleteEvaluation, startEvaluation, stopEvaluation } from '../evaluate'
 import { defaultShown, metricsFor, primaryOf } from '../metrics'
-import type { Model } from '../mockData'
 import { isLauncher, patchEvaluation, type Evaluation } from '../store'
+import type { Model } from '../types'
 
 /** A metric as a checkbox: its name, what it measures, and which way is better. */
 function MetricChoice({ task, ids, onChange }: { task: Parameters<typeof metricsFor>[0]; ids: string[]; onChange: (ids: string[]) => void }) {
@@ -86,7 +86,7 @@ export function StartEvaluationDialog({ model, open, onOpenChange }: { model: Mo
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('datasets.annotation.cancel')}</Button>
-          <Button disabled={!ready} onClick={() => { startEvaluation({ modelId: model.id, version: model.version, task, dataset, split, shown }); onOpenChange(false) }}><Play />{t('models.eval.start.launch')}</Button>
+          <Button disabled={!ready} onClick={() => { startEvaluation({ modelId: model.address, version: String(model.version), task, dataset, split, shown }); onOpenChange(false) }}><Play />{t('models.eval.start.launch')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

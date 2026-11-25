@@ -132,6 +132,9 @@ services:
       RUSTFS_CONSOLE_ENABLE: "true"
       RUSTFS_ACCESS_KEY: rustfsadmin # dev only
       RUSTFS_SECRET_KEY: rustfsadmin # dev only
+      # The browser sends the parts of an upload straight here (PUT, from the page of the frontend): without this the
+      # storage gives no CORS header and the browser refuses. Only this origin; in production, the address of the app.
+      RUSTFS_CORS_ALLOWED_ORIGINS: http://localhost:5173
     volumes: ["rustfs-data:/data"]
     ports:
       - "9000:9000" # S3 API

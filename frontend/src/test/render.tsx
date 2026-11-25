@@ -6,6 +6,7 @@ import { vi } from 'vitest'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { routes } from '@/routes'
 import { createFakeFeedbackApi, Reply } from './fakeFeedbackApi'
+import { createFakeModelsApi, type SeedModel } from './fakeModelsApi'
 import { createFakeNotificationsApi, type SeedNotification } from './fakeNotificationsApi'
 
 export { Reply }
@@ -23,11 +24,12 @@ export const bob = { ...ada, user_id: '2', email: 'bob@example.com', name: 'Bob'
 export function stubBackend(
   user: typeof ada | null,
   others?: (url: string, init?: RequestInit) => unknown,
-  options: { notifications?: SeedNotification[] } = {},
+  options: { notifications?: SeedNotification[]; models?: SeedModel[]; partSize?: number } = {},
 ) {
   const feedback = createFakeFeedbackApi(user && { user_id: user.user_id, username: user.username, name: user.name, is_admin: user.is_admin })
   const notifications = createFakeNotificationsApi(user !== null, options.notifications)
-  const answer = others ?? ((url: string, init?: RequestInit) => feedback.handle(url, init) ?? notifications.handle(url, init))
+  const models = createFakeModelsApi(user && { user_id: user.user_id, username: user.username, name: user.name, is_admin: user.is_admin }, options.models, { partSize: options.partSize })
+  const answer = others ?? ((url: string, init?: RequestInit) => feedback.handle(url, init) ?? notifications.handle(url, init) ?? models.handle(url, init))
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -41,7 +43,7 @@ export function stubBackend(
       return { ok: true, status: 200, json: async () => body }
     }),
   )
-  return { ...feedback, notifications }
+  return { ...feedback, notifications, models }
 }
 
 /** A client that does not retry or wait: a test sees the first answer. */

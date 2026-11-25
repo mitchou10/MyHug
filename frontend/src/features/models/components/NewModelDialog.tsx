@@ -1,22 +1,29 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
+import { ErrorNotice } from '@/components/ErrorNotice'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { IMAGE_TASKS, AUDIO_TASKS, TABULAR_TASKS, TEXT_TASKS, TIMESERIES_TASKS, VIDEO_TASKS, CURRENT_USER, type TaskType } from '@/features/datasets/annotation/store'
+import { useCurrentUser } from '@/auth/AuthProvider'
+import type { TaskType } from '@/features/datasets/annotation/store'
 import type { Modality } from '@/features/datasets/mockData'
+import { errorKind } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { INPUTS, type Model } from '../mockData'
-import { addModel } from '../store'
+import { useCreateModel } from '../api/models'
+import { TASKS_BY_MODALITY as TASKS } from '../tasks'
+import { INPUTS } from '../types'
 
-const TASKS: Record<Modality, TaskType[]> = { text: TEXT_TASKS, image: IMAGE_TASKS, audio: AUDIO_TASKS, video: VIDEO_TASKS, tabular: TABULAR_TASKS, timeseries: TIMESERIES_TASKS }
 const SLUG = /^[a-z0-9][a-z0-9._-]*$/
 
-/** Declares a model: what it reads, what it does, its licence. The files will come with the backend. */
-export function NewModelDialog({ open, onOpenChange, taken }: { open: boolean; onOpenChange: (o: boolean) => void; taken: string[] }) {
+/** Declares a model: what it reads, what it does, its licence. Its files come with its versions. */
+export function NewModelDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { user } = useCurrentUser()
+  const create = useCreateModel()
   const [name, setName] = useState('')
   const [input, setInput] = useState<Modality>('text')
   const [task, setTask] = useState<TaskType>('classification')
@@ -26,19 +33,15 @@ export function NewModelDialog({ open, onOpenChange, taken }: { open: boolean; o
   const [priv, setPriv] = useState(false)
 
   const slug = name.trim()
-  const exists = taken.includes(`${CURRENT_USER}/${slug}`)
-  const valid = SLUG.test(slug) && !exists && TASKS[input].includes(task)
+  const valid = SLUG.test(slug) && TASKS[input].includes(task)
+  const taken = !!create.error && errorKind(create.error) === 'duplicate'
 
-  const reset = () => { setName(''); setDescription(''); setLanguages(''); setPriv(false); setInput('text'); setTask('classification') }
-  const submit = () => {
-    const m: Model = {
-      id: `${CURRENT_USER}/${slug}`, owner: CURRENT_USER, name: slug, description: description.trim() || undefined, tasks: [task], inputs: [input],
-      languages: languages.split(',').map((l) => l.trim()).filter(Boolean), license: license.trim() || 'other', tags: [], paramsM: 0, sizeMb: 0, downloads: 0, likes: 0,
-      updatedAt: new Date().toISOString().slice(0, 10), version: '0.1.0', versions: [{ version: '0.1.0', date: new Date().toISOString().slice(0, 10), sizeMb: 0, changelog: 'first' }],
-      files: [{ path: 'README.md', sizeMb: 0.01 }], trainedOn: [], visibility: priv ? 'private' : 'public',
-    }
-    addModel(m); reset(); onOpenChange(false)
-  }
+  const reset = () => { setName(''); setDescription(''); setLanguages(''); setPriv(false); setInput('text'); setTask('classification'); create.reset() }
+  const submit = () =>
+    create.mutate(
+      { name: slug, description: description.trim(), tasks: [task], inputs: [input], license: license.trim(), languages: languages.split(',').map((l) => l.trim()).filter(Boolean), visibility: priv ? 'private' : 'public' },
+      { onSuccess: (model) => { reset(); onOpenChange(false); void navigate(`/models/${model.owner}/${model.name}`) } },
+    )
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o) }}>
@@ -50,9 +53,9 @@ export function NewModelDialog({ open, onOpenChange, taken }: { open: boolean; o
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
           <div className="space-y-1.5">
             <Label htmlFor="m-name">{t('models.fields.name')}</Label>
-            <div className="flex items-center gap-1.5"><span className="text-sm text-muted-foreground">{CURRENT_USER} /</span><Input id="m-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!slug && !valid} /></div>
+            <div className="flex items-center gap-1.5"><span className="text-sm text-muted-foreground">{user?.username} /</span><Input id="m-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-invalid={!!slug && !valid} /></div>
             {!!slug && !SLUG.test(slug) && <p className="text-xs text-destructive">{t('models.fields.nameHint')}</p>}
-            {exists && <p className="text-xs text-destructive">{t('models.fields.nameTaken')}</p>}
+            {taken && <p className="text-xs text-destructive">{t('models.fields.nameTaken')}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>{t('models.fields.input')}</Label>
@@ -85,10 +88,11 @@ export function NewModelDialog({ open, onOpenChange, taken }: { open: boolean; o
             <input type="checkbox" className="mt-0.5 size-4 accent-primary" checked={priv} onChange={(e) => setPriv(e.target.checked)} />
             <span><span className="font-medium">{t('models.fields.private')}</span><span className="block text-xs text-muted-foreground">{t('models.fields.privateHint')}</span></span>
           </label>
+          {!taken && <ErrorNotice error={create.error} />}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t('datasets.annotation.cancel')}</Button>
-          <Button disabled={!valid} onClick={submit}>{t('datasets.annotation.create')}</Button>
+          <Button disabled={!valid || create.isPending} onClick={submit}>{t('datasets.annotation.create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

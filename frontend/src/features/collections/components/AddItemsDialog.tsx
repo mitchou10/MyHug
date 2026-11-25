@@ -1,27 +1,28 @@
 import { Box, Check, Database, Plus, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { DATASETS } from '@/features/datasets/mockData'
-import { describe } from '@/features/models/describe'
-import { useModels } from '@/features/models/store'
+import { useModelList } from '@/features/models/api/models'
+import { NO_FILTERS } from '@/features/models/types'
 import { addItem, hasItem, useCollections, type ItemType } from '../store'
 
 /** Adds datasets and models to a collection: search, then add. */
 export function AddItemsDialog({ collectionId, open, onOpenChange }: { collectionId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t } = useTranslation()
-  const { models } = useModels()
   const collection = useCollections().collections.find((c) => c.id === collectionId)
   const [type, setType] = useState<ItemType>('dataset')
   const [query, setQuery] = useState('')
+  // Models are searched on the server: only the ones the person can see come back.
+  const found = useModelList({ ...NO_FILTERS, q: useDeferredValue(query) }, type === 'model')
   if (!collection) return null
 
   const q = query.trim().toLowerCase()
   const rows = (type === 'dataset'
     ? DATASETS.map((d) => ({ ref: `${d.owner}/${d.name}`, text: d.description, tags: d.tags }))
-    : models.filter((m) => m.visibility === 'public' || m.owner === collection.owner).map((m) => ({ ref: m.id, text: describe(m, t), tags: m.tags }))
+    : found.items.filter((m) => m.visibility === 'public' || m.owner === collection.owner).map((m) => ({ ref: m.address, text: m.description, tags: m.tags }))
   ).filter((r) => !q || `${r.ref} ${r.text} ${r.tags.join(' ')}`.toLowerCase().includes(q))
 
   return (
