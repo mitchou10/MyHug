@@ -37,10 +37,12 @@ class AsyncClient:
         self._retry = retry or Retry()
         self._sleep = sleep
         self.cache_dir = Path(cache_dir) if cache_dir else None
+        from myhug.metrics import AsyncMetrics
         from myhug.resources import AsyncDatasets, AsyncModels
 
         self.datasets = AsyncDatasets(self)
         self.models = AsyncModels(self)
+        self.metrics = AsyncMetrics(self)
 
     def __repr__(self) -> str:
         return f"AsyncClient({self.url!r})"
