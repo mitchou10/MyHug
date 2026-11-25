@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/mitchou10/MyHug/compare/v0.24.0...v0.25.0) (2026-11-25)
+
+
+### Features
+
+* **frontend:** read the evaluations of a model from the API ([5be9a0b](https://github.com/mitchou10/MyHug/commit/5be9a0b216785dda3b4b4e8601cd2299bd5fd2ae))
+
 ## [0.24.0](https://github.com/mitchou10/MyHug/compare/v0.23.0...v0.24.0) (2026-11-25)
 
 
