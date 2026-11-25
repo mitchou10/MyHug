@@ -937,6 +937,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/datasets/{owner}/{name}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tasks of annotation of a dataset */
+        get: operations["list_tasks_api_datasets__owner___name__tasks_get"];
+        put?: never;
+        /**
+         * Make a task of annotation: a text to classify in each row of the dataset
+         * @description Only the people who can edit the dataset. The task follows the dataset: it reads the rows of its latest version.
+         */
+        post: operations["create_task_api_datasets__owner___name__tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One task, with its labels */
+        get: operations["get_task_api_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete a task, its labels and all its answers */
+        delete: operations["delete_task_api_tasks__task_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename a task, close it or open it again */
+        patch: operations["update_task_api_tasks__task_id__patch"];
+        trace?: never;
+    };
+    "/api/tasks/{task_id}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a label */
+        post: operations["add_label_api_tasks__task_id__labels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{task_id}/labels/{label_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Stop offering a label: the answers that use it keep it */
+        delete: operations["delete_label_api_tasks__task_id__labels__label_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename or describe a label: the answers that use it follow, nothing is lost */
+        patch: operations["update_label_api_tasks__task_id__labels__label_id__patch"];
+        trace?: never;
+    };
+    "/api/tasks/{task_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The rows to annotate, with my answer to each */
+        get: operations["list_rows_api_tasks__task_id__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{task_id}/rows/{split}/{row_index}/annotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Answer a row (or change my answer): the same call twice changes nothing
+         * @description One answer per person and per row. The answer keeps the version of the dataset it was given on.
+         */
+        put: operations["put_answer_api_tasks__task_id__rows__split___row_index__annotation_put"];
+        post?: never;
+        /** Take back my answer to a row */
+        delete: operations["delete_answer_api_tasks__task_id__rows__split___row_index__annotation_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{task_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How far the annotation is */
+        get: operations["get_progress_api_tasks__task_id__progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/models/{owner}/{name}/evaluations": {
         parameters: {
             query?: never;
@@ -1117,6 +1247,41 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
+        };
+        /** AnswerIn */
+        AnswerIn: {
+            /** Label Id */
+            label_id?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Status
+             * @default submitted
+             * @enum {string}
+             */
+            status: "draft" | "submitted";
+        };
+        /** AnswerOut */
+        AnswerOut: {
+            /** Split */
+            split: string;
+            /** Row Index */
+            row_index: number;
+            /** Status */
+            status: string;
+            /** Source */
+            source: string;
+            /** Label Id */
+            label_id: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Version Number */
+            version_number: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * ApiIn
@@ -2100,6 +2265,47 @@ export interface components {
              */
             origin: "declared" | "measured";
         };
+        /** LabelCountOut */
+        LabelCountOut: {
+            /**
+             * Label Id
+             * Format: uuid
+             */
+            label_id: string;
+            /** Answers */
+            answers: number;
+        };
+        /** LabelIn */
+        LabelIn: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** LabelOut */
+        LabelOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+        };
+        /** LabelPatch */
+        LabelPatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
         /** LikeOut */
         LikeOut: {
             /** Liked */
@@ -2630,25 +2836,37 @@ export interface components {
             /** Avatar Version */
             avatar_version: number | null;
         };
-        /**
-         * RowsOut
-         * @description A page of the rows of a split, in the order of the columns.
-         */
-        RowsOut: {
-            /** Split */
-            split: string;
-            /** Splits */
-            splits: string[];
-            /** Columns */
-            columns: components["schemas"]["ColumnOut"][];
-            /** Rows */
-            rows: unknown[][];
-            /** Total */
+        /** ProgressOut */
+        ProgressOut: {
+            /**
+             * Total
+             * @description Rows in the latest version of the dataset
+             */
             total: number;
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
+            /**
+             * Mine
+             * @description Answers of the person who asks
+             */
+            mine: number;
+            /** Mine Submitted */
+            mine_submitted: number;
+            /**
+             * Answered Rows
+             * @description Rows that have at least one answer, from anybody
+             */
+            answered_rows: number;
+            /** Annotators */
+            annotators: number;
+            /** By Label */
+            by_label: components["schemas"]["LabelCountOut"][];
+        };
+        /** RowOut */
+        RowOut: {
+            /** Row Index */
+            row_index: number;
+            /** Text */
+            text: string;
+            mine: components["schemas"]["AnswerOut"] | null;
         };
         /**
          * ServingOut
@@ -2692,6 +2910,24 @@ export interface components {
             /** Files */
             files: number;
         };
+        /** TaskIn */
+        TaskIn: {
+            /** Name */
+            name: string;
+            /**
+             * Type
+             * @description The kind of answer. Others will come.
+             * @constant
+             */
+            type: "classification";
+            /**
+             * Text Column
+             * @description The column that holds the text to annotate
+             */
+            text_column: string;
+            /** Labels */
+            labels?: components["schemas"]["LabelIn"][];
+        };
         /** TaskMetricsOut */
         TaskMetricsOut: {
             /** Task */
@@ -2700,6 +2936,49 @@ export interface components {
             metrics: components["schemas"]["MetricOut"][];
             /** Default Shown */
             default_shown: string[];
+        };
+        /** TaskOut */
+        TaskOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Dataset
+             * @description `owner/name` of the dataset
+             */
+            dataset: string;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Status */
+            status: string;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Labels */
+            labels: components["schemas"]["LabelOut"][];
+            /** Created By Username */
+            created_by_username: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Annotate */
+            can_annotate: boolean;
+        };
+        /** TaskPatch */
+        TaskPatch: {
+            /** Name */
+            name?: string | null;
+            /** Status */
+            status?: ("open" | "closed") | null;
         };
         /** UnreadCountOut */
         UnreadCountOut: {
@@ -2862,6 +3141,37 @@ export interface components {
             created_at: string;
             /** Columns */
             columns: components["schemas"]["ColumnOut"][];
+        };
+        /** RowsOut */
+        app__schemas__annotation__RowsOut: {
+            /** Split */
+            split: string;
+            /** Splits */
+            splits: string[];
+            /** Total */
+            total: number;
+            /** Rows */
+            rows: components["schemas"]["RowOut"][];
+        };
+        /**
+         * RowsOut
+         * @description A page of the rows of a split, in the order of the columns.
+         */
+        app__schemas__dataset__RowsOut: {
+            /** Split */
+            split: string;
+            /** Splits */
+            splits: string[];
+            /** Columns */
+            columns: components["schemas"]["ColumnOut"][];
+            /** Rows */
+            rows: unknown[][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /** PartsRequest */
         app__schemas__evaluation__PartsRequest: {
@@ -4153,7 +4463,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RowsOut"];
+                    "application/json": components["schemas"]["app__schemas__dataset__RowsOut"];
                 };
             };
             /** @description Validation Error */
@@ -5251,6 +5561,404 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PredictOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tasks_api_datasets__owner___name__tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_task_api_datasets__owner___name__tasks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_task_api_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_task_api_tasks__task_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_task_api_tasks__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_label_api_tasks__task_id__labels_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_label_api_tasks__task_id__labels__label_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                label_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_label_api_tasks__task_id__labels__label_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                label_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rows_api_tasks__task_id__rows_get: {
+        parameters: {
+            query?: {
+                split?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__schemas__annotation__RowsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_answer_api_tasks__task_id__rows__split___row_index__annotation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                split: string;
+                row_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_answer_api_tasks__task_id__rows__split___row_index__annotation_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                split: string;
+                row_index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_progress_api_tasks__task_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressOut"];
                 };
             };
             /** @description Validation Error */

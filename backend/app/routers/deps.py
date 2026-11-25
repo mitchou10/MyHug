@@ -21,6 +21,7 @@ from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
 from app.services.access_tokens import AccessTokenService
 from app.services.actor import Actor
+from app.services.annotations import AnnotationService
 from app.services.attachments import AttachmentService
 from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.dataset_members import DatasetMemberService
@@ -30,6 +31,7 @@ from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.evaluation_processing import EvaluationProcessing
 from app.services.factory import (
+    build_annotations,
     build_dataset_derivatives,
     build_dataset_members,
     build_dataset_processing,
@@ -225,6 +227,13 @@ def get_model_evaluation_service(db: DB, store: Store, jobs: JobsDep) -> ModelEv
 
 
 ModelEvaluationServiceDep = Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)]
+
+
+def get_annotation_service(db: DB, store: Store) -> AnnotationService:
+    return build_annotations(db, store)
+
+
+AnnotationServiceDep = Annotated[AnnotationService, Depends(get_annotation_service)]
 
 
 def get_model_member_service(db: DB) -> ModelMemberService:
