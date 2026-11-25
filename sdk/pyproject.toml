@@ -1,0 +1,48 @@
+[project]
+name = "myhug"
+version = "0.1.0"
+description = "Python SDK of the platform: datasets and models from code, with resumable transfers"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx2>=2.16.2",
+    "pydantic>=2.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator>=0.57.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.6",
+    "ty>=0.0.109",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["myhug"]
+
+[tool.ruff]
+line-length = 120
+# The models are generated from openapi.json (scripts/generate.py): not ours to format.
+extend-exclude = ["myhug/_models.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["myhug"]
+omit = ["myhug/_models.py"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80

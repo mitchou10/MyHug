@@ -5,6 +5,7 @@ name: Release
 #   - one release per service    backend-vX.Y.Z   (backend/CHANGELOG.md)
 #                                worker-vX.Y.Z    (worker/CHANGELOG.md)
 #                                frontend-vX.Y.Z  (frontend/CHANGELOG.md)
+#                                sdk-vX.Y.Z       (sdk/CHANGELOG.md; versioned and tagged, never published)
 # Only the services that changed since their last release are bumped.
 # `dev` produces release candidates (-rc.N), `main` stable releases.
 
