@@ -295,6 +295,23 @@ class DatasetIn(BaseModel):
     card: Annotated[str | None, Field(max_length=100000, title="Card")] = ""
 
 
+class Role(StrEnum):
+    reader = "reader"
+    annotator = "annotator"
+    maintainer = "maintainer"
+
+
+class DatasetMemberIn(BaseModel):
+    role: Annotated[Role, Field(title="Role")]
+
+
+class DatasetMemberOut(BaseModel):
+    user_id: Annotated[str, Field(title="User Id")]
+    role: Annotated[Role, Field(title="Role")]
+    added_by: Annotated[str, Field(title="Added By")]
+    created_at: Annotated[AwareDatetime, Field(title="Created At")]
+
+
 class DatasetSummaryOut(BaseModel):
     id: Annotated[UUID, Field(title="Id")]
     owner: Annotated[str, Field(title="Owner")]
@@ -530,6 +547,7 @@ class FileOut(BaseModel):
     content_type: Annotated[str, Field(title="Content Type")]
     split: Annotated[str | None, Field(title="Split")]
     rows: Annotated[int | None, Field(title="Rows")]
+    columnar: Annotated[bool | None, Field(title="Columnar")] = False
 
 
 class HealthOut(BaseModel):
@@ -549,18 +567,18 @@ class MarkedReadOut(BaseModel):
     updated: Annotated[int, Field(title="Updated")]
 
 
-class Role(StrEnum):
+class Role2(StrEnum):
     reader = "reader"
     maintainer = "maintainer"
 
 
 class MemberIn(BaseModel):
-    role: Annotated[Role, Field(title="Role")]
+    role: Annotated[Role2, Field(title="Role")]
 
 
 class MemberOut(BaseModel):
     user_id: Annotated[str, Field(title="User Id")]
-    role: Annotated[Role, Field(title="Role")]
+    role: Annotated[Role2, Field(title="Role")]
     added_by: Annotated[str, Field(title="Added By")]
     created_at: Annotated[AwareDatetime, Field(title="Created At")]
 

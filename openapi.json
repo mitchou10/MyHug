@@ -1917,6 +1917,22 @@
               ],
               "title": "Version"
             }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "raw",
+                "parquet"
+              ],
+              "type": "string",
+              "description": "`parquet`: the file as Parquet (the copy the system made, or itself), to read by ranges",
+              "default": "raw",
+              "title": "Format"
+            },
+            "description": "`parquet`: the file as Parquet (the copy the system made, or itself), to read by ranges"
           }
         ],
         "responses": {
@@ -2051,6 +2067,182 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/{owner}/{name}/members": {
+      "get": {
+        "tags": [
+          "datasets"
+        ],
+        "summary": "Who has access to a dataset besides its creator",
+        "operationId": "list_members_api_datasets__owner___name__members_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatasetMemberOut"
+                  },
+                  "title": "Response List Members Api Datasets  Owner   Name  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/{owner}/{name}/members/{user_id}": {
+      "put": {
+        "tags": [
+          "datasets"
+        ],
+        "summary": "Give somebody access, or change their role",
+        "operationId": "set_member_api_datasets__owner___name__members__user_id__put",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetMemberIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetMemberOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "datasets"
+        ],
+        "summary": "Take somebody's access away",
+        "operationId": "remove_member_api_datasets__owner___name__members__user_id__delete",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -4611,6 +4803,59 @@
         "title": "DatasetIn",
         "description": "A dataset to create. Its address is `{your name}/{name}`; the name and the modality can never be changed."
       },
+      "DatasetMemberIn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "reader",
+              "annotator",
+              "maintainer"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "DatasetMemberIn",
+        "description": "`reader` sees a private dataset, `annotator` also annotates it, `maintainer` also changes it."
+      },
+      "DatasetMemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "reader",
+              "annotator",
+              "maintainer"
+            ],
+            "title": "Role"
+          },
+          "added_by": {
+            "type": "string",
+            "title": "Added By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "added_by",
+          "created_at"
+        ],
+        "title": "DatasetMemberOut"
+      },
       "DatasetOut": {
         "properties": {
           "id": {
@@ -5736,6 +5981,11 @@
               }
             ],
             "title": "Rows"
+          },
+          "columnar": {
+            "type": "boolean",
+            "title": "Columnar",
+            "default": false
           }
         },
         "type": "object",

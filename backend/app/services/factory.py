@@ -17,6 +17,7 @@ from app.repositories.models import ModelRepository
 from app.repositories.storage_references import StorageReferenceRepository
 from app.services.dataset_access import DatasetAccess
 from app.services.dataset_derivatives import DatasetDerivatives
+from app.services.dataset_members import DatasetMemberService
 from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
@@ -39,6 +40,11 @@ def build_datasets(db: AsyncSession, store: ObjectStore) -> DatasetService:
     return DatasetService(
         datasets, DatasetAccess(datasets), DatasetVersionRepository(db), DatasetUploadRepository(db), store
     )
+
+
+def build_dataset_members(db: AsyncSession) -> DatasetMemberService:
+    datasets = DatasetRepository(db)
+    return DatasetMemberService(datasets, DatasetAccess(datasets))
 
 
 def build_dataset_versions(db: AsyncSession, store: ObjectStore, jobs: Jobs) -> DatasetVersionService:

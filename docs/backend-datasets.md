@@ -164,6 +164,7 @@ Un service `DatasetAccess`, qui répond à ces questions à partir de l'`Actor`:
 | Lire un dataset privé | propriétaire, membres, admin |
 | Créer un dataset | tout utilisateur connecté (dans son espace de noms ou celui d'une organisation dont il est membre) |
 | Modifier / supprimer un dataset, gérer les membres | propriétaire, `maintainer`, admin |
+| Voir et changer les membres (`GET/PUT/DELETE /api/datasets/{owner}/{name}/members[/{user_id}]`) | propriétaire, `maintainer`, admin; les autres reçoivent `403` (`404` si le dataset est privé et qu'ils n'y ont pas accès). Rôles: `reader`, `annotator`, `maintainer`; le créateur n'est pas un membre (`422`) |
 | Créer une tâche d'annotation | quiconque peut lire le dataset |
 | Annoter | quiconque peut lire le dataset (ses propres annotations uniquement) |
 | Modifier les labels, fermer ou supprimer une tâche | créateur de la tâche, maintainer du dataset, admin |
@@ -414,7 +415,13 @@ ne se lit pas, l'aperçu **retombe sur l'original** et le dit dans les logs. Le 
 - Le worker a besoin de disque pour la source **et** la copie en même temps (`WORKER_TEMP_DIR`).
 - Les copies vivent sous `derived/parquet/…`, hors de `datasets/`. Le ramasse-miettes (section 6 quater) supprime une
   copie dont plus aucun fichier ne tient la source, avec son objet.
-- Pas encore: publier la copie comme vrai fichier, statistiques par colonne, filtres et tris côté serveur.
+- **Lire la copie par plages** (le SDK): `GET …/files` dit `columnar: true` pour un fichier Parquet ou dont la copie est
+  prête, et `GET …/files/{path}?format=parquet` répond par une redirection vers l'adresse signée de **la copie** (ou du
+  fichier lui-même s'il est Parquet), `404` s'il n'y en a pas (trop petit, trop gros, pas un tableau, pas encore
+  converti). C'est un cache lu, pas un fichier du dataset: la copie n'est ni listée ni comptée, ne compte **pas comme un
+  téléchargement**, et le téléchargement normal donne toujours le fichier de l'utilisateur. Le lecteur lit le pied de
+  fichier puis un groupe de lignes à la fois, par requêtes `Range`.
+- Pas encore: statistiques par colonne, filtres et tris côté serveur.
 
 ## 6 quater. Ramasse-miettes du stockage
 

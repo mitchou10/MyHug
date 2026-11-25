@@ -107,7 +107,8 @@ async def list_files(
     version: Annotated[int | None, Query(ge=1)] = None,
 ) -> list[FileOut]:
     _, files = await service.files(actor, owner, name, version)
-    return [FileOut.model_validate(file) for file in files]
+    columnar = await service.columnar(files)
+    return [FileOut.model_validate(file).model_copy(update={"columnar": file.path in columnar}) for file in files]
 
 
 @router.get(
@@ -123,10 +124,17 @@ async def download_file(
     actor: ActorDep,
     service: DatasetVersionServiceDep,
     version: Annotated[int | None, Query(ge=1)] = None,
+    format: Annotated[
+        Literal["raw", "parquet"],
+        Query(description="`parquet`: the file as Parquet (the copy the system made, or itself), to read by ranges"),
+    ] = "raw",
 ) -> RedirectResponse:
-    return RedirectResponse(
-        await service.download(actor, owner, name, path, version), status_code=status.HTTP_302_FOUND
+    address = (
+        await service.download_parquet(actor, owner, name, path, version)
+        if format == "parquet"
+        else await service.download(actor, owner, name, path, version)
     )
+    return RedirectResponse(address, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/{owner}/{name}/rows", summary="The rows of a split, for the preview")

@@ -565,6 +565,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/datasets/{owner}/{name}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who has access to a dataset besides its creator */
+        get: operations["list_members_api_datasets__owner___name__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/datasets/{owner}/{name}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Give somebody access, or change their role */
+        put: operations["set_member_api_datasets__owner___name__members__user_id__put"];
+        post?: never;
+        /** Take somebody's access away */
+        delete: operations["remove_member_api_datasets__owner___name__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/datasets/{owner}/{name}/uploads": {
         parameters: {
             query?: never;
@@ -1221,6 +1256,34 @@ export interface components {
              */
             card: string;
         };
+        /**
+         * DatasetMemberIn
+         * @description `reader` sees a private dataset, `annotator` also annotates it, `maintainer` also changes it.
+         */
+        DatasetMemberIn: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "reader" | "annotator" | "maintainer";
+        };
+        /** DatasetMemberOut */
+        DatasetMemberOut: {
+            /** User Id */
+            user_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "reader" | "annotator" | "maintainer";
+            /** Added By */
+            added_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** DatasetOut */
         DatasetOut: {
             /**
@@ -1672,6 +1735,11 @@ export interface components {
             split: string | null;
             /** Rows */
             rows: number | null;
+            /**
+             * Columnar
+             * @default false
+             */
+            columnar: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -3628,6 +3696,8 @@ export interface operations {
         parameters: {
             query?: {
                 version?: number | null;
+                /** @description `parquet`: the file as Parquet (the copy the system made, or itself), to read by ranges */
+                format?: "raw" | "parquet";
             };
             header?: never;
             path: {
@@ -3685,6 +3755,106 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RowsOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_api_datasets__owner___name__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetMemberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_api_datasets__owner___name__members__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetMemberIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetMemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_api_datasets__owner___name__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

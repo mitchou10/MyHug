@@ -22,6 +22,7 @@ from app.services.errors import (
     DatasetFileNotFound,
     FileTooLarge,
     InvalidFilePath,
+    NoParquetCopy,
     NothingToCommit,
     SplitNotFound,
     TooManyFiles,
@@ -269,6 +270,35 @@ class DatasetVersionService:
         await self._versions.count_downloads(dataset.id)
         await self._versions.commit()
         return await self._store.presign_get(file.storage_key, self._signed_seconds, file.path.rsplit("/", 1)[-1])
+
+    async def columnar(self, files: list[DatasetFile]) -> set[str]:
+        """The paths of the files that can be read by ranges as Parquet: a Parquet file itself, or a table whose copy is
+        ready (the copy is a cache made by the system, see the derivatives)."""
+        copies = await self._copies([f for f in files if tables.suffix_of(f.path) != tables.PARQUET])
+        return {
+            f.path
+            for f in files
+            if tables.suffix_of(f.path) == tables.PARQUET or self._usable(copies.get(f.storage_key)) is not None
+        }
+
+    @staticmethod
+    def _usable(copy: DatasetFileDerivative | None) -> str | None:
+        return copy.storage_key if copy is not None and copy.storage_key and copy.size_bytes else None
+
+    async def download_parquet(self, actor: Actor, owner: str, name: str, path: str, number: int | None) -> str:
+        """The signed address of a file as Parquet, to read it by ranges: the file itself if it is one, else the copy
+        the system made of it. NoParquetCopy when there is none ready. A copy is a cache: it is not a download."""
+        dataset, _ = await self._access.get_readable(actor, owner, name)
+        version = await self._version_of(dataset, number)
+        file = await self._versions.file(version.id, clean_path(path))
+        if file is None:
+            raise DatasetFileNotFound
+        key = file.storage_key
+        if tables.suffix_of(file.path) != tables.PARQUET:
+            key = self._usable((await self._copies([file])).get(file.storage_key)) or ""
+        if not key or await self._store.head(key) is None:
+            raise NoParquetCopy
+        return await self._store.presign_get(key, self._signed_seconds)
 
     async def rows(
         self,

@@ -8,6 +8,7 @@ from app.routers import (
     access_tokens,
     admin_feedback,
     admin_feedback_references,
+    dataset_members,
     dataset_uploads,
     datasets,
     emit,
@@ -56,6 +57,7 @@ app.include_router(admin_feedback.router)
 app.include_router(notifications.router)
 app.include_router(emit.router)
 app.include_router(datasets.router)
+app.include_router(dataset_members.router)
 app.include_router(dataset_uploads.router)
 app.include_router(models.router)
 app.include_router(model_versions.router)
