@@ -11,6 +11,7 @@ from app.models import (
     DatasetFileDerivative,
     DatasetUpload,
     DatasetUploadFile,
+    ModelEvaluation,
     ModelFile,
     ModelUpload,
     ModelUploadFile,
@@ -57,6 +58,7 @@ class StorageReferenceRepository(Repository):
             select(ModelUploadFile.storage_key)
             .join(ModelUpload, ModelUpload.id == ModelUploadFile.upload_id)
             .where(ModelUpload.status == OPEN, ModelUploadFile.storage_key.in_(keys)),
+            select(ModelEvaluation.predictions_key).where(ModelEvaluation.predictions_key.in_(keys)),
         )
         for query in queries:
             found.update((await self._db.execute(query)).scalars())
@@ -92,7 +94,12 @@ class StorageReferenceRepository(Repository):
             .join(ModelUpload, ModelUpload.id == ModelUploadFile.upload_id)
             .where(ModelUpload.status == OPEN, ModelUploadFile.multipart_id.is_not(None))
         )
-        return {item for item in (*sessions.scalars(), *copies.scalars(), *models.scalars()) if item}
+        evaluations = await self._db.execute(
+            select(ModelEvaluation.multipart_id).where(ModelEvaluation.multipart_id.is_not(None))
+        )
+        return {
+            item for item in (*sessions.scalars(), *copies.scalars(), *models.scalars(), *evaluations.scalars()) if item
+        }
 
     async def sample_keys(self, count: int) -> list[str]:
         """Keys of files of versions (of datasets and of models), taken at random: to check that their objects are

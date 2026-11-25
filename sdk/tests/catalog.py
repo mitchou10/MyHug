@@ -9,6 +9,20 @@ from typing import Any
 import httpx2
 
 NOW = "2026-11-01T09:00:00Z"
+
+
+def declared(inference: dict | None) -> dict | None:
+    """How the platform shows what a person said of how the predictions were made."""
+    if not inference:
+        return None
+    given = inference.get("hardware")
+    hardware = None
+    if given:
+        hardware = {key: given.get(key) for key in ("device", "cpu", "cpu_cores", "ram_gb", "os", "runtime")}
+        hardware["gpus"] = [{"name": g["name"], "memory_gb": g.get("memory_gb")} for g in given.get("gpus", [])]
+    return {"seconds": inference.get("seconds"), "ms_per_item": None, "hardware": hardware, "origin": "declared"}
+
+
 METRICS = {
     "classification": ["accuracy", "precision", "recall", "f1", "auc"],
     "regression": ["mae", "rmse", "r2", "mape"],
@@ -114,7 +128,7 @@ class Catalog:
         self.platform = platform
         self.entities: dict[tuple[str, str], Entity] = {}
         self.evaluations: dict[str, dict[str, Any]] = {}  # id -> evaluation, by `ada/model`
-        self.submitted: list[dict[str, Any]] = []
+        self.started: list[dict[str, Any]] = []
         self.predictions: list[Any] = []
         self.created: list[dict[str, Any]] = []
         self.parquet_asked: list[str] = []
@@ -268,6 +282,8 @@ class Catalog:
             return httpx2.Response(200, json={"output": {"echo": body["input"]}, "took_ms": 3})
         return None
 
+    PART = 4  # bytes: a few parts even for a tiny file
+
     def evaluations_route(self, entity: Entity, rest: str, method: str, params: dict, body: Any) -> httpx2.Response:
         mine = [e for e in self.evaluations.values() if e["model"] == entity.address]
         if rest == "/evaluations" and method == "GET":
@@ -280,34 +296,98 @@ class Catalog:
             start = int(params.get("offset", 0))
             return httpx2.Response(200, json=found[start : start + int(params.get("limit", 50))])
         if rest == "/evaluations" and method == "POST":
-            self.submitted.append(body)
-            task, results = body["task"], body["results"]
-            if task not in METRICS:
-                return httpx2.Response(422, json={"detail": f"This model does not do {task}"})
-            if bad := [k for k in results if k not in METRICS[task]]:
-                return httpx2.Response(422, json={"detail": f"{bad[0]} is not a metric of {task}"})
+            self.started.append(body)
+            if body["task"] not in METRICS:
+                return httpx2.Response(422, json={"detail": f"This model does not do {body['task']}"})
+            if body["dataset"] == "ada/nothing":
+                return httpx2.Response(422, json={"detail": "No dataset ada/nothing"})
+            identifier = str(uuid.uuid4())
             view = {
-                "id": str(uuid.uuid4()), "version": body["version"], "task": task, "dataset": body.get("dataset"),
-                "dataset_version": body.get("dataset_version"), "split": body.get("split"),
-                "input_column": body.get("input_column"), "target_column": body.get("target_column"),
-                "items": body.get("items"), "source": "submitted", "status": "done", "error": None, "results": results,
-                "hidden": 0, "shown": body.get("shown", METRICS[task][:2]), "note": body["note"],
-                "created_by_username": "ada", "created_at": NOW, "finished_at": NOW, "can_edit": True,
+                "id": identifier, "version": body["version"], "task": body["task"], "dataset": body["dataset"],
+                "dataset_version": body.get("dataset_version") or 1, "split": body["split"],
+                "input_column": body.get("input_column"), "target_column": body["target_column"],
+                "key_column": body.get("key_column"), "prediction_column": body.get("prediction_column", "prediction"),
+                "predictions_format": body["format"], "predictions_size": body["size"], "items": None,
+                "source": "predictions", "status": "uploading", "error": None, "results": {}, "hidden": 0, "shown": [],
+                "note": body.get("note", ""), "inference": declared(body.get("inference")),
+                "created_by_username": "ada", "created_at": NOW, "finished_at": None,
+                "can_edit": True,
             }  # fmt: skip
-            self.evaluations[view["id"]] = {"model": entity.address, "view": view}
+            self.evaluations[identifier] = {"model": entity.address, "view": view, "size": body["size"], "data": None}
             return httpx2.Response(201, json=view)
-        found = re.match(r"^/evaluations/([^/]+)(/shown)?$", rest)
-        if found:
-            item = self.evaluations.get(found.group(1))
-            if item is None or item["model"] != entity.address:
-                return httpx2.Response(404, json={"detail": "This evaluation does not exist"})
-            if method == "DELETE":
-                del self.evaluations[found.group(1)]
-                return httpx2.Response(204)
-            if method == "PUT":
-                item["view"]["shown"] = body["shown"]
-            return httpx2.Response(200, json=item["view"])
+        found = re.match(r"^/evaluations/([^/]+)(/.*)?$", rest)
+        if not found:
+            return httpx2.Response(404, json={"detail": "No such route"})
+        item = self.evaluations.get(found.group(1))
+        if item is None or item["model"] != entity.address:
+            return httpx2.Response(404, json={"detail": "This evaluation does not exist"})
+        view, tail = item["view"], found.group(2) or ""
+        count = -(-item["size"] // self.PART)
+        if tail == "/upload" and method == "GET":
+            received = [
+                {"number": n, "size": len(data)}
+                for (uid, _, n), data in sorted(self.platform.parts.items())
+                if uid == f"evaluation-{found.group(1)}"
+            ]
+            return httpx2.Response(
+                200,
+                json={
+                    "status": view["status"], "size_bytes": item["size"], "part_size": self.PART,
+                    "parts_count": count, "expires_at": NOW,
+                    "received": received if params.get("parts") == "true" else None,
+                },
+            )  # fmt: skip
+        if tail == "/upload/parts" and method == "POST":
+            if view["status"] != "uploading":
+                return httpx2.Response(409, json={"detail": "This upload is closed"})
+            urls = [
+                {
+                    "number": n,
+                    "url": f"https://storage.test/put/evaluation-{found.group(1)}/file/{n}?sig={self.platform.next_sig()}",
+                }
+                for n in body["numbers"]
+            ]
+            return httpx2.Response(200, json={"parts": urls, "expires_in": 600})
+        if tail == "/upload/complete" and method == "POST":
+            if view["status"] == "uploading":
+                got = {n: d for (uid, _, n), d in self.platform.parts.items() if uid == f"evaluation-{found.group(1)}"}
+                if sorted(got) != list(range(1, count + 1)):
+                    return httpx2.Response(
+                        422,
+                        json={
+                            "detail": f"Part {min(set(range(1, count + 1)) - set(got))} of the predictions is missing"
+                        },
+                    )
+                item["data"] = b"".join(got[n] for n in sorted(got))
+                view["status"] = "pending"
+            return httpx2.Response(200, json=view)
+        if tail == "" and method == "GET":
+            return httpx2.Response(200, json=view)
+        if tail == "" and method == "DELETE":
+            del self.evaluations[found.group(1)]
+            return httpx2.Response(204)
+        if tail == "/shown" and method == "PUT":
+            if bad := [m for m in body["shown"] if m not in view["results"]]:
+                return httpx2.Response(422, json={"detail": f"{bad[0]} cannot be shown: the result has no such metric"})
+            view["shown"] = body["shown"]
+            return httpx2.Response(200, json=view)
         return httpx2.Response(404, json={"detail": "No such route"})
+
+    def finish(
+        self, evaluation_id: str, results: dict[str, float], *, shown: list[str] | None = None, error: str | None = None
+    ) -> None:
+        """What the worker does: computes the metrics of an evaluation whose predictions are there (or fails)."""
+        view = self.evaluations[evaluation_id]["view"]
+        if error is not None:
+            view.update(status="failed", error=error)
+            return
+        task_metrics = METRICS[view["task"]]
+        view.update(
+            status="done",
+            results=results,
+            shown=shown if shown is not None else [m for m in task_metrics if m in results][:2],
+            finished_at=NOW,
+        )
 
     @staticmethod
     def pick(entity: Entity, number: str | None) -> dict[str, Any] | None:

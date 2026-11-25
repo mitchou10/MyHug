@@ -314,3 +314,7 @@ class InvalidEvaluation(ServiceError):
     """A result that cannot be taken: the reason is in the message."""
 
     message = "This evaluation is not valid"
+
+
+class TooManyEvaluations(ServiceError):
+    message = "Too many evaluations of this model are waiting or running: wait for one to finish, or delete one"

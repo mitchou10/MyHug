@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useDeleteEvaluation, useMetrics, useSetShown } from '../api/evaluations'
-import type { Evaluation, Model } from '../types'
+import type { Evaluation, Inference, Model } from '../types'
 import { formatValue, SourceBadge } from './EvaluationsSection'
 
 /** One evaluation. The people who can edit the model see every metric and choose which ones the others see. */
@@ -35,11 +35,12 @@ export function EvaluationDialog({ model, evaluation: e, onClose }: { model: Mod
         <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <SourceBadge evaluation={e} />
-            <span>{t(`models.eval.${e.source}Hint`, { user: e.createdByUsername })}</span>
+            <span>{t(`models.eval.hint.${e.source}`, { user: e.createdByUsername })}</span>
           </div>
           {e.status !== 'done' && <Badge variant={e.status === 'failed' ? 'destructive' : 'secondary'}>{t(`models.eval.status.${e.status}`)}</Badge>}
           {e.error && <p role="alert" className="text-sm text-destructive">{e.error}</p>}
           {e.targetColumn && <p className="text-xs text-muted-foreground">{t('models.eval.target', { column: e.targetColumn })}</p>}
+          {e.inference && <InferenceDetails inference={e.inference} />}
           {e.note && <p className="rounded-md border bg-muted/40 p-2 text-sm whitespace-pre-wrap">{e.note}</p>}
 
           <ul className="space-y-1.5">
@@ -76,5 +77,31 @@ export function EvaluationDialog({ model, evaluation: e, onClose }: { model: Mod
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** How long the model took and on what it ran: told by the person who sent the predictions, or measured by the platform. */
+function InferenceDetails({ inference: i }: { inference: Inference }) {
+  const { t } = useTranslation()
+  const h = i.hardware
+  const lines = [
+    i.seconds !== null && t('models.eval.inference.time', { seconds: Number(i.seconds.toFixed(2)) }),
+    i.msPerItem !== null && t('models.eval.inference.perItem', { ms: Number(i.msPerItem.toFixed(2)) }),
+    h && t(`models.eval.inference.device.${h.device}`),
+    h?.cpu && (h.cpuCores ? `${h.cpu} · ${t('models.eval.inference.cores', { count: h.cpuCores })}` : h.cpu),
+    h?.ramGb != null && t('models.eval.inference.ram', { gb: h.ramGb }),
+    ...(h?.gpus.map((g) => (g.memoryGb != null ? `${g.name} · ${g.memoryGb} GB` : g.name)) ?? []),
+    h?.os,
+    h?.runtime,
+  ].filter((line): line is string => typeof line === 'string' && line !== '')
+  if (!lines.length) return null
+  return (
+    <section aria-label={t('models.eval.inference.title')} className="space-y-1 rounded-md border p-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{t('models.eval.inference.title')}</span>
+        <Badge variant="outline" title={t(`models.eval.inference.hint.${i.origin}`)}>{t(`models.eval.inference.origin.${i.origin}`)}</Badge>
+      </div>
+      <ul className="text-muted-foreground">{lines.map((line) => <li key={line}>{line}</li>)}</ul>
+    </section>
   )
 }

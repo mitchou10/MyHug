@@ -13,11 +13,11 @@ export const formatValue = (value: number) => String(Number(value.toFixed(3)))
 /** How many metrics of an evaluation the others do not see (for the people who can edit it: the ones not shown). */
 export const notShown = (e: Evaluation) => (e.canEdit ? Object.keys(e.results).length - e.shown.length : e.hidden)
 
-/** Where an evaluation comes from, always said: a result somebody sent is never taken for one the platform measured. */
+/** Where the predictions of an evaluation come from, always said (the platform computed the metrics in every case). */
 export function SourceBadge({ evaluation: e }: { evaluation: Evaluation }) {
   const { t } = useTranslation()
   return (
-    <Badge variant={e.source === 'submitted' ? 'outline' : 'secondary'} title={t(`models.eval.${e.source}Hint`, { user: e.createdByUsername })}>
+    <Badge variant={e.source === 'predictions' ? 'outline' : 'secondary'} title={t(`models.eval.hint.${e.source}`, { user: e.createdByUsername })}>
       {t(`models.eval.source.${e.source}`)}
     </Badge>
   )

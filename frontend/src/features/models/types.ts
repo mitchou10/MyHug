@@ -111,11 +111,30 @@ export interface Metric {
   primary: boolean
 }
 
-export type EvaluationStatus = 'pending' | 'running' | 'done' | 'failed' | 'stopped'
+export interface Hardware {
+  device: 'cpu' | 'gpu' | 'tpu' | 'other'
+  cpu: string | null
+  cpuCores: number | null
+  ramGb: number | null
+  gpus: { name: string; memoryGb: number | null }[]
+  os: string | null
+  runtime: string | null
+}
+
+/** How the predictions were made. `declared`: what the person who sent them says. `measured`: what the platform measured. */
+export interface Inference {
+  seconds: number | null
+  /** The time for one item, once the items are counted. */
+  msPerItem: number | null
+  hardware: Hardware | null
+  origin: 'declared' | 'measured'
+}
+
+export type EvaluationStatus = 'uploading' | 'pending' | 'running' | 'done' | 'failed' | 'stopped'
 
 /**
- * How a version of a model performs on a part of a dataset. `source` says where the numbers come from: the platform
- * measured them, or a person sent them (and then nothing says how they were obtained).
+ * How a version of a model performs on a part of a dataset. The platform computes every metric, from predictions:
+ * `source` says where they come from (a person sent them, the platform called the model, or it ran it).
  */
 export interface Evaluation {
   id: string
@@ -128,7 +147,8 @@ export interface Evaluation {
   inputColumn: string | null
   targetColumn: string | null
   items: number | null
-  source: 'measured' | 'submitted'
+  /** Where the predictions come from. The platform computes the metrics in every case. */
+  source: 'predictions' | 'endpoint' | 'inference'
   status: EvaluationStatus
   error: string | null
   /** The metrics this person sees: all of them for the people who can edit the model, the chosen ones for the others. */
@@ -137,6 +157,7 @@ export interface Evaluation {
   /** The metrics shown to the others. */
   shown: string[]
   note: string
+  inference: Inference | null
   createdByUsername: string
   createdAt: string
   finishedAt: string | null

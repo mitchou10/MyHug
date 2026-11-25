@@ -108,7 +108,7 @@ export function createFakeModelsApi(user: FakeUser | null, seed: SeedModel[] = [
       const stored = find(owner, name)!
       const evaluation: WireEvaluation = {
         id: `evaluation-${++counter}`, version: 1, dataset: null, dataset_version: null, split: null, input_column: null, target_column: null,
-        items: null, source: 'submitted', status: 'done', error: null, hidden: 0, shown: [], note: '', created_by_username: 'ada',
+        items: null, source: 'predictions', status: 'done', error: null, hidden: 0, inference: null, predictions_format: 'jsonl', predictions_size: 100, key_column: null, prediction_column: 'prediction', shown: [], note: '', created_by_username: 'ada',
         created_at: '2026-11-02T09:00:00Z', finished_at: '2026-11-02T09:00:00Z', can_edit: false, ...seed,
       }
       stored.evaluations.push(evaluation)

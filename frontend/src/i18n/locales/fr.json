@@ -806,10 +806,11 @@
       "moreMetrics": "+{{n}} masquées",
       "source": {
         "submitted": "Envoyé",
-        "measured": "Mesuré"
+        "measured": "Mesuré",
+        "predictions": "Prédictions envoyées",
+        "endpoint": "Modèle appelé",
+        "inference": "Modèle exécuté"
       },
-      "submittedHint": "Calculé hors de la plateforme et envoyé par {{user}} : la plateforme ne l'a pas mesuré.",
-      "measuredHint": "Mesuré par la plateforme, lancé par {{user}}.",
       "origin": "Origine",
       "noDatasetHint": "Pas de dataset, ou un dataset que vous ne pouvez pas lire",
       "items_one": "{{count}} élément",
@@ -820,10 +821,38 @@
       "delete": "Supprimer",
       "confirmDelete": "Supprimer pour de bon",
       "status": {
-        "pending": "en attente",
+        "pending": "en attente d'un worker",
         "running": "en cours",
         "failed": "échec",
-        "stopped": "arrêtée"
+        "stopped": "arrêtée",
+        "uploading": "réception des prédictions"
+      },
+      "hint": {
+        "predictions": "Métriques calculées par la plateforme à partir des prédictions envoyées par {{user}} : elle n'a pas exécuté le modèle.",
+        "endpoint": "Métriques calculées par la plateforme à partir des réponses du modèle, qu'elle a appelé.",
+        "inference": "Métriques calculées par la plateforme à partir des réponses du modèle, qu'elle a exécuté elle-même."
+      },
+      "inference": {
+        "title": "Comment les prédictions ont été faites",
+        "time": "{{seconds}} s au total",
+        "perItem": "{{ms}} ms par élément",
+        "cores_one": "{{count}} cœur",
+        "cores_other": "{{count}} cœurs",
+        "ram": "{{gb}} Go de mémoire",
+        "device": {
+          "cpu": "Sur un processeur",
+          "gpu": "Sur une carte graphique",
+          "tpu": "Sur un TPU",
+          "other": "Sur un autre matériel"
+        },
+        "origin": {
+          "declared": "Déclaré",
+          "measured": "Mesuré"
+        },
+        "hint": {
+          "declared": "Ce que dit la personne qui a envoyé les prédictions : la plateforme ne peut pas le vérifier.",
+          "measured": "Mesuré par la plateforme quand elle a exécuté le modèle."
+        }
       }
     },
     "versions": {
