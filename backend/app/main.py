@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.auth.audit import TokenCallLog
 from app.auth.router import router as auth_router
 from app.config import settings
 from app.routers import (
+    access_tokens,
     admin_feedback,
     admin_feedback_references,
     dataset_uploads,
@@ -37,11 +39,14 @@ app.add_middleware(
     https_only=settings.SESSION_COOKIE_SECURE,
 )
 
+app.add_middleware(TokenCallLog)
+
 app.include_router(auth_router)
 register_error_handlers(app)
 
 app.include_router(health.router)
 app.include_router(profile.router)
+app.include_router(access_tokens.router)
 app.include_router(feedback_references.router)
 app.include_router(admin_feedback_references.router)
 app.include_router(feedback.router)

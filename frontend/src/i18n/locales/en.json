@@ -60,7 +60,8 @@
     "adminFeedback": "Manage feedback",
     "datasets": "Datasets",
     "models": "Models",
-    "collections": "Collections"
+    "collections": "Collections",
+    "tokens": "Access tokens"
   },
   "userMenu": {
     "open": "Open the user menu",
@@ -975,5 +976,58 @@
     "down": "Move down",
     "remove": "Remove from the collection",
     "missing": "no longer exists"
+  },
+  "tokens": {
+    "title": "Access tokens",
+    "description": "A token lets a program (a script, a notebook, the SDK) act as you, with your rights on the data. It is shown once, when it is made: keep it like a password.",
+    "new": "New token",
+    "newHint": "Give it a name that says what it is for, and what it may do.",
+    "make": "Make the token",
+    "loading": "Loading…",
+    "none": "You have no access token.",
+    "never": "never",
+    "fields": {
+      "name": "Name",
+      "namePlaceholder": "training job",
+      "scope": "What it may do",
+      "expires": "Expires"
+    },
+    "scope": {
+      "read": "Read",
+      "write": "Read and write"
+    },
+    "scopeHint": {
+      "read": "Read what you can read. Nothing can be changed.",
+      "write": "Read, and change what you can change."
+    },
+    "expiry_one": "After {{count}} day",
+    "expiry_other": "After {{count}} days",
+    "neverExpires": "Never",
+    "rights": "A token never has more rights than you: if you lose access to something, so does it. It is never an administrator, and it cannot make tokens or change your profile.",
+    "created": {
+      "title": "Your token",
+      "hint": "Use it as `Authorization: Bearer <token>`.",
+      "warning": "Copy it now: it is shown only once, and cannot be read again. If you lose it, revoke it and make another.",
+      "token": "Token",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done"
+    },
+    "columns": {
+      "name": "Name",
+      "scope": "Scope",
+      "prefix": "Token",
+      "created": "Created",
+      "lastUsed": "Last used",
+      "expires": "Expires",
+      "state": "State"
+    },
+    "state": {
+      "active": "active",
+      "revoked": "revoked",
+      "expired": "expired"
+    },
+    "revoke": "Revoke {{name}}",
+    "confirmRevoke": "Revoke for good"
   }
 }

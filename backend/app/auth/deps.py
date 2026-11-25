@@ -1,11 +1,17 @@
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import oidc
+from app.auth import oidc, tokens
 from app.auth.context import RequestContext, context_from_claims
 from app.auth.session import MemorySessionStore, Session, SessionStore, now
 from app.config import settings
+from app.db import get_db
+from app.repositories.access_tokens import AccessTokenRepository
+from app.services.access_tokens import AccessTokenService
+from app.services.errors import InvalidToken
+from app.serving import RateLimiter, get_rate_limiter
 
 store: SessionStore = MemorySessionStore()
 
@@ -48,21 +54,54 @@ async def session_of(request: Request) -> Session | None:
     return session
 
 
-async def bearer_context(request: Request) -> RequestContext | None:
-    """Non-browser clients: `Authorization: Bearer <access token>`."""
+def _bearer(request: Request) -> str | None:
     authorization = request.headers.get("Authorization", "")
-    if not authorization.startswith("Bearer "):
+    return authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else None
+
+
+async def bearer_context(request: Request) -> RequestContext | None:
+    """Non-browser clients: `Authorization: Bearer <access token of the identity provider>`."""
+    token = _bearer(request)
+    if token is None:
         return None
-    token = authorization.removeprefix("Bearer ")
     try:
         return context_from_claims(await oidc.userinfo(token), access_token=token)
     except Exception:
         return None
 
 
-async def get_current_user(request: Request) -> RequestContext:
+async def token_context(request: Request, secret: str, db: AsyncSession, limiter: RateLimiter) -> RequestContext:
+    """A program with an access token of ours: who owns it, and what it may do. Never an administrator."""
+    token = await AccessTokenService(AccessTokenRepository(db)).authenticate(secret)
+    tokens.check_use(request, token.scope)
+    if not await limiter.allow(f"token:{token.id}", settings.TOKEN_RATE_PER_MINUTE):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many calls with this token: wait a moment")
+    request.state.token_id = str(token.id)  # for the log line of the call (see main.py), never the token itself
+    return RequestContext(
+        user_id=token.user_id,
+        email=token.email,
+        name=token.display_name,
+        username=token.username,
+        is_admin=False,  # whatever its owner is: a leaked token must not be able to moderate
+        token_id=str(token.id),
+        token_scope=token.scope,
+    )
+
+
+async def get_current_user(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limiter: Annotated[RateLimiter, Depends(get_rate_limiter)],
+) -> RequestContext:
     if settings.AUTH_MODE == "full-access":
         return RequestContext(user_id="dev-user", email="dev@example.com", name="Dev", roles=["admin"], is_admin=True)
+    secret = _bearer(request)
+    if secret is not None and tokens.looks_like_token(secret):
+        # One of ours: no fallback on the session, a wrong token is simply not accepted.
+        try:
+            return await token_context(request, secret, db, limiter)
+        except InvalidToken:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated") from None
     context = await bearer_context(request)
     if context is None and (session := await session_of(request)) is not None:
         context = context_from_claims(session.user, access_token=session.access_token)

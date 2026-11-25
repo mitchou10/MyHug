@@ -356,6 +356,27 @@ credentials and, if the provider names them differently, `OIDC_ROLES_CLAIM` / `O
 - Sessions live in memory (`app/auth/session.py`): implement the `SessionStore` protocol on Redis or a database
   before running several replicas.
 
+### Access tokens (programs)
+
+A program (a script, a notebook, the SDK) has no session, so a person makes it an **access token** on the
+*Access tokens* page (sidebar), and the program sends `Authorization: Bearer mh_...`.
+
+- **Shown once.** The token is only in the answer to its creation; the database keeps its SHA-256 (the token is long and
+  random, so a slow hash is not needed) and its first characters, to recognise it in the list. Lose it: revoke it and
+  make another. `TOKENS_MAX_ACTIVE` (20) tokens at most per person.
+- **A scope, `read` or `write`** (`write` includes `read`), and an optional expiry (1 to 365 days). A `read` token is
+  refused (`403`) on every route that changes something, except trying a model (`POST .../predict`, which changes nothing).
+- **No scope per dataset or model.** A token has the rights its owner has on the data, looked up at every call: take
+  the owner off a model and their tokens lose it at once.
+- **Never an administrator**, even if the owner is. And **no token can make, list or revoke tokens, change the profile
+  or call `/api/auth/*`**: those need a login, so a stolen token cannot make others or change who the person is.
+- A revoked, expired or unknown token is a `401` that says nothing more. A wrong `mh_` token is not rescued by a session
+  cookie or by the identity provider's tokens (which still work as before for anything that does not start with `mh_`).
+- `TOKEN_RATE_PER_MINUTE` (600) calls a minute per token (counted in Redis, a `429` after that), `last_used_at` is written
+  at most once a minute, and each call leaves one log line `token=<id> GET /api/... -> 200` on the `app.tokens` logger:
+  never the token. Revoke from the page or `DELETE /api/tokens/{id}`.
+- Not in `AUTH_MODE=full-access`: the dev user needs no token there.
+
 ### Login page theme
 
 The Keycloak login page is restyled like the frontend: `docker/keycloak/themes/app/login/` extends Keycloak's

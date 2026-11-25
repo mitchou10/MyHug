@@ -60,7 +60,8 @@
     "adminFeedback": "Gérer les retours",
     "datasets": "Datasets",
     "models": "Modèles",
-    "collections": "Collections"
+    "collections": "Collections",
+    "tokens": "Jetons d'accès"
   },
   "userMenu": {
     "open": "Ouvrir le menu utilisateur",
@@ -975,5 +976,58 @@
     "down": "Descendre",
     "remove": "Retirer de la collection",
     "missing": "n'existe plus"
+  },
+  "tokens": {
+    "title": "Jetons d'accès",
+    "description": "Un jeton permet à un programme (un script, un notebook, le SDK) d'agir comme vous, avec vos droits sur les données. Il n'est montré qu'une fois, à sa création : gardez-le comme un mot de passe.",
+    "new": "Nouveau jeton",
+    "newHint": "Donnez-lui un nom qui dit à quoi il sert, et ce qu'il peut faire.",
+    "make": "Créer le jeton",
+    "loading": "Chargement…",
+    "none": "Vous n'avez aucun jeton d'accès.",
+    "never": "jamais",
+    "fields": {
+      "name": "Nom",
+      "namePlaceholder": "job d'entraînement",
+      "scope": "Ce qu'il peut faire",
+      "expires": "Expire"
+    },
+    "scope": {
+      "read": "Lecture",
+      "write": "Lecture et écriture"
+    },
+    "scopeHint": {
+      "read": "Lit ce que vous pouvez lire. Rien ne peut être modifié.",
+      "write": "Lit, et modifie ce que vous pouvez modifier."
+    },
+    "expiry_one": "Après {{count}} jour",
+    "expiry_other": "Après {{count}} jours",
+    "neverExpires": "Jamais",
+    "rights": "Un jeton n'a jamais plus de droits que vous : si vous perdez l'accès à quelque chose, lui aussi. Il n'est jamais administrateur, et il ne peut ni créer de jetons ni modifier votre profil.",
+    "created": {
+      "title": "Votre jeton",
+      "hint": "Utilisez-le avec `Authorization: Bearer <jeton>`.",
+      "warning": "Copiez-le maintenant : il n'est montré qu'une fois et ne pourra plus être relu. Si vous le perdez, révoquez-le et créez-en un autre.",
+      "token": "Jeton",
+      "copy": "Copier",
+      "copied": "Copié",
+      "done": "Terminé"
+    },
+    "columns": {
+      "name": "Nom",
+      "scope": "Portée",
+      "prefix": "Jeton",
+      "created": "Créé",
+      "lastUsed": "Dernier usage",
+      "expires": "Expire",
+      "state": "État"
+    },
+    "state": {
+      "active": "actif",
+      "revoked": "révoqué",
+      "expired": "expiré"
+    },
+    "revoke": "Révoquer {{name}}",
+    "confirmRevoke": "Révoquer pour de bon"
   }
 }

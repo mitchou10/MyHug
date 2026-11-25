@@ -10,6 +10,7 @@ from app.config import settings
 from app.db import get_db
 from app.jobs import CeleryJobs, Jobs, NoJobs
 from app.registry import MlflowLinks, ModelRegistry, NoRegistry, get_links, get_registry
+from app.repositories.access_tokens import AccessTokenRepository
 from app.repositories.feedback import FeedbackRepository
 from app.repositories.feedback_attachments import FeedbackAttachmentRepository
 from app.repositories.feedback_messages import FeedbackMessageRepository
@@ -18,6 +19,7 @@ from app.repositories.feedback_types import FeedbackTypeRepository
 from app.repositories.notifications import NotificationRepository
 from app.repositories.user_profile import UserProfileRepository
 from app.services.access import FeedbackAccess
+from app.services.access_tokens import AccessTokenService
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
 from app.services.dataset_derivatives import DatasetDerivatives
@@ -133,6 +135,13 @@ def get_message_service(db: DB, store: Store) -> MessageService:
 FeedbackServiceDep = Annotated[FeedbackService, Depends(get_feedback_service)]
 WorkflowDep = Annotated[FeedbackWorkflow, Depends(get_workflow)]
 MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
+
+
+def get_access_token_service(db: DB) -> AccessTokenService:
+    return AccessTokenService(AccessTokenRepository(db))
+
+
+AccessTokenServiceDep = Annotated[AccessTokenService, Depends(get_access_token_service)]
 
 
 def get_notification_service(db: DB) -> NotificationService:

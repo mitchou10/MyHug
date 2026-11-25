@@ -17,6 +17,9 @@ class RequestContext(BaseModel):
     is_admin: bool = False
     # The user's own access token, for calling another service on their behalf: kept out of every repr and log.
     access_token: str | None = Field(default=None, repr=False, exclude=True)
+    # Set when the call is made with an access token (a program), not a session: which one, and what it may do.
+    token_id: str | None = Field(default=None, exclude=True)
+    token_scope: str | None = Field(default=None, exclude=True)
 
 
 def claim_path(claims: dict[str, Any], path: str) -> Any:
