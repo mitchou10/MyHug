@@ -36,6 +36,7 @@ from app.services.factory import (
     build_dataset_versions,
     build_datasets,
     build_model_code,
+    build_model_evaluations,
     build_model_members,
     build_model_processing,
     build_model_serving,
@@ -49,6 +50,7 @@ from app.services.feedback_statuses import FeedbackStatusService
 from app.services.feedback_types import FeedbackTypeService
 from app.services.messages import MessageService
 from app.services.model_code import ModelCodeResolution
+from app.services.model_evaluations import ModelEvaluationService
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
 from app.services.model_serving import ModelServingService
@@ -214,6 +216,13 @@ def get_dataset_member_service(db: DB) -> DatasetMemberService:
 
 
 DatasetMemberServiceDep = Annotated[DatasetMemberService, Depends(get_dataset_member_service)]
+
+
+def get_model_evaluation_service(db: DB) -> ModelEvaluationService:
+    return build_model_evaluations(db)
+
+
+ModelEvaluationServiceDep = Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)]
 
 
 def get_model_member_service(db: DB) -> ModelMemberService:

@@ -12,6 +12,7 @@ from app.models.feedback_status import FeedbackStatus
 from app.models.feedback_type import FeedbackType
 from app.models.model import Model
 from app.models.model_endpoint import ModelEndpoint
+from app.models.model_evaluation import ModelEvaluation
 from app.models.model_member import ModelLike, ModelMember
 from app.models.model_upload import ModelUpload, ModelUploadFile
 from app.models.model_version import ModelFile, ModelVersion
@@ -36,6 +37,7 @@ __all__ = [
     "FeedbackType",
     "Model",
     "ModelEndpoint",
+    "ModelEvaluation",
     "ModelFile",
     "ModelLike",
     "ModelMember",

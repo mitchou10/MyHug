@@ -303,3 +303,14 @@ class InvalidToken(ServiceError):
     """Unknown, revoked or expired: the caller is told nothing more."""
 
     message = "Not authenticated"
+
+
+# ---- evaluations
+class EvaluationNotFound(ServiceError):
+    message = "This evaluation does not exist"
+
+
+class InvalidEvaluation(ServiceError):
+    """A result that cannot be taken: the reason is in the message."""
+
+    message = "This evaluation is not valid"

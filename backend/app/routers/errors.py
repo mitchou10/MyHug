@@ -1,6 +1,7 @@
 """Turns the errors of the services into HTTP answers. The services know nothing about status codes."""
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.services import errors
@@ -12,6 +13,8 @@ STATUS_CODES: dict[type[errors.ServiceError], int] = {
     errors.AvatarNotFound: status.HTTP_404_NOT_FOUND,
     errors.NotificationNotFound: status.HTTP_404_NOT_FOUND,
     errors.TokenNotFound: status.HTTP_404_NOT_FOUND,
+    errors.EvaluationNotFound: status.HTTP_404_NOT_FOUND,
+    errors.InvalidEvaluation: status.HTTP_422_UNPROCESSABLE_CONTENT,
     errors.TooManyTokens: status.HTTP_409_CONFLICT,
     errors.InvalidToken: status.HTTP_401_UNAUTHORIZED,
     errors.DatasetNotFound: status.HTTP_404_NOT_FOUND,
@@ -81,3 +84,12 @@ def register_error_handlers(app: FastAPI) -> None:
         return JSONResponse({"detail": str(error)}, status_code=status_code_of(error))
 
     app.add_exception_handler(errors.ServiceError, handle)
+
+    async def invalid(request: Request, error: Exception) -> JSONResponse:
+        """A request that is not valid: what is wrong and where, **without the value that was sent**. Echoing it back
+        helps nobody who has it already, and some cannot even be written (`nan` is not JSON): that was a 500."""
+        assert isinstance(error, RequestValidationError)
+        problems = [{"type": e["type"], "loc": list(e["loc"]), "msg": e["msg"]} for e in error.errors()]
+        return JSONResponse({"detail": problems}, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    app.add_exception_handler(RequestValidationError, invalid)

@@ -937,6 +937,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/models/{owner}/{name}/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The evaluations of a model, the newest first */
+        get: operations["list_evaluations_api_models__owner___name__evaluations_get"];
+        put?: never;
+        /**
+         * Send the result of an evaluation computed elsewhere (the people who can edit the model)
+         * @description It is kept and shown as **submitted**: nothing says the platform measured it.
+         */
+        post: operations["submit_evaluation_api_models__owner___name__evaluations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One evaluation */
+        get: operations["get_evaluation_api_models__owner___name__evaluations__evaluation_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete an evaluation */
+        delete: operations["delete_evaluation_api_models__owner___name__evaluations__evaluation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/shown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choose the metrics the others see */
+        put: operations["set_shown_api_models__owner___name__evaluations__evaluation_id__shown_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The metrics of every task: what an evaluation holds, in one place */
+        get: operations["list_metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1501,6 +1574,112 @@ export interface components {
             updated_at: string;
         };
         /**
+         * EvaluationIn
+         * @description The result of an evaluation that was computed somewhere else. It is kept as **sent**, never as measured.
+         */
+        EvaluationIn: {
+            /**
+             * Version
+             * @description The number of the version of the model that was evaluated
+             */
+            version: number;
+            /** Task */
+            task: string;
+            /**
+             * Results
+             * @description `{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers
+             */
+            results: {
+                [key: string]: number;
+            };
+            /**
+             * Shown
+             * @description The metrics the others see. Empty: the main metric and the next one
+             */
+            shown?: string[] | null;
+            /**
+             * Dataset
+             * @description `owner/name` of a dataset you can read
+             */
+            dataset?: string | null;
+            /** Dataset Version */
+            dataset_version?: number | null;
+            /** Split */
+            split?: string | null;
+            /** Input Column */
+            input_column?: string | null;
+            /** Target Column */
+            target_column?: string | null;
+            /**
+             * Items
+             * @description How many items it was computed on
+             */
+            items?: number | null;
+            /**
+             * Note
+             * @description How it was obtained
+             * @default
+             */
+            note: string;
+        };
+        /** EvaluationOut */
+        EvaluationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            /** Task */
+            task: string;
+            /** Dataset */
+            dataset: string | null;
+            /** Dataset Version */
+            dataset_version: number | null;
+            /** Split */
+            split: string | null;
+            /** Input Column */
+            input_column: string | null;
+            /** Target Column */
+            target_column: string | null;
+            /** Items */
+            items: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "measured" | "submitted";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "done" | "failed" | "stopped";
+            /** Error */
+            error: string | null;
+            /** Results */
+            results: {
+                [key: string]: number;
+            };
+            /** Hidden */
+            hidden: number;
+            /** Shown */
+            shown: string[];
+            /** Note */
+            note: string;
+            /** Created By Username */
+            created_by_username: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Can Edit */
+            can_edit: boolean;
+        };
+        /**
          * FeedbackChange
          * @description What to change: the fields that are not sent stay as they are, and at least one is needed.
          */
@@ -1834,6 +2013,17 @@ export interface components {
             total: number;
             /** Next Before */
             next_before: string | null;
+        };
+        /** MetricOut */
+        MetricOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Higher */
+            higher: boolean;
+            /** Primary */
+            primary: boolean;
         };
         /**
          * ModelChange
@@ -2311,6 +2501,11 @@ export interface components {
              */
             output: "labels" | "boxes" | "text" | "values" | "json";
         };
+        /** ShownIn */
+        ShownIn: {
+            /** Shown */
+            shown: string[];
+        };
         /** SignedPartOut */
         SignedPartOut: {
             /** Number */
@@ -2326,6 +2521,15 @@ export interface components {
             rows: number;
             /** Files */
             files: number;
+        };
+        /** TaskMetricsOut */
+        TaskMetricsOut: {
+            /** Task */
+            task: string;
+            /** Metrics */
+            metrics: components["schemas"]["MetricOut"][];
+            /** Default Shown */
+            default_shown: string[];
         };
         /** UnreadCountOut */
         UnreadCountOut: {
@@ -4860,6 +5064,201 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_evaluations_api_models__owner___name__evaluations_get: {
+        parameters: {
+            query?: {
+                task?: string | null;
+                /** @description The number of a version of the model */
+                version?: number | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_evaluation_api_models__owner___name__evaluations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evaluation_api_models__owner___name__evaluations__evaluation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_evaluation_api_models__owner___name__evaluations__evaluation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_shown_api_models__owner___name__evaluations__evaluation_id__shown_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                name: string;
+                evaluation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShownIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_metrics_api_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMetricsOut"][];
                 };
             };
         };

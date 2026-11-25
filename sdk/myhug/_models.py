@@ -7,7 +7,14 @@ from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    StringConstraints,
+)
 
 
 class Scope(StrEnum):
@@ -432,6 +439,135 @@ class EndpointOut(BaseModel):
     updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
 
 
+class ShownItem(RootModel[str]):
+    root: Annotated[str, Field(pattern="^[a-z0-9_]{1,40}$")]
+
+
+class Shown(RootModel[list[ShownItem]]):
+    root: Annotated[
+        list[ShownItem],
+        Field(
+            description="The metrics the others see. Empty: the main metric and the next one",
+            max_length=50,
+            title="Shown",
+        ),
+    ]
+
+
+class Dataset(RootModel[str]):
+    root: Annotated[
+        str,
+        Field(
+            description="`owner/name` of a dataset you can read",
+            max_length=201,
+            pattern="^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+            title="Dataset",
+        ),
+    ]
+
+
+class DatasetVersion(RootModel[int]):
+    root: Annotated[int, Field(ge=1, title="Dataset Version")]
+
+
+class Split(RootModel[str]):
+    root: Annotated[str, Field(max_length=50, title="Split")]
+
+
+class InputColumn(RootModel[str]):
+    root: Annotated[str, Field(max_length=255, title="Input Column")]
+
+
+class TargetColumn(RootModel[str]):
+    root: Annotated[str, Field(max_length=255, title="Target Column")]
+
+
+class Items(RootModel[int]):
+    root: Annotated[
+        int, Field(description="How many items it was computed on", ge=0, title="Items")
+    ]
+
+
+class EvaluationIn(BaseModel):
+    version: Annotated[
+        int,
+        Field(
+            description="The number of the version of the model that was evaluated",
+            ge=1,
+            title="Version",
+        ),
+    ]
+    task: Annotated[str, Field(max_length=40, title="Task")]
+    results: Annotated[
+        dict[Annotated[str, StringConstraints(pattern=r"^[a-z0-9_]{1,40}$")], float],
+        Field(
+            description="`{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers",
+            title="Results",
+        ),
+    ]
+    shown: Annotated[
+        Shown | None,
+        Field(
+            description="The metrics the others see. Empty: the main metric and the next one",
+            title="Shown",
+        ),
+    ] = None
+    dataset: Annotated[
+        Dataset | None,
+        Field(description="`owner/name` of a dataset you can read", title="Dataset"),
+    ] = None
+    dataset_version: Annotated[
+        DatasetVersion | None, Field(title="Dataset Version")
+    ] = None
+    split: Annotated[Split | None, Field(title="Split")] = None
+    input_column: Annotated[InputColumn | None, Field(title="Input Column")] = None
+    target_column: Annotated[TargetColumn | None, Field(title="Target Column")] = None
+    items: Annotated[
+        Items | None,
+        Field(description="How many items it was computed on", title="Items"),
+    ] = None
+    note: Annotated[
+        str | None,
+        Field(description="How it was obtained", max_length=1000, title="Note"),
+    ] = ""
+
+
+class Source(StrEnum):
+    measured = "measured"
+    submitted = "submitted"
+
+
+class Status(StrEnum):
+    pending = "pending"
+    running = "running"
+    done = "done"
+    failed = "failed"
+    stopped = "stopped"
+
+
+class EvaluationOut(BaseModel):
+    id: Annotated[UUID, Field(title="Id")]
+    version: Annotated[int, Field(title="Version")]
+    task: Annotated[str, Field(title="Task")]
+    dataset: Annotated[str | None, Field(title="Dataset")]
+    dataset_version: Annotated[int | None, Field(title="Dataset Version")]
+    split: Annotated[str | None, Field(title="Split")]
+    input_column: Annotated[str | None, Field(title="Input Column")]
+    target_column: Annotated[str | None, Field(title="Target Column")]
+    items: Annotated[int | None, Field(title="Items")]
+    source: Annotated[Source, Field(title="Source")]
+    status: Annotated[Status, Field(title="Status")]
+    error: Annotated[str | None, Field(title="Error")]
+    results: Annotated[dict[str, float], Field(title="Results")]
+    hidden: Annotated[int, Field(title="Hidden")]
+    shown: Annotated[list[str], Field(title="Shown")]
+    note: Annotated[str, Field(title="Note")]
+    created_by_username: Annotated[str, Field(title="Created By Username")]
+    created_at: Annotated[AwareDatetime, Field(title="Created At")]
+    finished_at: Annotated[AwareDatetime | None, Field(title="Finished At")]
+    can_edit: Annotated[bool, Field(title="Can Edit")]
+
+
 class FeedbackChange(BaseModel):
     status_id: Annotated[UUID | None, Field(title="Status Id")] = None
     type_id: Annotated[UUID | None, Field(title="Type Id")] = None
@@ -604,6 +740,13 @@ class MessagesPageOut(BaseModel):
     items: Annotated[list[MessageOut], Field(title="Items")]
     total: Annotated[int, Field(title="Total")]
     next_before: Annotated[str | None, Field(title="Next Before")]
+
+
+class MetricOut(BaseModel):
+    id: Annotated[str, Field(title="Id")]
+    name: Annotated[str, Field(title="Name")]
+    higher: Annotated[bool, Field(title="Higher")]
+    primary: Annotated[bool, Field(title="Primary")]
 
 
 class Description3(RootModel[str]):
@@ -919,6 +1062,10 @@ class ServingOut(BaseModel):
     output: Annotated[Output, Field(title="Output")]
 
 
+class ShownIn(BaseModel):
+    shown: Annotated[list[ShownItem], Field(max_length=50, title="Shown")]
+
+
 class SignedPartOut(BaseModel):
     number: Annotated[int, Field(title="Number")]
     url: Annotated[str, Field(title="Url")]
@@ -928,6 +1075,12 @@ class SplitOut(BaseModel):
     name: Annotated[str, Field(title="Name")]
     rows: Annotated[int, Field(title="Rows")]
     files: Annotated[int, Field(title="Files")]
+
+
+class TaskMetricsOut(BaseModel):
+    task: Annotated[str, Field(title="Task")]
+    metrics: Annotated[list[MetricOut], Field(title="Metrics")]
+    default_shown: Annotated[list[str], Field(title="Default Shown")]
 
 
 class UnreadCountOut(BaseModel):
