@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/mitchou10/MyHug/compare/v0.25.0...v0.26.0) (2026-11-25)
+
+
+### Features
+
+* **sdk:** evaluations from code ([07885fc](https://github.com/mitchou10/MyHug/commit/07885fcd50865bbb114fb583f9b1bd3dba7c0442))
+
 ## [0.25.0](https://github.com/mitchou10/MyHug/compare/v0.24.0...v0.25.0) (2026-11-25)
 
 
