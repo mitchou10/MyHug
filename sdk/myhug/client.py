@@ -39,10 +39,12 @@ class Client:
         self._retry = retry or Retry()
         self._sleep = sleep
         self.cache_dir = Path(cache_dir) if cache_dir else None
+        from myhug.metrics import Metrics
         from myhug.resources import Datasets, Models
 
         self.datasets = Datasets(self)
         self.models = Models(self)
+        self.metrics = Metrics(self)
 
     def __repr__(self) -> str:  # no token in it
         return f"Client({self.url!r})"

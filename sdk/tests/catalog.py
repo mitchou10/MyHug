@@ -3,11 +3,18 @@ versions that inherit the files of the one before (an upload adds, replaces, rem
 
 import hashlib
 import re
+import uuid
 from typing import Any
 
 import httpx2
 
 NOW = "2026-11-01T09:00:00Z"
+METRICS = {
+    "classification": ["accuracy", "precision", "recall", "f1", "auc"],
+    "regression": ["mae", "rmse", "r2", "mape"],
+}
+PRIMARY = {"classification": "accuracy", "regression": "mae"}
+HIGHER_IS_WORSE = {"mae", "rmse", "mape"}
 ROUTE = re.compile(r"^/api/(datasets|models)/([^/]+)/([^/]+)(/.*)?$")
 
 
@@ -106,6 +113,8 @@ class Catalog:
     def __init__(self, platform: Any) -> None:
         self.platform = platform
         self.entities: dict[tuple[str, str], Entity] = {}
+        self.evaluations: dict[str, dict[str, Any]] = {}  # id -> evaluation, by `ada/model`
+        self.submitted: list[dict[str, Any]] = []
         self.predictions: list[Any] = []
         self.created: list[dict[str, Any]] = []
         self.parquet_asked: list[str] = []
@@ -128,6 +137,26 @@ class Catalog:
     # ---- routes
 
     def handle(self, request: httpx2.Request, body: Any) -> httpx2.Response | None:
+        if request.method == "GET" and request.url.path == "/api/metrics":
+            return httpx2.Response(
+                200,
+                json=[
+                    {
+                        "task": task,
+                        "metrics": [
+                            {
+                                "id": m,
+                                "name": m.upper(),
+                                "higher": m not in HIGHER_IS_WORSE,
+                                "primary": m == PRIMARY[task],
+                            }
+                            for m in ids
+                        ],
+                        "default_shown": ids[:2],
+                    }
+                    for task, ids in METRICS.items()
+                ],
+            )
         if request.method == "POST" and request.url.path in ("/api/datasets", "/api/models"):
             kind = request.url.path.removeprefix("/api/")
             entity = self.add(kind, f"ada/{body['name']}")
@@ -153,6 +182,8 @@ class Catalog:
         if rest == "" and method == "DELETE":
             del self.entities[(kind, entity.address)]
             return httpx2.Response(204)
+        if kind == "models" and rest.startswith("/evaluations"):
+            return self.evaluations_route(entity, rest, method, params, body)
         if rest == "/like":
             entity.liked = method == "PUT"
             entity.likes += 1 if method == "PUT" else -1
@@ -236,6 +267,47 @@ class Catalog:
             self.predictions.append(body["input"])
             return httpx2.Response(200, json={"output": {"echo": body["input"]}, "took_ms": 3})
         return None
+
+    def evaluations_route(self, entity: Entity, rest: str, method: str, params: dict, body: Any) -> httpx2.Response:
+        mine = [e for e in self.evaluations.values() if e["model"] == entity.address]
+        if rest == "/evaluations" and method == "GET":
+            found = [
+                e["view"]
+                for e in reversed(mine)
+                if params.get("task") in (None, e["view"]["task"])
+                and params.get("version") in (None, str(e["view"]["version"]))
+            ]
+            start = int(params.get("offset", 0))
+            return httpx2.Response(200, json=found[start : start + int(params.get("limit", 50))])
+        if rest == "/evaluations" and method == "POST":
+            self.submitted.append(body)
+            task, results = body["task"], body["results"]
+            if task not in METRICS:
+                return httpx2.Response(422, json={"detail": f"This model does not do {task}"})
+            if bad := [k for k in results if k not in METRICS[task]]:
+                return httpx2.Response(422, json={"detail": f"{bad[0]} is not a metric of {task}"})
+            view = {
+                "id": str(uuid.uuid4()), "version": body["version"], "task": task, "dataset": body.get("dataset"),
+                "dataset_version": body.get("dataset_version"), "split": body.get("split"),
+                "input_column": body.get("input_column"), "target_column": body.get("target_column"),
+                "items": body.get("items"), "source": "submitted", "status": "done", "error": None, "results": results,
+                "hidden": 0, "shown": body.get("shown", METRICS[task][:2]), "note": body["note"],
+                "created_by_username": "ada", "created_at": NOW, "finished_at": NOW, "can_edit": True,
+            }  # fmt: skip
+            self.evaluations[view["id"]] = {"model": entity.address, "view": view}
+            return httpx2.Response(201, json=view)
+        found = re.match(r"^/evaluations/([^/]+)(/shown)?$", rest)
+        if found:
+            item = self.evaluations.get(found.group(1))
+            if item is None or item["model"] != entity.address:
+                return httpx2.Response(404, json={"detail": "This evaluation does not exist"})
+            if method == "DELETE":
+                del self.evaluations[found.group(1)]
+                return httpx2.Response(204)
+            if method == "PUT":
+                item["view"]["shown"] = body["shown"]
+            return httpx2.Response(200, json=item["view"])
+        return httpx2.Response(404, json={"detail": "No such route"})
 
     @staticmethod
     def pick(entity: Entity, number: str | None) -> dict[str, Any] | None:

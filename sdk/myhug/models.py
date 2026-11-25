@@ -1,15 +1,17 @@
 """A model, as a program uses it: look at it, change it, send versions (files, code, or both), download them, try it."""
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Self
+from uuid import UUID
 
-from myhug import _plan
+from myhug import _evaluations, _plan
 from myhug._download import download
 from myhug._models import (
     CodeIn,
     EndpointOut,
+    EvaluationOut,
     MemberOut,
     ModelFileOut,
     ModelOut,
@@ -24,6 +26,7 @@ from myhug.client import Client
 from myhug.datasets import DONE, POLL_SECONDS, split_address
 from myhug.errors import VersionFailed, WaitTimeout
 
+EVALUATIONS_PAGE = 50
 Code = CodeIn | dict[str, Any]
 
 
@@ -264,3 +267,65 @@ class Model:
                 raise WaitTimeout(f"Version {number} of {self.address} is still being read after {timeout:.0f} s")
             self._client._sleep(POLL_SECONDS)
             waited += POLL_SECONDS
+
+    # ---- evaluations
+
+    def evaluations(self, *, task: str | None = None, version: int | None = None) -> list[EvaluationOut]:
+        """The evaluations of the model, the newest first (of a task, of a version of the model). What each one holds
+        depends on who asks: all the metrics for the people who can edit the model, the chosen ones for the others."""
+        found: list[EvaluationOut] = []
+        while True:
+            params = {"task": task, "version": version, "limit": EVALUATIONS_PAGE, "offset": len(found)}
+            page = self._client.json("GET", f"{self._base}/evaluations", params=params)
+            found.extend(EvaluationOut.model_validate(e) for e in page)
+            if len(page) < EVALUATIONS_PAGE:
+                return found
+
+    def evaluation(self, evaluation_id: str | UUID) -> EvaluationOut:
+        return EvaluationOut.model_validate(self._client.json("GET", f"{self._base}/evaluations/{evaluation_id}"))
+
+    def submit_evaluation(
+        self,
+        task: str,
+        results: Mapping[str, float],
+        *,
+        version: int | None = None,
+        shown: Sequence[str] | None = None,
+        dataset: str | None = None,
+        dataset_version: int | None = None,
+        split: str | None = None,
+        input_column: str | None = None,
+        target_column: str | None = None,
+        items: int | None = None,
+        note: str = "",
+    ) -> EvaluationOut:
+        """Sends the result of an evaluation you computed (a notebook, a training job): `results` is
+        `{metric id: value}` with the metrics of the task (`client.metrics.ids(task)`). It is kept and shown as
+        **sent**, never as measured. Only the people who can edit the model may send one. `version` is the latest
+        one unless you say; `shown` the metrics the others see (the main one and the next by default); `dataset` an
+        `owner/name` you can read; `note` how you obtained it."""
+        checked = _evaluations.checked_results(results)  # before anything is asked of the platform
+        sent = _evaluations.body(
+            version=version or self._latest(),
+            task=task,
+            results=checked,
+            shown=shown,
+            dataset=dataset,
+            dataset_version=dataset_version,
+            split=split,
+            input_column=input_column,
+            target_column=target_column,
+            items=items,
+            note=note,
+        )
+        return EvaluationOut.model_validate(
+            self._client.json("POST", f"{self._base}/evaluations", json=sent, retry=False)
+        )
+
+    def set_shown(self, evaluation_id: str | UUID, shown: Sequence[str]) -> EvaluationOut:
+        """Chooses the metrics the others see (the result keeps all of them)."""
+        done = self._client.json("PUT", f"{self._base}/evaluations/{evaluation_id}/shown", json={"shown": list(shown)})
+        return EvaluationOut.model_validate(done)
+
+    def delete_evaluation(self, evaluation_id: str | UUID) -> None:
+        self._client.json("DELETE", f"{self._base}/evaluations/{evaluation_id}")

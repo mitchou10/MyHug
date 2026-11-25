@@ -83,6 +83,31 @@ model.predict("Le tribunal de Lyon...")  # only if the model is served
 A version is files, a reference to code, or both. The reference is only a link: the platform pins it to its exact commit
 (`version.code.sha`, `version.code.state`).
 
+## Evaluations
+
+A model trained in a notebook is evaluated there; its result can be sent to the page of the model.
+
+```python
+client.metrics.ids("classification")        # ['accuracy', 'precision', 'recall', 'f1', 'auc']: the platform defines them
+model = client.models.get("me/ner")
+model.submit_evaluation(
+    "classification",
+    {"accuracy": 0.91, "f1": 0.8},          # the metrics of the task, finite numbers
+    dataset="me/reviews", split="test", items=1200, target_column="label",
+    shown=["accuracy"],                      # what the others see; the result keeps all of them
+    note="5-fold cross-validation",          # how you got it
+)
+model.evaluations(task="classification")    # the newest first; model.evaluation(id), model.set_shown(id, [...]), model.delete_evaluation(id)
+```
+
+- Only the people who can edit the model send a result (`PermissionDenied` for the others), for any of its versions (the
+  latest unless `version=`).
+- It is kept and shown as **sent**, never as measured: nothing says how it was obtained but your `note`.
+- A value that is not a finite number (a boolean, a text, `nan`) is refused here, before anything is sent; a metric the
+  task does not have, or a dataset you cannot read, is refused by the platform (`Invalid`).
+- A POST is never repeated by itself: if the answer is lost, look at `model.evaluations()` before sending it again.
+- A reader of the model gets only the metrics that were chosen, and `hidden` says how many are left out.
+
 ## What the core does
 
 - **Errors are exceptions** (`myhug.errors`): `AuthenticationError`, `PermissionDenied`, `NotFound`, `Conflict`,
