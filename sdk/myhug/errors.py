@@ -68,3 +68,28 @@ class UploadError(MyHugError):
 
 class FileChanged(UploadError):
     """A file is not the one that was announced (it changed since): nothing more is sent."""
+
+
+class VersionFailed(MyHugError):
+    """A version could not be read by the platform (`reason` says why): its files are not usable."""
+
+    def __init__(self, number: int, reason: str | None) -> None:
+        super().__init__(f"Version {number} failed: {reason or 'no reason given'}")
+        self.number = number
+        self.reason = reason
+
+
+class WaitTimeout(MyHugError):
+    """A version is still being read after the time that was given."""
+
+
+class UnsupportedFormat(MyHugError):
+    """The rows of this kind of file cannot be read here (csv, tsv, jsonl and parquet can)."""
+
+
+class MissingDependency(MyHugError):
+    """Something optional is needed: `pip install "myhug[parquet]"`."""
+
+
+class UnreadableRows(MyHugError):
+    """A file does not hold what its name says (not UTF-8, a line that is not a JSON object...)."""

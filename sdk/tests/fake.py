@@ -3,12 +3,15 @@ signed address, uploads in parts that can be asked about) and a storage (which d
 
 import hashlib
 import json
+import re
 import threading
 import uuid
 from collections.abc import Callable
 from typing import Any
 
 import httpx2
+
+from tests.catalog import Catalog
 
 API = "https://api.test"
 STORAGE = "storage.test"
@@ -55,6 +58,10 @@ class FakePlatform:
         self.signed = 0
         self.running = 0
         self.most_running = 0
+        self.catalog = Catalog(self)
+        self.upload_entity: dict[
+            str, tuple[Any, dict]
+        ] = {}  # upload id -> the dataset or model it is for, its announcement
 
     # ---- helpers for the tests
 
@@ -107,6 +114,9 @@ class FakePlatform:
             return httpx2.Response(302, headers={"location": self.address(name)})
         if method == "GET" and path == "/api/nowhere":
             return httpx2.Response(200, json={"not": "a redirection"})
+        answer = self.catalog.handle(request, body)
+        if answer is not None:
+            return answer
         return self.uploads_api(request, method, path, body, params)
 
     def address(self, name: str) -> str:
@@ -115,9 +125,19 @@ class FakePlatform:
             return f"https://{STORAGE}/get/{name}?sig={self.signed}"
 
     def uploads_api(self, request: httpx2.Request, method: str, path: str, body: Any, params: dict) -> httpx2.Response:
-        for kind, prefix in (("datasets", "/api/uploads"), ("models", "/api/model-uploads")):
-            if method == "POST" and path == f"/api/{kind}/ada/sentiment/uploads":
-                return self.announce(body, prefix)
+        upload_route = re.match(r"^/api/(datasets|models)/([^/]+)/([^/]+)/uploads$", path)
+        if method == "POST" and upload_route:
+            kind, address = upload_route.group(1), f"{upload_route.group(2)}/{upload_route.group(3)}"
+            if kind == "datasets" and address == "ada/sentiment" and (kind, address) not in self.catalog.entities:
+                return self.announce(body, "/api/uploads")  # the engine tests need no dataset behind
+            if kind == "models" and address == "ada/sentiment" and (kind, address) not in self.catalog.entities:
+                return self.announce(body, "/api/model-uploads")
+            entity = self.catalog.entities.get((kind, address))
+            if entity is None:
+                return httpx2.Response(404, json={"detail": "This does not exist"})
+            response = self.announce(body, "/api/uploads" if kind == "datasets" else "/api/model-uploads")
+            self.upload_entity[response.json()["id"]] = (entity, body)
+            return response
         for prefix in ("/api/uploads", "/api/model-uploads"):
             if not path.startswith(prefix + "/"):
                 continue
@@ -154,8 +174,14 @@ class FakePlatform:
                     self.assembled[entry["path"]] = b"".join(
                         self.parts[(upload_id, entry["id"], n)] for n in range(1, entry["parts_count"] + 1)
                     )
+                    upload.setdefault("assembled", {})[entry["path"]] = self.assembled[entry["path"]]
                 upload["status"] = "completed"
                 self.completed.append(upload)
+                entity, announcement = self.upload_entity.get(upload_id, (None, {}))
+                if entity is not None:
+                    held = {k.removeprefix("blob-"): v for k, v in self.files.items() if k.startswith("blob-")}
+                    version = self.catalog.completed(entity, announcement, upload.pop("assembled", {}), held)
+                    return httpx2.Response(200, json=entity.version_view(version))
                 return httpx2.Response(200, json={"number": len(self.completed), "status": "pending"})
         return httpx2.Response(404, json={"detail": "No such route"})
 
@@ -229,14 +255,19 @@ class FakePlatform:
         data = self.files[path.removeprefix("/get/")]
         asked = request.headers.get("range")
         start = 0
+        stop = len(data)
         status = 200
+        extra: dict[str, str] = {}
         if asked and self.honour_range:
-            start = int(asked.removeprefix("bytes=").removesuffix("-"))
+            first, _, last = asked.removeprefix("bytes=").partition("-")
+            start = int(first)
+            stop = min(len(data), int(last) + 1) if last else len(data)
             if start >= len(data):
                 return httpx2.Response(416)
             status = 206
-        body = data[start:]
-        headers = {"content-length": str(len(body))}
+            extra = {"content-range": f"bytes {start}-{stop - 1}/{len(data)}"}
+        body = data[start:stop]
+        headers = {"content-length": str(len(body)), **extra}
         if self.break_after is not None:
             cut, self.break_after = self.break_after, None
             return httpx2.Response(status, headers=headers, stream=Broken(body[:cut]))
