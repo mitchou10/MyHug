@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1-rc](https://github.com/mitchou10/MyHug/compare/v0.21.0...v0.21.1-rc) (2026-11-25)
+
+
+### Dependencies
+
+* bump node from 22-alpine to 26-alpine in /frontend ([f5dcbcd](https://github.com/mitchou10/MyHug/commit/f5dcbcdd788df8d4b1cd44a4b852ffa83ee5a5ce))
+* bump the npm group in /frontend with 15 updates ([92db579](https://github.com/mitchou10/MyHug/commit/92db579e29837b6fbf2b2fcc54f9e193ccb854bb))
+
 ## [0.21.0](https://github.com/mitchou10/MyHug/compare/v0.20.0...v0.21.0) (2026-11-25)
 
 
