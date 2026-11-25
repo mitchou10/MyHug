@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/mitchou10/MyHug/compare/v0.20.0...v0.21.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** access tokens for programs ([f6a24ab](https://github.com/mitchou10/MyHug/commit/f6a24abdcddd39824cba99bbd4f29a4428581e1e))
+
 ## [0.20.0](https://github.com/mitchou10/MyHug/compare/v0.19.0...v0.20.0) (2026-11-25)
 
 
