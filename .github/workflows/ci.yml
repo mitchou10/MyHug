@@ -37,6 +37,7 @@ jobs:
       FILTERS: |
         backend:
           - 'backend/**'
+          - 'openapi.json'
           - 'docker-compose.test.yaml'
         worker:
           - 'worker/**'
@@ -44,6 +45,7 @@ jobs:
           - 'docker/mlflow/**'
         frontend:
           - 'frontend/**'
+          - 'openapi.json'
         ci:
           - '.github/**'
       ALWAYS: ci # a change to the workflows re-runs everything
@@ -195,6 +197,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # The types of the API come from openapi.json: a stale file fails here (and the backend tests fail when
+      # openapi.json itself is stale).
+      - run: pnpm check:api
       - run: pnpm typecheck
       - run: pnpm test:coverage
       - run: pnpm build

@@ -45,7 +45,7 @@ const toCode = (code: WireCode): CodeRef => ({
   sha: code.sha,
   state: code.state as CodeState,
   error: code.error,
-  treeUrl: code.tree_url,
+  treeUrl: code.tree_url ?? null,
 })
 
 export const toVersion = (version: WireVersion): ModelVersion => ({

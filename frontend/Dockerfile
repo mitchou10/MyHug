@@ -2,7 +2,7 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* .pnpmfile.cjs ./
 # pnpm is installed at the version package.json pins, so the two never drift.
 RUN npm install --global "pnpm@$(node -p "require('./package.json').packageManager.split('@')[1].split('+')[0]")"
 RUN pnpm install --frozen-lockfile

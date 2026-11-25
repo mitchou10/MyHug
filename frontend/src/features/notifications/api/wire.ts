@@ -1,14 +1,7 @@
-/** What the backend sends (snake_case). Only the mapper reads it. */
-export interface WireNotification {
-  id: string
-  source: string
-  title: string
-  description: string
-  url: string | null
-  created_at: string
-  read: boolean
-  read_at: string | null
-}
+import type { components } from '@/lib/schema'
+
+/** What the backend sends (snake_case): generated from its OpenAPI schema (`pnpm generate:api`). Only the mapper reads it. */
+export type WireNotification = components['schemas']['NotificationOut']
 
 export interface WirePage<T> {
   items: T[]
