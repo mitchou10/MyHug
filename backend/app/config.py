@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     # The predictions of an evaluation: the largest file, and how many evaluations of a model may wait or run.
     EVALUATION_PREDICTIONS_MAX_BYTES: int = 2 * 1024**3
     EVALUATIONS_MAX_OPEN: int = 20
+    # How many tasks of annotation a dataset can have.
+    ANNOTATION_TASKS_MAX: int = 50
     TOKEN_RATE_PER_MINUTE: int = 600
     TOKENS_MAX_ACTIVE: int = 20
 

@@ -2063,7 +2063,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RowsOut"
+                  "$ref": "#/components/schemas/app__schemas__dataset__RowsOut"
                 }
               }
             }
@@ -4007,6 +4007,659 @@
         }
       }
     },
+    "/api/datasets/{owner}/{name}/tasks": {
+      "get": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "The tasks of annotation of a dataset",
+        "operationId": "list_tasks_api_datasets__owner___name__tasks_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskOut"
+                  },
+                  "title": "Response List Tasks Api Datasets  Owner   Name  Tasks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Make a task of annotation: a text to classify in each row of the dataset",
+        "description": "Only the people who can edit the dataset. The task follows the dataset: it reads the rows of its latest version.",
+        "operationId": "create_task_api_datasets__owner___name__tasks_post",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "One task, with its labels",
+        "operationId": "get_task_api_tasks__task_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Rename a task, close it or open it again",
+        "operationId": "update_task_api_tasks__task_id__patch",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Delete a task, its labels and all its answers",
+        "operationId": "delete_task_api_tasks__task_id__delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/labels": {
+      "post": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Add a label",
+        "operationId": "add_label_api_tasks__task_id__labels_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/labels/{label_id}": {
+      "patch": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Rename or describe a label: the answers that use it follow, nothing is lost",
+        "operationId": "update_label_api_tasks__task_id__labels__label_id__patch",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "label_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Label Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Stop offering a label: the answers that use it keep it",
+        "operationId": "delete_label_api_tasks__task_id__labels__label_id__delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "label_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Label Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/rows": {
+      "get": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "The rows to annotate, with my answer to each",
+        "operationId": "list_rows_api_tasks__task_id__rows_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "split",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Split"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__schemas__annotation__RowsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/rows/{split}/{row_index}/annotation": {
+      "put": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Answer a row (or change my answer): the same call twice changes nothing",
+        "description": "One answer per person and per row. The answer keeps the version of the dataset it was given on.",
+        "operationId": "put_answer_api_tasks__task_id__rows__split___row_index__annotation_put",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "split",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Split"
+            }
+          },
+          {
+            "name": "row_index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Row Index"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "Take back my answer to a row",
+        "operationId": "delete_answer_api_tasks__task_id__rows__split___row_index__annotation_delete",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "split",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Split"
+            }
+          },
+          {
+            "name": "row_index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Row Index"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/progress": {
+      "get": {
+        "tags": [
+          "annotation"
+        ],
+        "summary": "How far the annotation is",
+        "operationId": "get_progress_api_tasks__task_id__progress_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/models/{owner}/{name}/evaluations": {
       "get": {
         "tags": [
@@ -4716,6 +5369,110 @@
         ],
         "title": "AccessTokenOut",
         "description": "A token as the list shows it: never the token itself."
+      },
+      "AnswerIn": {
+        "properties": {
+          "label_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted"
+            ],
+            "title": "Status",
+            "default": "submitted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnswerIn"
+      },
+      "AnswerOut": {
+        "properties": {
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "row_index": {
+            "type": "integer",
+            "title": "Row Index"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "label_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "version_number": {
+            "type": "integer",
+            "title": "Version Number"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "split",
+          "row_index",
+          "status",
+          "source",
+          "label_id",
+          "reason",
+          "version_number",
+          "updated_at"
+        ],
+        "title": "AnswerOut"
       },
       "ApiIn": {
         "properties": {
@@ -7295,6 +8052,108 @@
         ],
         "title": "InferenceOut"
       },
+      "LabelCountOut": {
+        "properties": {
+          "label_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Label Id"
+          },
+          "answers": {
+            "type": "integer",
+            "title": "Answers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label_id",
+          "answers"
+        ],
+        "title": "LabelCountOut"
+      },
+      "LabelIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "LabelIn"
+      },
+      "LabelOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "position"
+        ],
+        "title": "LabelOut"
+      },
+      "LabelPatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LabelPatch"
+      },
       "LikeOut": {
         "properties": {
           "liked": {
@@ -8789,59 +9648,78 @@
         ],
         "title": "ProfileOut"
       },
-      "RowsOut": {
+      "ProgressOut": {
         "properties": {
-          "split": {
-            "type": "string",
-            "title": "Split"
-          },
-          "splits": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Splits"
-          },
-          "columns": {
-            "items": {
-              "$ref": "#/components/schemas/ColumnOut"
-            },
-            "type": "array",
-            "title": "Columns"
-          },
-          "rows": {
-            "items": {
-              "items": {},
-              "type": "array"
-            },
-            "type": "array",
-            "title": "Rows"
-          },
           "total": {
             "type": "integer",
-            "title": "Total"
+            "title": "Total",
+            "description": "Rows in the latest version of the dataset"
           },
-          "limit": {
+          "mine": {
             "type": "integer",
-            "title": "Limit"
+            "title": "Mine",
+            "description": "Answers of the person who asks"
           },
-          "offset": {
+          "mine_submitted": {
             "type": "integer",
-            "title": "Offset"
+            "title": "Mine Submitted"
+          },
+          "answered_rows": {
+            "type": "integer",
+            "title": "Answered Rows",
+            "description": "Rows that have at least one answer, from anybody"
+          },
+          "annotators": {
+            "type": "integer",
+            "title": "Annotators"
+          },
+          "by_label": {
+            "items": {
+              "$ref": "#/components/schemas/LabelCountOut"
+            },
+            "type": "array",
+            "title": "By Label"
           }
         },
         "type": "object",
         "required": [
-          "split",
-          "splits",
-          "columns",
-          "rows",
           "total",
-          "limit",
-          "offset"
+          "mine",
+          "mine_submitted",
+          "answered_rows",
+          "annotators",
+          "by_label"
         ],
-        "title": "RowsOut",
-        "description": "A page of the rows of a split, in the order of the columns."
+        "title": "ProgressOut"
+      },
+      "RowOut": {
+        "properties": {
+          "row_index": {
+            "type": "integer",
+            "title": "Row Index"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "mine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_index",
+          "text",
+          "mine"
+        ],
+        "title": "RowOut"
       },
       "ServingOut": {
         "properties": {
@@ -8945,6 +9823,45 @@
         ],
         "title": "SplitOut"
       },
+      "TaskIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "const": "classification",
+            "title": "Type",
+            "description": "The kind of answer. Others will come."
+          },
+          "text_column": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Text Column",
+            "description": "The column that holds the text to annotate"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LabelIn"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Labels"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "text_column"
+        ],
+        "title": "TaskIn"
+      },
       "TaskMetricsOut": {
         "properties": {
           "task": {
@@ -8973,6 +9890,111 @@
           "default_shown"
         ],
         "title": "TaskMetricsOut"
+      },
+      "TaskOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset",
+            "description": "`owner/name` of the dataset"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LabelOut"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "created_by_username": {
+            "type": "string",
+            "title": "Created By Username"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "can_edit": {
+            "type": "boolean",
+            "title": "Can Edit"
+          },
+          "can_annotate": {
+            "type": "boolean",
+            "title": "Can Annotate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "dataset",
+          "name",
+          "type",
+          "status",
+          "config",
+          "labels",
+          "created_by_username",
+          "created_at",
+          "can_edit",
+          "can_annotate"
+        ],
+        "title": "TaskOut"
+      },
+      "TaskPatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "closed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TaskPatch"
       },
       "UnreadCountOut": {
         "properties": {
@@ -9402,6 +10424,94 @@
           "columns"
         ],
         "title": "VersionOut"
+      },
+      "app__schemas__annotation__RowsOut": {
+        "properties": {
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "splits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Splits"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "split",
+          "splits",
+          "total",
+          "rows"
+        ],
+        "title": "RowsOut"
+      },
+      "app__schemas__dataset__RowsOut": {
+        "properties": {
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "splits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Splits"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnOut"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "split",
+          "splits",
+          "columns",
+          "rows",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "RowsOut",
+        "description": "A page of the rows of a split, in the order of the columns."
       },
       "app__schemas__evaluation__PartsRequest": {
         "properties": {

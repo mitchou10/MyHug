@@ -44,7 +44,7 @@ RESET = (
     "user_profiles, notifications, dataset_likes, dataset_members, dataset_upload_files, dataset_uploads, "
     "dataset_file_derivatives, dataset_files, dataset_versions, datasets, "
     "model_endpoints, model_upload_files, model_uploads, model_files, model_versions, model_members, model_likes, "
-    "model_evaluations, models, access_tokens"
+    "model_evaluations, models, access_tokens, annotations, annotation_labels, annotation_tasks"
 )
 
 

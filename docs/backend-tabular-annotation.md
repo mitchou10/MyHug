@@ -272,3 +272,20 @@ Chaque étape: migration Alembic, tests, mise à jour de `docs/data-model.*`.
    (pas d'`email`, de `phone`, de code postal), ou ajoute-t-on des types prédéfinis avec leur format?
 8. **Autres modalités.** Les tâches `regression` et `row_label` sont-elles génériques (une ligne = une image, un clip
    audio…) ou propres au texte et au tabulaire? À décider avant de figer `annotation_tasks.type`.
+
+## Ce qui est en place (issue #81): le noyau de l'annotation de texte
+
+Première tranche, classification de texte seulement (les autres types de tâche sont connus du modèle de données
+mais refusés par le service tant qu'ils ne sont pas faits).
+
+- **Tâches** : `GET/POST /api/datasets/{owner}/{name}/tasks`, `GET/PATCH/DELETE /api/tasks/{id}`. Une tâche suit
+  le dataset (dernière version) ; `config.text_column` est vérifiée contre les colonnes de la dernière version.
+  Création/modification : ceux qui peuvent éditer le dataset.
+- **Labels** : `POST /api/tasks/{id}/labels`, `PATCH`/`DELETE …/{label_id}`. Renommer ne change pas l'id (les
+  réponses suivent) ; supprimer est logique (`deleted_at`), la réponse garde son label, le nom redevient libre.
+- **Réponses** : `PUT/DELETE /api/tasks/{id}/rows/{split}/{row}/annotation`. Une réponse par (tâche, split, ligne,
+  annotateur), idempotente (upsert). Elle garde le numéro de version du dataset et le hash du texte vu. Brouillon
+  sans label possible, réponse soumise avec label obligatoire. Rôles : propriétaire, admin, mainteneur et
+  `annotator` répondent ; `reader` lit seulement. Tâche fermée : 409.
+- **Lignes et avancement** : `GET /api/tasks/{id}/rows` (texte + ma réponse), `GET /api/tasks/{id}/progress`.
+- Un dataset privé illisible pour la personne renvoie 404, comme ailleurs.

@@ -8,6 +8,7 @@ from app.routers import (
     access_tokens,
     admin_feedback,
     admin_feedback_references,
+    annotations,
     dataset_members,
     dataset_uploads,
     datasets,
@@ -65,6 +66,7 @@ app.include_router(models.router)
 app.include_router(model_versions.router)
 app.include_router(model_uploads.router)
 app.include_router(model_serving.router)
+app.include_router(annotations.router)
 app.include_router(model_evaluations.router)
 app.include_router(metrics.router)
 app.include_router(internal.router)

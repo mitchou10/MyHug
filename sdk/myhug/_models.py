@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
@@ -53,6 +53,35 @@ class AccessTokenOut(BaseModel):
     expires_at: Annotated[AwareDatetime | None, Field(title="Expires At")]
     last_used_at: Annotated[AwareDatetime | None, Field(title="Last Used At")]
     revoked_at: Annotated[AwareDatetime | None, Field(title="Revoked At")]
+
+
+class Reason(RootModel[str]):
+    root: Annotated[str, Field(max_length=2000, title="Reason")]
+
+
+class Status(StrEnum):
+    draft = "draft"
+    submitted = "submitted"
+
+
+class AnswerIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    label_id: Annotated[UUID | None, Field(title="Label Id")] = None
+    reason: Annotated[Reason | None, Field(title="Reason")] = None
+    status: Annotated[Status | None, Field(title="Status")] = Status.submitted
+
+
+class AnswerOut(BaseModel):
+    split: Annotated[str, Field(title="Split")]
+    row_index: Annotated[int, Field(title="Row Index")]
+    status: Annotated[str, Field(title="Status")]
+    source: Annotated[str, Field(title="Source")]
+    label_id: Annotated[UUID | None, Field(title="Label Id")]
+    reason: Annotated[str | None, Field(title="Reason")]
+    version_number: Annotated[int, Field(title="Version Number")]
+    updated_at: Annotated[AwareDatetime, Field(title="Updated At")]
 
 
 class ApiIn(BaseModel):
@@ -438,7 +467,7 @@ class Source(StrEnum):
     inference = "inference"
 
 
-class Status(StrEnum):
+class Status1(StrEnum):
     uploading = "uploading"
     pending = "pending"
     running = "running"
@@ -727,6 +756,42 @@ class InferenceOut(BaseModel):
     origin: Annotated[Origin, Field(title="Origin")]
 
 
+class LabelCountOut(BaseModel):
+    label_id: Annotated[UUID, Field(title="Label Id")]
+    answers: Annotated[int, Field(title="Answers")]
+
+
+class LabelIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[str, Field(max_length=100, min_length=1, title="Name")]
+    description: Annotated[str | None, Field(max_length=1000, title="Description")] = ""
+
+
+class LabelOut(BaseModel):
+    id: Annotated[UUID, Field(title="Id")]
+    name: Annotated[str, Field(title="Name")]
+    description: Annotated[str, Field(title="Description")]
+    position: Annotated[int, Field(title="Position")]
+
+
+class Name2(RootModel[str]):
+    root: Annotated[str, Field(max_length=100, min_length=1, title="Name")]
+
+
+class Description3(RootModel[str]):
+    root: Annotated[str, Field(max_length=1000, title="Description")]
+
+
+class LabelPatch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[Name2 | None, Field(title="Name")] = None
+    description: Annotated[Description3 | None, Field(title="Description")] = None
+
+
 class LikeOut(BaseModel):
     liked: Annotated[bool, Field(title="Liked")]
     likes: Annotated[int, Field(title="Likes")]
@@ -784,10 +849,6 @@ class MetricOut(BaseModel):
     name: Annotated[str, Field(title="Name")]
     higher: Annotated[bool, Field(title="Higher")]
     primary: Annotated[bool, Field(title="Primary")]
-
-
-class Description3(RootModel[str]):
-    root: Annotated[str, Field(max_length=1000, title="Description")]
 
 
 class Library(RootModel[str]):
@@ -1070,14 +1131,30 @@ class ProfileOut(BaseModel):
     avatar_version: Annotated[int | None, Field(title="Avatar Version")]
 
 
-class RowsOut(BaseModel):
-    split: Annotated[str, Field(title="Split")]
-    splits: Annotated[list[str], Field(title="Splits")]
-    columns: Annotated[list[ColumnOut], Field(title="Columns")]
-    rows: Annotated[list[list[Any]], Field(title="Rows")]
-    total: Annotated[int, Field(title="Total")]
-    limit: Annotated[int, Field(title="Limit")]
-    offset: Annotated[int, Field(title="Offset")]
+class ProgressOut(BaseModel):
+    total: Annotated[
+        int,
+        Field(description="Rows in the latest version of the dataset", title="Total"),
+    ]
+    mine: Annotated[
+        int, Field(description="Answers of the person who asks", title="Mine")
+    ]
+    mine_submitted: Annotated[int, Field(title="Mine Submitted")]
+    answered_rows: Annotated[
+        int,
+        Field(
+            description="Rows that have at least one answer, from anybody",
+            title="Answered Rows",
+        ),
+    ]
+    annotators: Annotated[int, Field(title="Annotators")]
+    by_label: Annotated[list[LabelCountOut], Field(title="By Label")]
+
+
+class RowOut(BaseModel):
+    row_index: Annotated[int, Field(title="Row Index")]
+    text: Annotated[str, Field(title="Text")]
+    mine: AnswerOut | None
 
 
 class Kind3(StrEnum):
@@ -1118,10 +1195,62 @@ class SplitOut(BaseModel):
     files: Annotated[int, Field(title="Files")]
 
 
+class TaskIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[str, Field(max_length=100, min_length=1, title="Name")]
+    type: Annotated[
+        Literal["classification"],
+        Field(description="The kind of answer. Others will come.", title="Type"),
+    ]
+    text_column: Annotated[
+        str,
+        Field(
+            description="The column that holds the text to annotate",
+            max_length=200,
+            min_length=1,
+            title="Text Column",
+        ),
+    ]
+    labels: Annotated[list[LabelIn] | None, Field(max_length=200, title="Labels")] = (
+        None
+    )
+
+
 class TaskMetricsOut(BaseModel):
     task: Annotated[str, Field(title="Task")]
     metrics: Annotated[list[MetricOut], Field(title="Metrics")]
     default_shown: Annotated[list[str], Field(title="Default Shown")]
+
+
+class TaskOut(BaseModel):
+    id: Annotated[UUID, Field(title="Id")]
+    dataset: Annotated[
+        str, Field(description="`owner/name` of the dataset", title="Dataset")
+    ]
+    name: Annotated[str, Field(title="Name")]
+    type: Annotated[str, Field(title="Type")]
+    status: Annotated[str, Field(title="Status")]
+    config: Annotated[dict[str, Any], Field(title="Config")]
+    labels: Annotated[list[LabelOut], Field(title="Labels")]
+    created_by_username: Annotated[str, Field(title="Created By Username")]
+    created_at: Annotated[AwareDatetime, Field(title="Created At")]
+    can_edit: Annotated[bool, Field(title="Can Edit")]
+    can_annotate: Annotated[bool, Field(title="Can Annotate")]
+
+
+class Status2(StrEnum):
+    open = "open"
+    closed = "closed"
+
+
+class TaskPatch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: Annotated[Name2 | None, Field(title="Name")] = None
+    status: Annotated[Status2 | None, Field(title="Status")] = None
 
 
 class UnreadCountOut(BaseModel):
@@ -1223,6 +1352,23 @@ class VersionOut(BaseModel):
     columns: Annotated[list[ColumnOut], Field(title="Columns")]
 
 
+class AppSchemasAnnotationRowsOut(BaseModel):
+    split: Annotated[str, Field(title="Split")]
+    splits: Annotated[list[str], Field(title="Splits")]
+    total: Annotated[int, Field(title="Total")]
+    rows: Annotated[list[RowOut], Field(title="Rows")]
+
+
+class AppSchemasDatasetRowsOut(BaseModel):
+    split: Annotated[str, Field(title="Split")]
+    splits: Annotated[list[str], Field(title="Splits")]
+    columns: Annotated[list[ColumnOut], Field(title="Columns")]
+    rows: Annotated[list[list[Any]], Field(title="Rows")]
+    total: Annotated[int, Field(title="Total")]
+    limit: Annotated[int, Field(title="Limit")]
+    offset: Annotated[int, Field(title="Offset")]
+
+
 class AppSchemasEvaluationPartsRequest(BaseModel):
     numbers: Annotated[
         list[int],
@@ -1273,7 +1419,7 @@ class EvaluationOut(BaseModel):
     target_column: Annotated[str | None, Field(title="Target Column")]
     items: Annotated[int | None, Field(title="Items")]
     source: Annotated[Source, Field(title="Source")]
-    status: Annotated[Status, Field(title="Status")]
+    status: Annotated[Status1, Field(title="Status")]
     predictions_format: Annotated[str | None, Field(title="Predictions Format")]
     predictions_size: Annotated[int | None, Field(title="Predictions Size")]
     key_column: Annotated[str | None, Field(title="Key Column")]

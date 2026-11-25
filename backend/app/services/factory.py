@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.jobs import Jobs, NoJobs
 from app.registry import MlflowLinks, ModelRegistry
+from app.repositories.annotations import AnnotationRepository
 from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
@@ -16,6 +17,7 @@ from app.repositories.model_uploads import ModelUploadRepository
 from app.repositories.model_versions import ModelVersionRepository
 from app.repositories.models import ModelRepository
 from app.repositories.storage_references import StorageReferenceRepository
+from app.services.annotations import AnnotationService
 from app.services.dataset_access import DatasetAccess
 from app.services.dataset_derivatives import DatasetDerivatives
 from app.services.dataset_members import DatasetMemberService
@@ -65,6 +67,19 @@ def build_model_evaluations(db: AsyncSession, store: ObjectStore, jobs: Jobs | N
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
         max_open=settings.EVALUATIONS_MAX_OPEN,
+    )
+
+
+def build_annotations(db: AsyncSession, store: ObjectStore) -> AnnotationService:
+    datasets = DatasetRepository(db)
+    versions = DatasetVersionRepository(db)
+    return AnnotationService(
+        DatasetAccess(datasets),
+        datasets,
+        AnnotationRepository(db),
+        versions,
+        build_dataset_versions(db, store, NoJobs()),
+        max_tasks=settings.ANNOTATION_TASKS_MAX,
     )
 
 

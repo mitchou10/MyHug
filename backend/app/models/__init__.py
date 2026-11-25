@@ -1,4 +1,5 @@
 from app.models.access_token import AccessToken
+from app.models.annotation import Annotation, AnnotationLabel, AnnotationTask
 from app.models.base import Base
 from app.models.dataset import Dataset
 from app.models.dataset_derivative import DatasetFileDerivative
@@ -21,6 +22,9 @@ from app.models.user_profile import UserProfile
 
 __all__ = [
     "AccessToken",
+    "Annotation",
+    "AnnotationLabel",
+    "AnnotationTask",
     "Base",
     "Dataset",
     "DatasetFile",

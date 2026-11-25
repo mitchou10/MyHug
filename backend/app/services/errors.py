@@ -318,3 +318,32 @@ class InvalidEvaluation(ServiceError):
 
 class TooManyEvaluations(ServiceError):
     message = "Too many evaluations of this model are waiting or running: wait for one to finish, or delete one"
+
+
+# ---- annotation
+class TaskNotFound(ServiceError):
+    """Also used for the task of a dataset that the person may not read: it must look like it does not exist."""
+
+    message = "This task does not exist"
+
+
+class TaskNameTaken(ServiceError):
+    message = "This dataset already has a task with this name"
+
+
+class InvalidTask(ServiceError):
+    """A task that cannot be made or changed as asked: the reason is in the message."""
+
+    message = "This task is not valid"
+
+
+class TaskClosed(ServiceError):
+    message = "This task is closed: nothing more can be answered"
+
+
+class LabelNotFound(ServiceError):
+    message = "This label does not exist in this task"
+
+
+class RowNotFound(ServiceError):
+    message = "This row does not exist in the dataset"
