@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.13.0...frontend-v0.14.0) (2026-11-25)
+
+
+### Features
+
+* **models:** evaluate a model from the predictions that are sent ([73a6398](https://github.com/mitchou10/MyHug/commit/73a6398fafe60b09dd1550feac9f0b9397b9e4e5))
+
 ## [0.13.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.12.0...frontend-v0.13.0) (2026-11-25)
 
 

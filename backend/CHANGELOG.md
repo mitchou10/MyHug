@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/mitchou10/MyHug/compare/backend-v0.18.0...backend-v0.19.0) (2026-11-25)
+
+
+### Features
+
+* **models:** evaluate a model from the predictions that are sent ([73a6398](https://github.com/mitchou10/MyHug/commit/73a6398fafe60b09dd1550feac9f0b9397b9e4e5))
+
 ## [0.18.0](https://github.com/mitchou10/MyHug/compare/backend-v0.17.0...backend-v0.18.0) (2026-11-25)
 
 
