@@ -4006,6 +4006,389 @@
           }
         }
       }
+    },
+    "/api/models/{owner}/{name}/evaluations": {
+      "get": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "The evaluations of a model, the newest first",
+        "operationId": "list_evaluations_api_models__owner___name__evaluations_get",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "task",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The number of a version of the model",
+              "title": "Version"
+            },
+            "description": "The number of a version of the model"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationOut"
+                  },
+                  "title": "Response List Evaluations Api Models  Owner   Name  Evaluations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Send the result of an evaluation computed elsewhere (the people who can edit the model)",
+        "description": "It is kept and shown as **submitted**: nothing says the platform measured it.",
+        "operationId": "submit_evaluation_api_models__owner___name__evaluations_post",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}": {
+      "get": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "One evaluation",
+        "operationId": "get_evaluation_api_models__owner___name__evaluations__evaluation_id__get",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Delete an evaluation",
+        "operationId": "delete_evaluation_api_models__owner___name__evaluations__evaluation_id__delete",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{owner}/{name}/evaluations/{evaluation_id}/shown": {
+      "put": {
+        "tags": [
+          "model evaluations"
+        ],
+        "summary": "Choose the metrics the others see",
+        "operationId": "set_shown_api_models__owner___name__evaluations__evaluation_id__shown_put",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "evaluation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evaluation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShownIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "The metrics of every task: what an evaluation holds, in one place",
+        "operationId": "list_metrics_api_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskMetricsOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Metrics Api Metrics Get"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5365,6 +5748,322 @@
         "title": "EndpointOut",
         "description": "For the editors. The value of the login is never here."
       },
+      "EvaluationIn": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "The number of the version of the model that was evaluated"
+          },
+          "task": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Task"
+          },
+          "results": {
+            "patternProperties": {
+              "^[a-z0-9_]{1,40}$": {
+                "type": "number"
+              }
+            },
+            "type": "object",
+            "title": "Results",
+            "description": "`{metric id: value}`, the metrics of the task (see `GET /api/metrics`), finite numbers"
+          },
+          "shown": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]{1,40}$"
+                },
+                "type": "array",
+                "maxItems": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shown",
+            "description": "The metrics the others see. Empty: the main metric and the next one"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 201,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset",
+            "description": "`owner/name` of a dataset you can read"
+          },
+          "dataset_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Version"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split"
+          },
+          "input_column": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Column"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items",
+            "description": "How many items it was computed on"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Note",
+            "description": "How it was obtained",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "task",
+          "results"
+        ],
+        "title": "EvaluationIn",
+        "description": "The result of an evaluation that was computed somewhere else. It is kept as **sent**, never as measured."
+      },
+      "EvaluationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "dataset_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Version"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split"
+          },
+          "input_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Column"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "measured",
+              "submitted"
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "results": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Results"
+          },
+          "hidden": {
+            "type": "integer",
+            "title": "Hidden"
+          },
+          "shown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Shown"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "created_by_username": {
+            "type": "string",
+            "title": "Created By Username"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "can_edit": {
+            "type": "boolean",
+            "title": "Can Edit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "task",
+          "dataset",
+          "dataset_version",
+          "split",
+          "input_column",
+          "target_column",
+          "items",
+          "source",
+          "status",
+          "error",
+          "results",
+          "hidden",
+          "shown",
+          "note",
+          "created_by_username",
+          "created_at",
+          "finished_at",
+          "can_edit"
+        ],
+        "title": "EvaluationOut"
+      },
       "FeedbackChange": {
         "properties": {
           "status_id": {
@@ -6237,6 +6936,34 @@
           "next_before"
         ],
         "title": "MessagesPageOut"
+      },
+      "MetricOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "higher": {
+            "type": "boolean",
+            "title": "Higher"
+          },
+          "primary": {
+            "type": "boolean",
+            "title": "Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "higher",
+          "primary"
+        ],
+        "title": "MetricOut"
       },
       "ModelChange": {
         "properties": {
@@ -7588,6 +8315,24 @@
         "title": "ServingOut",
         "description": "What a person who may read the model knows of how it is tried: no address, no login, no API."
       },
+      "ShownIn": {
+        "properties": {
+          "shown": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{1,40}$"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Shown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shown"
+        ],
+        "title": "ShownIn"
+      },
       "SignedPartOut": {
         "properties": {
           "number": {
@@ -7628,6 +8373,35 @@
           "files"
         ],
         "title": "SplitOut"
+      },
+      "TaskMetricsOut": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricOut"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "default_shown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Default Shown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task",
+          "metrics",
+          "default_shown"
+        ],
+        "title": "TaskMetricsOut"
       },
       "UnreadCountOut": {
         "properties": {

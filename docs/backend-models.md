@@ -364,3 +364,43 @@ Les pages `/models` et `/models/:owner/:name` lisent l'API: plus aucune donnée 
 - **Pas encore branché**: les évaluations (#19) restent locales au navigateur et vides au départ; la pré-annotation affiche
   encore le nom des modèles du catalogue sans lien vers leur page.
 - Les types de l'API sont écrits à la main (`api/wire.ts`) à côté du client: le projet ne génère pas de types depuis OpenAPI.
+
+
+## Les évaluations (issue #49)
+
+Une **évaluation** dit comment une version d'un modèle se comporte sur une partie d'un dataset, pour une de ses tâches.
+Table `model_evaluations`; elle part avec sa version et son modèle (cascade), et reste lisible si le dataset est supprimé
+(son adresse est gardée).
+
+- **Les métriques sont définies à un seul endroit**, `app/metrics.py`, et listées par `GET /api/metrics` (connecté): pour
+  chaque tâche, ses métriques (`id`, nom, `higher`: plus haut = mieux, `primary`: la principale) et celles montrées par
+  défaut. Le frontend et le SDK la lisent: pas de liste en double. Un test vérifie que chaque tâche d'un modèle en a.
+- Une évaluation garde **toutes** les métriques de sa tâche (`results`); `shown` est la liste de celles que son auteur
+  montre aux autres. Un lecteur du modèle ne voit que celles-là (`hidden` dit combien manquent); ceux qui peuvent
+  modifier le modèle voient tout.
+- **`source`**: `measured` (la plateforme l'a calculée, voir #19) ou `submitted` (quelqu'un l'a envoyée). Un résultat
+  envoyé est toujours présenté comme tel: rien ne dit comment il a été obtenu (le champ `note` est ses mots à lui).
+  La base impose qu'un résultat envoyé soit terminé (`status = done`) et qu'une évaluation terminée ait des résultats.
+
+| Route | Qui |
+|---|---|
+| `GET /api/models/{owner}/{name}/evaluations?task=&version=` | qui lit le modèle (une page, les plus récentes d'abord) |
+| `GET …/evaluations/{id}` | idem |
+| `POST …/evaluations` | **qui peut modifier le modèle** (créateur, mainteneurs, admins): envoie un résultat |
+| `PUT …/evaluations/{id}/shown` | idem: choisit les métriques montrées |
+| `DELETE …/evaluations/{id}` | idem |
+
+**Ce qui est refusé** (422): une version, une tâche que le modèle n'a pas, une métrique que la tâche n'a pas, une valeur
+qui n'est pas un nombre fini (texte, booléen, `nan`, `infinity`), plus de 50 métriques, une métrique à montrer que le
+résultat n'a pas, un dataset qu'on ne peut pas lire. Ce dernier cas donne **la même réponse** qu'un dataset qui n'existe
+pas, pour qu'on ne s'en serve pas pour savoir quels datasets privés existent.
+
+**Le dataset**: son adresse n'est dite qu'à ceux qui peuvent le lire (les autres voient le reste de l'évaluation: split,
+tâche, résultats choisis). Un dataset supprimé laisse l'évaluation, et son adresse n'est plus dite qu'à ceux qui peuvent
+modifier le modèle (les autres n'ont peut-être jamais eu le droit de le lire).
+
+Une requête qui n'est pas valide répond maintenant `422` avec `type`, `loc` et `msg` de chaque problème, **sans la
+valeur envoyée** (FastAPI la renvoyait; un `nan` ne se laisse pas écrire en JSON et faisait une erreur 500).
+
+**Pas ici**: mesurer (le worker qui appelle le modèle, arrêter un traitement): #19. Les pré-annotations: une issue à part,
+après le backend d'annotation.

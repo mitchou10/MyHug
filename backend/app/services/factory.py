@@ -11,6 +11,7 @@ from app.repositories.dataset_derivatives import DatasetDerivativeRepository
 from app.repositories.dataset_uploads import DatasetUploadRepository
 from app.repositories.dataset_versions import DatasetVersionRepository
 from app.repositories.datasets import DatasetRepository
+from app.repositories.model_evaluations import ModelEvaluationRepository
 from app.repositories.model_uploads import ModelUploadRepository
 from app.repositories.model_versions import ModelVersionRepository
 from app.repositories.models import ModelRepository
@@ -24,6 +25,7 @@ from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.model_access import ModelAccess
 from app.services.model_code import ModelCodeResolution
+from app.services.model_evaluations import ModelEvaluationService
 from app.services.model_members import ModelMemberService
 from app.services.model_processing import ModelProcessing
 from app.services.model_serving import ModelServingService
@@ -45,6 +47,13 @@ def build_datasets(db: AsyncSession, store: ObjectStore) -> DatasetService:
 def build_dataset_members(db: AsyncSession) -> DatasetMemberService:
     datasets = DatasetRepository(db)
     return DatasetMemberService(datasets, DatasetAccess(datasets))
+
+
+def build_model_evaluations(db: AsyncSession) -> ModelEvaluationService:
+    models, datasets = ModelRepository(db), DatasetRepository(db)
+    return ModelEvaluationService(
+        ModelAccess(models), ModelEvaluationRepository(db), ModelVersionRepository(db), DatasetAccess(datasets)
+    )
 
 
 def build_dataset_versions(db: AsyncSession, store: ObjectStore, jobs: Jobs) -> DatasetVersionService:
