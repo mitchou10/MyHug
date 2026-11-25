@@ -13,12 +13,14 @@ from app.routers.deps import (
     DatasetDerivativesDep,
     DatasetProcessingDep,
     EvaluationExpiryDep,
+    EvaluationProcessingDep,
     ModelCodeDep,
     ModelProcessingDep,
     ModelUploadExpiryDep,
     StorageGarbageDep,
     UploadExpiryDep,
 )
+from app.schemas.evaluation import Value
 from app.services import tables
 from app.services.dataset_processing import FileRead
 from app.services.model_processing import FileChecked
@@ -211,6 +213,87 @@ async def code_release(version_id: uuid.UUID, _: Worker, service: ModelCodeDep) 
 
 @router.get("/model-code/waiting", summary="The code nobody is resolving, for the worker to queue again")
 async def waiting_code(_: Worker, service: ModelCodeDep) -> WaitingOut:
+    return WaitingOut(ids=await service.waiting())
+
+
+# ---- the evaluations: the worker computes their metrics from the predictions and the ground truth
+
+
+class EvaluationFileOut(BaseModel):
+    path: str
+    url: str
+    size_bytes: int
+
+
+class EvaluationClaimOut(BaseModel):
+    claimed: bool
+    id: uuid.UUID | None = None
+    task: str | None = None
+    split: str | None = None
+    target_column: str | None = None
+    key_column: str | None = None
+    prediction_column: str | None = None
+    predictions: EvaluationFileOut | None = None
+    predictions_format: str | None = None
+    truth: list[EvaluationFileOut] = Field(default_factory=list)
+    metrics: list[str] = Field(default_factory=list)
+
+
+class EvaluationResultIn(BaseModel):
+    results: dict[str, Value] = Field(max_length=50)
+    items: int = Field(ge=0)
+
+
+class EvaluationStatusOut(BaseModel):
+    status: str
+
+
+@router.post("/model-evaluations/{evaluation_id}/claim", summary="Take an evaluation in hand: what to read and compute")
+async def claim_evaluation(evaluation_id: uuid.UUID, _: Worker, service: EvaluationProcessingDep) -> EvaluationClaimOut:
+    found = await service.claim(evaluation_id)
+    if found is None:
+        return EvaluationClaimOut(claimed=False)
+    return EvaluationClaimOut(
+        claimed=True,
+        id=found.id,
+        task=found.task,
+        split=found.split,
+        target_column=found.target_column,
+        key_column=found.key_column,
+        prediction_column=found.prediction_column,
+        predictions=EvaluationFileOut(**vars(found.predictions)),
+        predictions_format=found.predictions_format,
+        truth=[EvaluationFileOut(**vars(f)) for f in found.truth],
+        metrics=found.metrics,
+    )
+
+
+@router.post("/model-evaluations/{evaluation_id}/result", summary="The metrics that were computed")
+async def evaluation_result(
+    evaluation_id: uuid.UUID, data: EvaluationResultIn, _: Worker, service: EvaluationProcessingDep
+) -> EvaluationStatusOut:
+    return EvaluationStatusOut(status=(await service.complete(evaluation_id, data.results, data.items)).status)
+
+
+@router.post(
+    "/model-evaluations/{evaluation_id}/failure", summary="The predictions do not match the split: it is failed"
+)
+async def evaluation_failure(
+    evaluation_id: uuid.UUID, data: FailureIn, _: Worker, service: EvaluationProcessingDep
+) -> EvaluationStatusOut:
+    return EvaluationStatusOut(status=(await service.fail(evaluation_id, data.error)).status)
+
+
+@router.post("/model-evaluations/{evaluation_id}/release", summary="Put an evaluation back to waiting (not its fault)")
+async def evaluation_release(
+    evaluation_id: uuid.UUID, _: Worker, service: EvaluationProcessingDep
+) -> EvaluationStatusOut:
+    await service.release(evaluation_id)
+    return EvaluationStatusOut(status="pending")
+
+
+@router.get("/model-evaluations/waiting", summary="The evaluations nobody is computing, for the worker to queue")
+async def waiting_evaluations(_: Worker, service: EvaluationProcessingDep) -> WaitingOut:
     return WaitingOut(ids=await service.waiting())
 
 

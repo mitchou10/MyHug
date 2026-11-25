@@ -110,6 +110,34 @@ METRICS: dict[str, tuple[Metric, ...]] = {
 }
 
 
+# The tasks whose ground truth is a column of a dataset and whose metrics the worker computes. The others need more than
+# a column (spans, boxes, tracks, texts to align...) and are not computed yet: an evaluation of one is refused.
+MEASURABLE: frozenset[str] = frozenset(
+    {
+        "classification",
+        "row_label",
+        "image_classification",
+        "audio_classification",
+        "video_classification",
+        "timeseries_classification",
+        "regression",
+        "qa",
+    }
+)
+# What the worker computes among the metrics of a task: the others (the AUC needs scores) are left out of a result.
+COMPUTED: dict[str, frozenset[str]] = {
+    "classification": frozenset({"accuracy", "precision", "recall", "f1"}),
+    "regression": frozenset({"mae", "rmse", "r2", "mape"}),
+    "qa": frozenset({"exact_match", "f1"}),
+}
+
+
+def computed_for(task: str) -> list[str]:
+    """The ids of the metrics the worker computes for a task, in the order of the task."""
+    family = "regression" if task == "regression" else "qa" if task == "qa" else "classification"
+    return [m.id for m in metrics_for(task) if m.id in COMPUTED[family]]
+
+
 def metrics_for(task: str) -> tuple[Metric, ...]:
     """The metrics of a task (an unknown task has accuracy only)."""
     return METRICS.get(task, _DEFAULT)

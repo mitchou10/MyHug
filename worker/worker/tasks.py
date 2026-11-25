@@ -6,7 +6,8 @@ from worker.celery_app import celery_app
 from worker.code import CodeLookup, Pinned, RateLimited
 from worker.config import settings
 from worker.copier import make_copy
-from worker.errors import CodeProblem, FileProblem
+from worker.errors import CodeProblem, EvaluationProblem, FileProblem
+from worker.evaluator import compute
 from worker.reader import fingerprint, read
 
 logger = logging.getLogger(__name__)
@@ -130,14 +131,42 @@ def convert_file(derivative_id: str) -> str | None:
     return api.copy_result(derivative, rows, [{"name": column.name, "dtype": column.dtype} for column in columns])
 
 
+@celery_app.task(
+    name="models.evaluate",  # the name the API queues it by
+    autoretry_for=(Exception,),  # what is not the data's fault: the API or the storage was down
+    retry_backoff=True,
+    retry_backoff_max=600,
+    max_retries=3,
+)
+def evaluate(evaluation_id: str) -> str | None:
+    """Computes the metrics of an evaluation from its predictions and the ground truth of the dataset, and tells the
+    API, which keeps them. Returns where it ended, or None when there was nothing to do."""
+    api, evaluation = _backend(), uuid.UUID(evaluation_id)
+    job = api.claim_evaluation(evaluation)
+    if job is None:
+        return None
+    try:
+        computed = compute(api, job)
+    except (EvaluationProblem, FileProblem) as error:
+        logger.warning("Evaluation %s cannot be computed: %s", evaluation, error)
+        return api.evaluation_failure(evaluation, str(error))
+    except Exception:
+        api.evaluation_release(evaluation)  # not the data's fault: it is taken again by the retry
+        raise
+    return api.evaluation_result(evaluation, computed.results, computed.items)
+
+
 @celery_app.task(name="datasets.process_waiting")
 def process_waiting() -> int:
-    """Queues the jobs nobody is doing: the reading of versions (of datasets and of models) and the making of copies.
-    Returns how many."""
+    """Queues the jobs nobody is doing: the reading of versions (of datasets and of models), the pinning of code, the
+    making of copies and the computing of evaluations. Returns how many."""
     api = _backend()
     versions, copies = api.waiting(), api.waiting_copies()
     models = api.waiting_model_versions()
     codes = api.waiting_code()
+    evaluations = api.waiting_evaluations()
+    for pending in evaluations:
+        evaluate.apply_async(args=[str(pending)])
     for version in versions:
         process_version.apply_async(args=[str(version)])
     for model_version in models:
@@ -146,7 +175,7 @@ def process_waiting() -> int:
         resolve_code.apply_async(args=[str(code)])
     for copy in copies:
         convert_file.apply_async(args=[str(copy)])
-    return len(versions) + len(copies) + len(models) + len(codes)
+    return len(versions) + len(copies) + len(models) + len(codes) + len(evaluations)
 
 
 @celery_app.task(name="datasets.expire_uploads")

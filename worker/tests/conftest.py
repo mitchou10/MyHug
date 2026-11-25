@@ -31,6 +31,8 @@ class FakePlatform:
         self.copy: dict | None = None  # what `claim` of a copy answers (None: nothing to do)
         self.uploaded: dict[int, bytes] = {}  # the parts of the copy that reached the storage
         self.collections: list[dict] = []  # what each pass of the collection answers, in turn
+        self.evaluation: dict | None = None  # what `claim` of an evaluation answers (None: nothing to do)
+        self.waiting_evaluation_ids: list[str] = []
 
     def add_file(self, path: str, data: bytes, *, rows: bool = True, fingerprint: bool = True) -> dict:
         url = f"https://storage.test/{uuid.uuid4().hex}/{path}"
@@ -43,6 +45,46 @@ class FakePlatform:
             "needs_fingerprint": fingerprint,
             "needs_rows": rows,
         }
+
+    def add_evaluation(
+        self,
+        truth: list[tuple[str, bytes]],
+        predictions: tuple[str, bytes],
+        *,
+        task: str = "classification",
+        metrics: list[str] | None = None,
+        key_column: str | None = None,
+        target_column: str = "label",
+        prediction_column: str = "prediction",
+        fmt: str = "jsonl",
+    ) -> dict:
+        """What a worker is given for an evaluation: the predictions and the files of the split, as signed addresses."""
+        files = [self.add_file(path, data) for path, data in truth]
+        sent = self.add_file(*predictions)
+        job = {
+            "id": str(uuid.uuid4()), "task": task, "split": "test", "target_column": target_column,
+            "key_column": key_column, "prediction_column": prediction_column, "predictions_format": fmt,
+            "predictions": {"path": sent["path"], "url": sent["url"], "size_bytes": sent["size_bytes"]},
+            "truth": [{"path": f["path"], "url": f["url"], "size_bytes": f["size_bytes"]} for f in files],
+            "metrics": metrics or ["accuracy", "precision", "recall", "f1"],
+        }  # fmt: skip
+        self.evaluation = job
+        return job
+
+    def handle_evaluation(self, path: str) -> httpx2.Response:
+        if path.endswith("/claim"):
+            if self.evaluation is None:
+                return httpx2.Response(200, json={"claimed": False})
+            return httpx2.Response(200, json={"claimed": True, **self.evaluation})
+        if path.endswith("/result"):
+            return httpx2.Response(200, json={"status": "done"})
+        if path.endswith("/failure"):
+            return httpx2.Response(200, json={"status": "failed"})
+        if path.endswith("/release"):
+            return httpx2.Response(200, json={"status": "pending"})
+        if path.endswith("/waiting"):
+            return httpx2.Response(200, json={"ids": self.waiting_evaluation_ids})
+        return httpx2.Response(404)
 
     def handle_copy(self, path: str) -> httpx2.Response:
         if path.endswith("/claim"):
@@ -85,6 +127,8 @@ class FakePlatform:
             self.bodies[path] = json.loads(request.content)
         if path == "/storage/collect":
             return httpx2.Response(200, json=self.collections.pop(0))
+        if path.startswith("/model-evaluations/"):
+            return self.handle_evaluation(path)
         if "/code/" in path:
             if path.endswith("/claim"):
                 if self.code is None:

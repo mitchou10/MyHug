@@ -17,3 +17,8 @@ class CodeProblem(Exception):
 
 class HostUnavailable(Exception):
     """The host is down, or limits the calls: the lookup is made again later."""
+
+
+class EvaluationProblem(Exception):
+    """The predictions do not match the split, or are not what the task takes: it is the data's fault, and reading them
+    again would give the same."""
