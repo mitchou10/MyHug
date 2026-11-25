@@ -88,16 +88,23 @@ A version is files, a reference to code, or both. The reference is only a link: 
 A model trained in a notebook is evaluated there; its result can be sent to the page of the model.
 
 ```python
-client.metrics.ids("classification")        # ['accuracy', 'precision', 'recall', 'f1', 'auc']: the platform defines them
+# The platform defines the metrics of each task: ['accuracy', 'precision', 'recall', 'f1', 'auc'].
+client.metrics.ids("classification")
+
 model = client.models.get("me/ner")
 model.submit_evaluation(
     "classification",
-    {"accuracy": 0.91, "f1": 0.8},          # the metrics of the task, finite numbers
-    dataset="me/reviews", split="test", items=1200, target_column="label",
-    shown=["accuracy"],                      # what the others see; the result keeps all of them
-    note="5-fold cross-validation",          # how you got it
+    {"accuracy": 0.91, "f1": 0.8},  # the metrics of the task, finite numbers
+    dataset="me/reviews",
+    split="test",
+    items=1200,
+    target_column="label",
+    shown=["accuracy"],  # what the others see; the result keeps all of them
+    note="5-fold cross-validation",  # how you got it
 )
-model.evaluations(task="classification")    # the newest first; model.evaluation(id), model.set_shown(id, [...]), model.delete_evaluation(id)
+
+# The newest first. Also: model.evaluation(id), model.set_shown(id, [...]), model.delete_evaluation(id).
+model.evaluations(task="classification")
 ```
 
 - Only the people who can edit the model send a result (`PermissionDenied` for the others), for any of its versions (the
