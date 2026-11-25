@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/mitchou10/MyHug/compare/backend-v0.16.0...backend-v0.17.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** members of a dataset and its Parquet copy to read by ranges ([df2d0cf](https://github.com/mitchou10/MyHug/commit/df2d0cf835f421112c9fd3a3096762f4451d122c))
+
 ## [0.16.0](https://github.com/mitchou10/MyHug/compare/backend-v0.15.0...backend-v0.16.0) (2026-11-25)
 
 

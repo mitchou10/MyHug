@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/mitchou10/MyHug/compare/sdk-v0.1.0...sdk-v0.2.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** members of a dataset and its Parquet copy to read by ranges ([df2d0cf](https://github.com/mitchou10/MyHug/commit/df2d0cf835f421112c9fd3a3096762f4451d122c))
+* **sdk:** datasets and models from code ([d967fa2](https://github.com/mitchou10/MyHug/commit/d967fa2e69d3c552bfa8b3dbb96c098006ccdd9c))
+
 ## 0.1.0 (2026-11-25)
 
 

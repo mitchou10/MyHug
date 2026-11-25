@@ -1,6 +1,6 @@
 [project]
 name = "myhug"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python SDK of the platform: datasets and models from code, with resumable transfers"
 readme = "README.md"
 requires-python = ">=3.13"

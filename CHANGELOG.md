@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.0](https://github.com/mitchou10/MyHug/compare/v0.22.0...v0.23.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** members of a dataset and its Parquet copy to read by ranges ([df2d0cf](https://github.com/mitchou10/MyHug/commit/df2d0cf835f421112c9fd3a3096762f4451d122c))
+* **sdk:** datasets and models from code ([d967fa2](https://github.com/mitchou10/MyHug/commit/d967fa2e69d3c552bfa8b3dbb96c098006ccdd9c))
+
+
+### Dependencies
+
+* bump node from 22-alpine to 26-alpine in /frontend ([35bd3db](https://github.com/mitchou10/MyHug/commit/35bd3db0adaf88e0f8df4690d6da318bd81ef6a9))
+* bump the npm group in /frontend with 15 updates ([38376b6](https://github.com/mitchou10/MyHug/commit/38376b690daab1e00d5ec75196ec6139d6ae229a))
+
 ## [0.22.0](https://github.com/mitchou10/MyHug/compare/v0.21.0...v0.22.0) (2026-11-25)
 
 
