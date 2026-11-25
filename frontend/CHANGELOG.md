@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.8.0...frontend-v0.9.0) (2026-11-25)
+
+
+### Features
+
+* **infra:** generate the API types from the OpenAPI schema ([d0aa4bf](https://github.com/mitchou10/MyHug/commit/d0aa4bfe546a839504ed65474e4a8350a174af0b))
+
 ## [0.8.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.7.0...frontend-v0.8.0) (2026-11-25)
 
 
