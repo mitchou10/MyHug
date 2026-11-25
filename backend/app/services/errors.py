@@ -280,3 +280,20 @@ class RegistryRejected(ServiceError):
     """MLflow refuses a value: a name it does not accept."""
 
     message = "The registry refuses this value"
+
+
+# ---- access tokens
+class TokenNotFound(ServiceError):
+    """Also used for somebody else's token: it must look like it does not exist."""
+
+    message = "This token does not exist"
+
+
+class TooManyTokens(ServiceError):
+    message = "Too many access tokens: revoke one first"
+
+
+class InvalidToken(ServiceError):
+    """Unknown, revoked or expired: the caller is told nothing more."""
+
+    message = "Not authenticated"

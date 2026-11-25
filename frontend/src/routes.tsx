@@ -8,6 +8,7 @@ import { CollectionDetailPage } from '@/features/collections/pages/CollectionDet
 import { CollectionsPage } from '@/features/collections/pages/CollectionsPage'
 import { ModelDetailPage } from '@/features/models/pages/ModelDetailPage'
 import { ModelsPage } from '@/features/models/pages/ModelsPage'
+import { TokensPage } from '@/features/tokens/pages/TokensPage'
 import { AdminFeedbackPage } from '@/features/feedback/pages/AdminFeedbackPage'
 import { MyFeedbackPage } from '@/features/feedback/pages/MyFeedbackPage'
 import { NotificationsPage } from '@/features/notifications/pages/NotificationsPage'
@@ -50,6 +51,7 @@ export const routes: RouteObject[] = [
           { path: 'datasets/:owner/:name/annotate/:projectId', element: <AnnotationRoute /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
+          { path: 'tokens', element: <TokensPage /> },
           { path: 'feedback', element: <MyFeedbackPage /> },
           { path: 'feedback/:id', element: <MyFeedbackPage /> },
           {

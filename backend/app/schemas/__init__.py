@@ -1,3 +1,4 @@
+from app.schemas.access_token import AccessTokenIn, AccessTokenOut, CreatedAccessTokenOut
 from app.schemas.attachment import AttachmentOut
 from app.schemas.auth import LogoutOut, UserOut
 from app.schemas.dataset import (
@@ -56,6 +57,9 @@ from app.schemas.reference import (
 )
 
 __all__ = [
+    "AccessTokenIn",
+    "AccessTokenOut",
+    "CreatedAccessTokenOut",
     "AttachmentOut",
     "CodeVersionIn",
     "ColumnOut",

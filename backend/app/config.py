@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     SERVING_MAX_BODY_BYTES: int = 1024**2  # what a person may send to try a model
     SERVING_MAX_RESPONSE_BYTES: int = 5 * 1024**2
     SERVING_RATE_PER_MINUTE: int = 30  # per person, over all the models
+    # Access tokens (programs acting as a person): the calls one token may make a minute, and how many one person may
+    # hold at once.
+    TOKEN_RATE_PER_MINUTE: int = 600
+    TOKENS_MAX_ACTIVE: int = 20
 
     # A tabular file (csv, tsv, jsonl) at least this big gets a copy in Parquet, made by the worker: below it the copy
     # would gain nothing. A source over the maximum is left as it is.
