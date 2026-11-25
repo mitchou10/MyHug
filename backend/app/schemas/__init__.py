@@ -5,6 +5,8 @@ from app.schemas.dataset import (
     ColumnOut,
     DatasetChange,
     DatasetIn,
+    DatasetMemberIn,
+    DatasetMemberOut,
     DatasetOut,
     DatasetSummaryOut,
     FileOut,
@@ -57,6 +59,8 @@ from app.schemas.reference import (
 )
 
 __all__ = [
+    "DatasetMemberIn",
+    "DatasetMemberOut",
     "AccessTokenIn",
     "AccessTokenOut",
     "CreatedAccessTokenOut",

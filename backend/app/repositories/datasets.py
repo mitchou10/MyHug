@@ -57,6 +57,31 @@ class DatasetRepository(Repository):
     def add_member(self, member: DatasetMember) -> None:
         self._db.add(member)
 
+    async def members(self, dataset_id: uuid.UUID) -> list[DatasetMember]:
+        result = await self._db.execute(
+            select(DatasetMember)
+            .where(DatasetMember.dataset_id == dataset_id)
+            .order_by(DatasetMember.created_at, DatasetMember.user_id)
+        )
+        return list(result.scalars())
+
+    async def set_member(self, dataset_id: uuid.UUID, user_id: str, role: str, added_by: str) -> None:
+        """Adds the person, or changes their role if they already are a member."""
+        await self._db.execute(
+            pg_insert(DatasetMember)
+            .values(dataset_id=dataset_id, user_id=user_id, role=role, added_by=added_by)
+            .on_conflict_do_update(index_elements=["dataset_id", "user_id"], set_={"role": role})
+        )
+
+    async def remove_member(self, dataset_id: uuid.UUID, user_id: str) -> bool:
+        """Whether the person was a member."""
+        removed = await self._db.execute(
+            delete(DatasetMember)
+            .where(DatasetMember.dataset_id == dataset_id, DatasetMember.user_id == user_id)
+            .returning(DatasetMember.user_id)
+        )
+        return removed.first() is not None
+
     async def is_liked(self, dataset_id: uuid.UUID, user_id: str) -> bool:
         result = await self._db.execute(
             select(exists().where(DatasetLike.dataset_id == dataset_id, DatasetLike.user_id == user_id))

@@ -127,6 +127,24 @@ class ColumnOut(BaseModel):
     dtype: str
 
 
+DatasetRole = Literal["reader", "annotator", "maintainer"]
+
+
+class DatasetMemberIn(BaseModel):
+    """`reader` sees a private dataset, `annotator` also annotates it, `maintainer` also changes it."""
+
+    role: DatasetRole
+
+
+class DatasetMemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: str
+    role: DatasetRole
+    added_by: str
+    created_at: datetime
+
+
 class FileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -138,6 +156,9 @@ class FileOut(BaseModel):
     # Only the files that hold rows (csv, tsv, jsonl, parquet) have a split and a number of rows.
     split: str | None
     rows: int | None
+    # Whether the file can be read by ranges as Parquet: it is one, or a copy of it is ready (`?format=parquet` on its
+    # download gives that). Only a listing says it; there it is set, not read from the file.
+    columnar: bool = False
 
 
 class VersionOut(BaseModel):

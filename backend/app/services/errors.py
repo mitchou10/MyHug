@@ -156,6 +156,12 @@ class DatasetFileNotFound(ServiceError):
     message = "This file does not exist"
 
 
+class NoParquetCopy(ServiceError):
+    """The file has no copy in Parquet (yet): it is too small or too large, not a table, or still being converted."""
+
+    message = "No copy of this file in Parquet is ready"
+
+
 class SplitNotFound(ServiceError):
     message = "This split does not exist"
 
@@ -197,11 +203,11 @@ class InvalidCodeUrl(ServiceError):
 
 
 class InvalidMember(ServiceError):
-    message = "The owner of a model and the admins already have every right: they are not members"
+    message = "The creator and the admins already have every right: they are not members"
 
 
 class MemberNotFound(ServiceError):
-    message = "This person is not a member of the model"
+    message = "This person is not a member"
 
 
 class ModelVersionNotFound(ServiceError):

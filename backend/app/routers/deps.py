@@ -23,12 +23,14 @@ from app.services.access_tokens import AccessTokenService
 from app.services.actor import Actor
 from app.services.attachments import AttachmentService
 from app.services.dataset_derivatives import DatasetDerivatives
+from app.services.dataset_members import DatasetMemberService
 from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
 from app.services.factory import (
     build_dataset_derivatives,
+    build_dataset_members,
     build_dataset_processing,
     build_dataset_uploads,
     build_dataset_versions,
@@ -205,6 +207,13 @@ LinksDep = Annotated[MlflowLinks, Depends(get_links)]
 
 def get_model_service(db: DB, store: Store, registry: RegistryDep, links: LinksDep) -> ModelService:
     return build_models(db, store, registry, links)
+
+
+def get_dataset_member_service(db: DB) -> DatasetMemberService:
+    return build_dataset_members(db)
+
+
+DatasetMemberServiceDep = Annotated[DatasetMemberService, Depends(get_dataset_member_service)]
 
 
 def get_model_member_service(db: DB) -> ModelMemberService:
