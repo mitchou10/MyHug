@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/mitchou10/MyHug/compare/v0.23.0...v0.24.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** store and expose the evaluations of a model ([36181e1](https://github.com/mitchou10/MyHug/commit/36181e18566d4117f220ba90ae170b778e5e825a))
+
 ## [0.23.0](https://github.com/mitchou10/MyHug/compare/v0.22.0...v0.23.0) (2026-11-25)
 
 
