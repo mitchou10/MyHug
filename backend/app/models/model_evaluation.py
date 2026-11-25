@@ -43,9 +43,12 @@ class ModelEvaluation(Base):
         CheckConstraint("jsonb_typeof(results) = 'object' AND jsonb_typeof(shown) = 'array'", name="json_shapes"),
         CheckConstraint("status <> 'done' OR results <> '{}'::jsonb", name="done_has_results"),
         CheckConstraint("items IS NULL OR items >= 0", name="items"),
+        CheckConstraint("attempts >= 0", name="attempts"),
         CheckConstraint("inference IS NULL OR jsonb_typeof(inference) = 'object'", name="inference_shape"),
         Index("ix_model_evaluations_model_id_created_at", "model_id", "created_at"),
         Index("ix_model_evaluations_version_id", "version_id"),
+        # The sweep looks for the ones nobody is computing.
+        Index("ix_model_evaluations_waiting", "created_at", postgresql_where=text("status IN ('pending', 'running')")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -80,6 +83,9 @@ class ModelEvaluation(Base):
     # How the predictions were made: the time it took, and the hardware (`schemas/evaluation.py` says its shape). For
     # predictions a person sent it is what they say; for a model the platform ran, it is what the platform measured.
     inference: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    # The worker that computes the metrics takes the evaluation in hand for itself alone (like a version it reads).
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(10), default=PENDING, server_default=PENDING)
     error: Mapped[str | None] = mapped_column(Text)
     # {metric id: value}, and the ids of the ones shown to people who cannot edit the model.

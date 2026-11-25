@@ -28,6 +28,7 @@ from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
+from app.services.evaluation_processing import EvaluationProcessing
 from app.services.factory import (
     build_dataset_derivatives,
     build_dataset_members,
@@ -35,6 +36,7 @@ from app.services.factory import (
     build_dataset_uploads,
     build_dataset_versions,
     build_datasets,
+    build_evaluation_processing,
     build_model_code,
     build_model_evaluations,
     build_model_members,
@@ -263,6 +265,13 @@ def get_evaluation_expiry(db: DB, store: Store) -> ModelEvaluationService:
 
 
 EvaluationExpiryDep = Annotated[ModelEvaluationService, Depends(get_evaluation_expiry)]
+
+
+def get_evaluation_processing(db: DB, store: Store) -> EvaluationProcessing:
+    return build_evaluation_processing(db, store)
+
+
+EvaluationProcessingDep = Annotated[EvaluationProcessing, Depends(get_evaluation_processing)]
 
 
 def get_model_processing(db: DB, store: Store) -> ModelProcessing:

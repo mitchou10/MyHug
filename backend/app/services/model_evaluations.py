@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.jobs import Jobs
+from app.metrics import MEASURABLE
 from app.models import ModelEvaluation
 from app.models.model_evaluation import PENDING, PREDICTIONS, UPLOADING
 from app.repositories.dataset_versions import DatasetVersionRepository
@@ -156,6 +157,8 @@ class ModelEvaluationService:
             raise ModelVersionNotFound
         if task not in model.tasks:
             raise InvalidEvaluation(f"This model does not do {task}: it does {', '.join(model.tasks)}")
+        if task not in MEASURABLE:
+            raise InvalidEvaluation(f"The platform does not compute the metrics of {task} yet")
         if size <= 0:
             raise InvalidEvaluation("The predictions are empty")
         if size > self._max_bytes:

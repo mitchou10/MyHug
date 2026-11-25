@@ -120,6 +120,10 @@ model.evaluations(task="classification")
   **declared**: the platform cannot check it, unlike the time and the energy it measures when it runs a model itself.
 - Only the people who can edit the model start an evaluation (`PermissionDenied` for the others), on any of its versions
   (the latest unless `version=`), against a dataset they can read.
+- For now the platform computes the metrics of **classification** (and its variants: `row_label`, image, audio, video and
+  time series classification), **regression** and **qa**, whose ground truth is a column of the dataset. For another
+  task `evaluate` is refused with a sentence (`Invalid`), before anything is sent. The definitions of the metrics (macro
+  averages, the clean-up of answers...) are in `docs/backend-models.md`.
 - The predictions go **straight to the storage in parts**, like the files of a version. If it is interrupted, the error
   names the evaluation: `model.send_predictions(evaluation_id, predictions)` sends only the parts that are not there
   (the file must be the one that was announced, else `FileChanged`). `progress=` is called with the bytes sent.

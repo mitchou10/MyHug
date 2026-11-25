@@ -419,6 +419,12 @@ downloads the files from the storage with the signed addresses the backend gives
 (fingerprint, rows, columns). The backend keeps every record and every decision. See
 [docs/backend-datasets.md](docs/backend-datasets.md), section 6 bis.
 
+It also computes the **metrics of the evaluations** (`models.evaluate`): it reads the predictions that a person sent and the
+ground truth of the dataset side by side, as the rows go by, and tells the backend the numbers. The platform publishes no
+number it did not compute this way; the definitions are in `worker/worker/metrics.py` and
+[docs/backend-models.md](docs/backend-models.md). `EVALUATION_MAX_KEYS` bounds the predictions held when the items are told
+apart by a key.
+
 | Variable | Default | |
 |---|---|---|
 | `REDIS_URL` | `redis://localhost:6379/0` | Where the jobs wait |

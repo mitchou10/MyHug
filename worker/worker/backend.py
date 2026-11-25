@@ -23,6 +23,30 @@ class FileToRead:
 
 
 @dataclass(frozen=True)
+class FileToCompute:
+    path: str
+    url: str
+    size_bytes: int
+
+
+@dataclass(frozen=True)
+class EvaluationToCompute:
+    """What an evaluation needs: the predictions, the files of the ground truth in the order of the items, and how to
+    read and join them."""
+
+    id: uuid.UUID
+    task: str
+    split: str
+    target_column: str
+    key_column: str | None
+    prediction_column: str
+    predictions: FileToCompute
+    predictions_format: str
+    truth: list[FileToCompute]
+    metrics: list[str]
+
+
+@dataclass(frozen=True)
 class CodeToResolve:
     url: str
     ref: str | None
@@ -124,6 +148,39 @@ class Backend:
 
     def waiting_model_versions(self) -> list[uuid.UUID]:
         return [uuid.UUID(item) for item in self._call("GET", "/model-versions/waiting")["ids"]]
+
+    # ---- the evaluations of the models
+
+    def claim_evaluation(self, evaluation_id: uuid.UUID) -> EvaluationToCompute | None:
+        answer = self._call("POST", f"/model-evaluations/{evaluation_id}/claim")
+        if not answer["claimed"]:
+            return None
+        return EvaluationToCompute(
+            id=uuid.UUID(answer["id"]),
+            task=answer["task"],
+            split=answer["split"],
+            target_column=answer["target_column"],
+            key_column=answer["key_column"],
+            prediction_column=answer["prediction_column"],
+            predictions=FileToCompute(**answer["predictions"]),
+            predictions_format=answer["predictions_format"],
+            truth=[FileToCompute(**file) for file in answer["truth"]],
+            metrics=answer["metrics"],
+        )
+
+    def evaluation_result(self, evaluation_id: uuid.UUID, results: dict[str, float], items: int) -> str:
+        return self._call(
+            "POST", f"/model-evaluations/{evaluation_id}/result", json={"results": results, "items": items}
+        )["status"]
+
+    def evaluation_failure(self, evaluation_id: uuid.UUID, error: str) -> str:
+        return self._call("POST", f"/model-evaluations/{evaluation_id}/failure", json={"error": error[:2000]})["status"]
+
+    def evaluation_release(self, evaluation_id: uuid.UUID) -> None:
+        self._call("POST", f"/model-evaluations/{evaluation_id}/release")
+
+    def waiting_evaluations(self) -> list[uuid.UUID]:
+        return [uuid.UUID(item) for item in self._call("GET", "/model-evaluations/waiting")["ids"]]
 
     # ---- the code of the versions of the models
 

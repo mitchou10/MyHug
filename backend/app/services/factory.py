@@ -23,6 +23,7 @@ from app.services.dataset_processing import DatasetProcessing
 from app.services.dataset_uploads import DatasetUploadService
 from app.services.dataset_versions import DatasetVersionService
 from app.services.datasets import DatasetService
+from app.services.evaluation_processing import EvaluationProcessing
 from app.services.model_access import ModelAccess
 from app.services.model_code import ModelCodeResolution
 from app.services.model_evaluations import ModelEvaluationService
@@ -64,6 +65,17 @@ def build_model_evaluations(db: AsyncSession, store: ObjectStore, jobs: Jobs | N
         signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
         session=timedelta(hours=settings.UPLOAD_SESSION_HOURS),
         max_open=settings.EVALUATIONS_MAX_OPEN,
+    )
+
+
+def build_evaluation_processing(db: AsyncSession, store: ObjectStore) -> EvaluationProcessing:
+    return EvaluationProcessing(
+        ModelEvaluationRepository(db),
+        DatasetVersionRepository(db),
+        store,
+        max_attempts=settings.PROCESSING_MAX_ATTEMPTS,
+        stale=timedelta(minutes=settings.PROCESSING_STALE_MINUTES),
+        signed_seconds=settings.SIGNED_ADDRESS_SECONDS,
     )
 
 

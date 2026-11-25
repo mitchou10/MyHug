@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     CODE_RATE_LIMIT: str = "30/m"
     # How long the API, or the storage, is waited for.
     HTTP_TIMEOUT_SECONDS: float = 60.0
+    # The most items a key can tell apart in the predictions of an evaluation (they are held by key).
+    EVALUATION_MAX_KEYS: int = 5_000_000
     # How often the safety nets run: queue the versions that nobody reads, give up the abandoned uploads.
     SWEEP_SECONDS: float = 60.0
     EXPIRE_UPLOADS_SECONDS: float = 15 * 60.0

@@ -437,5 +437,36 @@ plus dite qu'à ceux qui peuvent modifier le modèle (les autres n'ont peut-êtr
 Une requête qui n'est pas valide répond `422` avec `type`, `loc` et `msg` de chaque problème, **sans la valeur envoyée**
 (FastAPI la renvoyait; un `nan` ne se laisse pas écrire en JSON et faisait une erreur 500).
 
-**Pas ici**: le calcul des métriques par le worker (#19), l'appel du modèle déclaré (#75), l'exécution du modèle sur CPU avec
+**Le calcul des métriques (issue #19)**
+
+Le job `models.evaluate` est pris par le worker du service `worker/`, qui n'a ni base ni clé du stockage. Le parcours
+est celui des versions: l'API **donne** l'évaluation à un seul worker (`claim`: elle passe `running`, la tentative est
+comptée, un worker mort la perd après `PROCESSING_STALE_MINUTES`, trop de tentatives la font échouer), le worker lit et
+calcule, l'API **écrit** (`result`) ou note l'échec (`failure`, à qui la faute: aux données) ou la remet en attente
+(`release`, la faute n'est pas aux données: le stockage était tombé). Un balayage (`GET /api/internal/model-evaluations/waiting`,
+lu avec les autres) remet en file ce que personne ne calcule. Le worker n'est pas plus cru qu'un client: l'API refuse une
+métrique que la tâche n'a pas, une valeur qui n'est pas un nombre fini, et un résultat pour une évaluation qui n'est pas
+la sienne.
+
+- **Qui est mesuré**: ce qu'une colonne peut porter et que du Python pur calcule. `classification` (et `row_label`,
+  `image|audio|video|timeseries_classification`), `regression`, `qa`. Les autres tâches (NER, détection, transcription...)
+  sont **refusées au démarrage** avec une phrase: elles demandent plus qu'une colonne. Le worker peut porter plus de
+  métriques (leurs bibliothèques iront dans un groupe de dépendances optionnel), mais il n'y en a pas encore.
+- **Les définitions** (`worker/worker/metrics.py`, une valeur ne dépend que de ce fichier): classification, `accuracy`
+  est la part de lignes dont le label est prédit; `precision`, `recall`, `f1` sont des moyennes **macro** (chaque classe
+  compte autant) sur les labels de la vérité et des prédictions, une classe sans dénominateur valant 0 (comme
+  scikit-learn avec `zero_division=0`); `1`, `1.0` et `"1"` sont le même label. Régression: `mae`, `rmse`, `r2` (absent
+  si la vérité ne varie pas), `mape` (en %, sur les lignes dont la vérité n'est pas 0, absente s'il n'y en a pas). QA:
+  `exact_match` et `f1` sur les mots après le nettoyage de SQuAD. L'`auc` n'est pas calculée (il faudrait des scores).
+- **Joindre les prédictions et la vérité**: sans `key_column`, la ligne i des prédictions est l'élément i du split, dans
+  l'ordre des fichiers du split (par chemin, comme l'aperçu). Avec une clé, les prédictions sont retrouvées par la valeur
+  de cette colonne (tenues en mémoire, au plus `EVALUATION_MAX_KEYS`). Une ligne sans vérité (cellule vide) n'est pas
+  comparée mais garde sa ligne. **Tout désaccord fait échouer l'évaluation avec une phrase qui dit où**: « Row 10 of test has
+  no prediction: the file has only 10 lines », « The predictions have more lines than test has rows », « the item 2 has two
+  predictions », « 1 predictions are about items that are not in test », « Row 3 of test: the prediction 'abc' is not a
+  number ». Les fichiers sont lus au fil de l'eau sur disque, jamais en entier en mémoire.
+- Au résultat, `items` est le nombre de lignes comparées, `shown` les deux premières métriques calculées, et `ms_per_item`
+  de l'inférence devient calculable.
+
+**Pas ici**: arrêter un calcul (il est borné et court; l'arrêt a un sens pour une exécution qui appelle un modèle, #75 et #76), l'appel du modèle déclaré (#75), l'exécution du modèle sur CPU avec
 la consommation d'énergie (#76). Les pré-annotations: #67, après le backend d'annotation.
