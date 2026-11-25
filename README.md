@@ -203,6 +203,19 @@ docker compose -f docker-compose.test.yaml up -d --wait     # PostgreSQL on :554
 cd backend && uv run pytest --cov
 ```
 
+### The OpenAPI schema
+
+`openapi.json` at the root is the contract of the API (the routes of the worker, `/api/internal`, are left out). The frontend
+types and the future SDK are generated from it, so change a route, then regenerate **both**:
+
+```bash
+cd backend && uv run python scripts/export_openapi.py   # writes ../openapi.json
+cd ../frontend && pnpm generate:api                     # writes src/lib/schema.ts
+```
+
+CI fails when `openapi.json` is not what the backend produces (a backend test) or when `src/lib/schema.ts` is not what
+`openapi.json` gives (`pnpm check:api`).
+
 ## Frontend
 
 React 19 + TypeScript on Vite, styled with [Tailwind CSS](https://tailwindcss.com) 4 and
@@ -213,6 +226,8 @@ React 19 + TypeScript on Vite, styled with [Tailwind CSS](https://tailwindcss.co
   is the saved choice, else the browser's, else English. Add a language by adding its file and listing it in
   `src/i18n/index.ts`.
 - `/api` is proxied to the backend (`BACKEND_URL`), so the session cookie stays on the page's own origin.
+- The types of what the API sends are generated (`src/lib/schema.ts`, see [the OpenAPI schema](#the-openapi-schema)); the
+  `wire.ts` files only name the ones a feature uses, and the mappers turn them into what the screens read.
 
 ### Structure, routing and layouts
 

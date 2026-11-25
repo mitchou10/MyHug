@@ -57,7 +57,7 @@ const nextId = (prefix: string) => `${prefix}-${++counter}`
 
 const picture = (feedbackId: string, filename: string): WireAttachment => {
   const id = nextId('att')
-  return { id, filename, content_type: 'image/png', size_bytes: 1234, url: `/api/feedback/${feedbackId}/attachments/${id}` }
+  return { id, filename, content_type: 'image/png', size_bytes: 1234, created_at: '2026-11-01T09:00:00Z', url: `/api/feedback/${feedbackId}/attachments/${id}` }
 }
 
 function message(partial: Partial<WireMessage> & Pick<WireMessage, 'body' | 'author_username' | 'created_at'>): WireMessage {

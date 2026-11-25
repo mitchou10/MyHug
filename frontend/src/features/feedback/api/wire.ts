@@ -1,61 +1,22 @@
-/** The shapes the backend sends (snake_case). Only the mappers read them. */
+/** The shapes the backend sends (snake_case): generated from its OpenAPI schema (`pnpm generate:api`). Only the mappers read them. */
 
+import type { components } from '@/lib/schema'
 import type { Tone } from '../types'
 
-export interface WireAttachment {
-  id: string
-  filename: string
-  content_type: string
-  size_bytes: number
-  url: string
-}
+type S = components['schemas']
 
-export interface WireReference {
-  id: string
-  name: string
-  description: string
-  tone: Tone
-  position: number
-  created_by: string | null
-  created_by_username: string | null
-  created_at: string
-  archived: boolean
-}
+export type WireAttachment = S['AttachmentOut']
 
-export interface WireStatus extends WireReference {
-  key: string | null
-  is_closed: boolean
-}
+/** The schema says `tone` is a string: the screens only know these. */
+export type WireReference = Omit<S['FeedbackTypeOut'], 'tone'> & { tone: Tone }
 
-export interface WireSummary {
-  id: string
-  title: string
-  type_id: string
-  status_id: string
-  created_by: string
-  created_by_username: string
-  created_at: string
-  updated_at: string
-  replies_count: number
-}
+export type WireStatus = Omit<S['FeedbackStatusOut'], 'tone'> & { tone: Tone }
 
-export interface WireFeedback extends Omit<WireSummary, 'replies_count'> {
-  description: string
-  page: string | null
-  attachments: WireAttachment[]
-}
+export type WireSummary = S['FeedbackSummaryOut']
 
-export interface WireMessage {
-  id: string
-  kind: 'comment' | 'status_change'
-  body: string
-  author_username: string
-  author_is_staff: boolean
-  created_at: string
-  old_status_id: string | null
-  new_status_id: string | null
-  attachments: WireAttachment[]
-}
+export type WireFeedback = S['FeedbackOut']
+
+export type WireMessage = Omit<S['MessageOut'], 'kind'> & { kind: 'comment' | 'status_change' }
 
 export interface WirePage<T> {
   items: T[]
@@ -64,8 +25,4 @@ export interface WirePage<T> {
   offset: number
 }
 
-export interface WireMessagesPage {
-  items: WireMessage[]
-  total: number
-  next_before: string | null
-}
+export type WireMessagesPage = Omit<S['MessagesPageOut'], 'items'> & { items: WireMessage[] }

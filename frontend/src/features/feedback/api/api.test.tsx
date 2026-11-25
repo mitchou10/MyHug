@@ -28,7 +28,7 @@ afterEach(() => {
 // ---- the mappers
 
 it('turns what the backend sends into what the screens use', () => {
-  const attachment = { id: 'a', filename: 'f.png', content_type: 'image/png', size_bytes: 9, url: '/u' }
+  const attachment = { id: 'a', filename: 'f.png', content_type: 'image/png', size_bytes: 9, created_at: 'c', url: '/u' }
   expect(
     toFeedback({
       id: '1', title: 't', description: 'd', type_id: 'ty', status_id: 'st', created_by: 'u', created_by_username: 'ada',
