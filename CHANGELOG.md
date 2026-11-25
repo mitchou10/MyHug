@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/mitchou10/MyHug/compare/v0.19.0...v0.20.0) (2026-11-25)
+
+
+### Features
+
+* **infra:** generate the API types from the OpenAPI schema ([d0aa4bf](https://github.com/mitchou10/MyHug/commit/d0aa4bfe546a839504ed65474e4a8350a174af0b))
+
 ## [0.19.0](https://github.com/mitchou10/MyHug/compare/v0.18.0...v0.19.0) (2026-11-25)
 
 

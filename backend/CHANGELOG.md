@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/mitchou10/MyHug/compare/backend-v0.14.0...backend-v0.15.0) (2026-11-25)
+
+
+### Features
+
+* **infra:** generate the API types from the OpenAPI schema ([d0aa4bf](https://github.com/mitchou10/MyHug/commit/d0aa4bfe546a839504ed65474e4a8350a174af0b))
+
 ## [0.14.0](https://github.com/mitchou10/MyHug/compare/backend-v0.13.0...backend-v0.14.0) (2026-11-25)
 
 
