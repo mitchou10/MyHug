@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.7.0...frontend-v0.8.0) (2026-11-25)
+
+
+### Features
+
+* **frontend:** connect the models space to the API ([dce7bb9](https://github.com/mitchou10/MyHug/commit/dce7bb9d72d22369976282d569234da551a8f285))
+
 ## [0.7.0](https://github.com/mitchou10/MyHug/compare/frontend-v0.6.0...frontend-v0.7.0) (2026-11-24)
 
 
