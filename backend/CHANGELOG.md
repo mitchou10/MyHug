@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/mitchou10/MyHug/compare/backend-v0.13.0...backend-v0.14.0) (2026-11-25)
+
+
+### Features
+
+* **backend:** serve a model only where it is declared, and relay to try it ([e5d6220](https://github.com/mitchou10/MyHug/commit/e5d6220cec43f58d96a0bf982f4e81aded6c6f6f))
+
 ## [0.13.0](https://github.com/mitchou10/MyHug/compare/backend-v0.12.0...backend-v0.13.0) (2026-11-24)
 
 
